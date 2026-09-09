@@ -1,0 +1,278 @@
+{% extends 'base.html' %}
+
+{% block title %}Kanban Board{% endblock %}
+
+{% block content %}
+<div class="wf-fade-up">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <div>
+      <nav class="flex items-center gap-1.5 text-[12px] text-[var(--wf-text-tertiary)] mb-1">
+        <a href="/projects" class="hover:text-[var(--wf-primary)]">Projects</a>
+        <i data-lucide="chevron-right" style="width:12px;height:12px"></i>
+        <span class="text-[var(--wf-text-secondary)]">{{ project.name }}</span>
+        <i data-lucide="chevron-right" style="width:12px;height:12px"></i>
+        <span class="text-[var(--wf-text)] font-medium">Board</span>
+      </nav>
+      <div class="flex items-center gap-3">
+        <h1 class="text-[20px] font-bold text-[var(--wf-text)]">{{ project.name }}</h1>
+        <span class="flex items-center gap-1.5 wf-badge wf-badge-soft-blue">
+          <i data-lucide="timer" style="width:12px;height:12px"></i> Sprint 12
+        </span>
+        <span class="wf-status wf-status-progress"><span class="dot"></span>In Progress</span>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button class="wf-btn wf-btn-secondary wf-btn-sm"><i data-lucide="layers" style="width:14px;height:14px"></i> Backlog</button>
+      <div class="relative">
+        <button class="wf-btn wf-btn-secondary wf-btn-sm"><i data-lucide="chevron-down" style="width:13px;height:13px" data-toggle></i> Sprint 12</button>
+      </div>
+      <button class="wf-btn wf-btn-primary wf-btn-sm" onclick="Wexira.openCreateIssue('ECOM')"><i data-lucide="plus" style="width:14px;height:14px"></i> Create Issue</button>
+    </div>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-2 mb-4">
+    <div class="wf-search" style="max-width:220px;flex:1;min-width:140px">
+      <i data-lucide="search" style="width:14px;height:14px"></i>
+      <input type="text" id="boardSearch" placeholder="Search issues…">
+    </div>
+    <button class="wf-btn wf-btn-sm wf-btn-secondary" data-filter-popover><i data-lucide="filter" style="width:13px;height:13px"></i> Filter <span id="filterCount" class="hidden w-4 h-4 rounded-full bg-[var(--wf-primary)] text-white text-[10px] grid place-items-center font-bold">0</span></button>
+    <button class="wf-btn wf-btn-sm wf-btn-secondary"><i data-lucide="user" style="width:13px;height:13px"></i> Assignee</button>
+    <button class="wf-btn wf-btn-sm wf-btn-secondary"><i data-lucide="flag" style="width:13px;height:13px"></i> Priority</button>
+    <button class="wf-btn wf-btn-sm wf-btn-secondary"><i data-lucide="tag" style="width:13px;height:13px"></i> Labels</button>
+    <div class="wf-btn wf-btn-sm wf-btn-ghost ml-auto items-center gap-1.5 hidden md:flex">Group by <i data-lucide="chevron-down" style="width:13px;height:13px"></i></div>
+  </div>
+
+  <div class="wf-board" id="board">
+    {% set columns = [
+      ('backlog', 'BACKLOG', '#6b7280', 99),
+      ('todo', 'TODO', '#4f46e5', 15),
+      ('in_progress', 'IN PROGRESS', '#0891b2', 10),
+      ('in_review', 'IN REVIEW', '#7c3aed', 8),
+      ('done', 'DONE', '#059669', 99),
+    ] %}
+    {% for col_key, col_name, col_color, wip in columns %}
+    <div class="wf-column" data-column="{{ col_key }}">
+      <div class="wf-column-header">
+        <span class="w-2.5 h-2.5 rounded-sm" style="background:{{ col_color }}"></span>
+        <span class="text-[12px] font-bold text-[var(--wf-text)] tracking-wide">{{ col_name }}</span>
+        <span class="wf-column-count" data-count>{{ issues|selectattr('status','equalto',col_key)|list|length }}</span>
+        <span class="wf-column-wip">WIP {{ wip if wip != 99 else '∞' }}</span>
+      </div>
+      <div class="wf-column-body" data-column-body>
+        {% set col_issues = issues|selectattr('status','equalto',col_key)|list %}
+        {% for i in col_issues %}
+        <div class="wf-issue-card" data-issue-id="{{ i.id }}" data-key="{{ i.project.key }}-{{ i.number }}" data-title="{{ i.title|lower }}" data-priority="{{ i.priority|lower }}" data-assignee="{{ i.assignee_initials|lower or '' }}" data-labels="{{ i.labels|join(',')|lower }}" onclick="selectCard(event, this)">
+          <div class="issue-card-top">
+            <span class="issue-id">{{ i.project.key }}-{{ i.number }}</span>
+            <div class="flex items-center gap-2">
+              <span class="wf-badge wf-badge-soft-gray" style="padding:1px 7px;font-size:11px">{{ i.issue_type }}</span>
+              <span class="issue-prio-dot" title="{{ i.priority }}" style="background:{{ i.priority_color }}"></span>
+            </div>
+          </div>
+          <div class="issue-card-title">{{ i.title }}</div>
+          <div class="issue-card-tags">
+            {% for l in i.labels[:3] %}
+            <span class="wf-badge wf-badge-soft-gray" style="padding:1px 7px;font-size:10.5px">{{ l }}</span>
+            {% endfor %}
+          </div>
+          <div class="issue-card-footer">
+            <span class="issue-points">{{ i.points }} pts</span>
+            {% if i.due_date %}
+            <span class="issue-due {{ 'urgent' if i.due_date in ('Sep 07','Sep 06') or i.due_date|string == 'Today' }}">
+              <i data-lucide="calendar" style="width:11px;height:11px"></i>{{ i.due_date }}
+            </span>
+            {% endif %}
+            <span class="wf-avatar wf-avatar-sm" style="background:{{ i.assignee_color }}" title="{{ i.assignee }}">{{ i.assignee or '?' }}</span>
+          </div>
+        </div>
+        {% else %}
+        <div class="wf-column-empty" data-empty>
+          <i data-lucide="inbox" style="width:22px;height:22px;margin:0 auto 6px"></i>
+          <div>No issues</div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="px-3 pb-3">
+        <button class="w-full flex items-center gap-2 justify-center py-1.5 rounded-md text-[12px] font-medium text-[var(--wf-text-tertiary)] hover:text-[var(--wf-primary)] hover:bg-white transition-colors cursor-pointer" style="background:none;border:none" onclick="Wexira.openCreateIssue('{{ project.key }}')">
+          <i data-lucide="plus" style="width:13px;height:13px"></i> Add issue
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+  function selectCard(e, el) {
+    if (el.classList.contains('is-dragging')) return;
+    document.querySelectorAll('.wf-issue-card.is-selected').forEach(c => c.classList.remove('is-selected'));
+    if (e.shiftKey) { el.classList.add('is-selected'); return; }
+    window.location.href = '/issue/' + el.dataset.issueId;
+  }
+</script>
+
+{% block scripts %}
+<script>
+/* ============================================================
+   Wexira — Kanban board (drag & drop + filters)
+   ============================================================ */
+
+(function () {
+  'use strict';
+
+  const board = document.getElementById('board');
+  if (!board) return;
+
+  const groupName = 'kanban-board-cards';
+  const sortables = [];
+
+  document.querySelectorAll('.wf-column-body').forEach(body => {
+    const col = body.closest('.wf-column');
+    const s = Sortable.create(body, {
+      group: groupName,
+      animation: 160,
+      ghostClass: 'is-dragging',
+      chosenClass: 'is-dragging',
+      dragClass: 'is-dragging',
+      filter: '.wf-column-empty',
+      onStart(evt) {
+        evt.item.classList.add('is-dragging');
+        updateDropZones(true);
+      },
+      onEnd(evt) {
+        evt.item.classList.remove('is-dragging');
+        updateDropZones(false);
+        document.querySelectorAll('.wf-issue-card').forEach(c => c.classList.remove('is-selected'));
+        const status = col.dataset.column;
+        const issueId = evt.item.dataset.issueId;
+        persistMove(issueId, status, evt.newIndex);
+      },
+    });
+    sortables.push(s);
+
+    body.addEventListener('dragover', () => col.classList.add('is-dragover'));
+    body.addEventListener('dragleave', () => col.classList.remove('is-dragover'));
+    body.addEventListener('drop', () => col.classList.remove('is-dragover'));
+  });
+
+  function updateDropZones(active) {
+    document.querySelectorAll('.wf-column').forEach(c => {
+      if (!active) { c.classList.remove('is-dragover'); return; }
+    });
+  }
+
+  function persistMove(issueId, status, position) {
+    fetch(`/api/issues/${issueId}/move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, position: position || 0 }),
+    })
+      .then(r => r.json())
+      .then(() => {
+        updateCounts();
+        const card = document.querySelector(`[data-issue-id="${issueId}"] .issue-id`);
+        if (card) Wexira.showToast(`${card.textContent} moved to ${status.replace('_', ' ')}`, 'success');
+      })
+      .catch(() => Wexira.showToast('Could not update the issue status.', 'error'));
+  }
+
+  function updateCounts() {
+    document.querySelectorAll('.wf-column').forEach(col => {
+      const key = col.dataset.column;
+      const cards = col.querySelectorAll('.wf-issue-card').length;
+      const counter = col.querySelector('[data-count]');
+      if (counter) counter.textContent = cards;
+      const empty = col.querySelector('[data-empty]');
+      if (empty) empty.style.display = cards > 0 ? 'none' : '';
+    });
+  }
+
+  /* ------------------------------------------------------------------
+     Board filtering (search, priority, assignee)
+     ------------------------------------------------------------------ */
+  let filters = { search: '', priority: '', assignee: '' };
+
+  function applyFilters() {
+    document.querySelectorAll('.wf-issue-card').forEach(card => {
+      const show =
+        (!filters.search || card.dataset.title.includes(filters.search)) &&
+        (!filters.priority || card.dataset.priority === filters.priority) &&
+        (!filters.assignee || card.dataset.assignee.includes(filters.assignee));
+      card.style.display = show ? '' : 'none';
+    });
+    document.querySelectorAll('.wf-column').forEach(col => {
+      const cards = col.querySelectorAll('.wf-column-body > .wf-issue-card');
+      const visible = [...cards].filter(c => c.style.display !== 'none');
+      const counter = col.querySelector('[data-count]');
+      if (counter) counter.textContent = visible.length;
+      const empty = col.querySelector('[data-empty]');
+      if (empty) empty.style.display = visible.length > 0 ? 'none' : '';
+    });
+    const count = document.querySelectorAll('.wf-issue-card').length;
+    const hidden = document.querySelectorAll('.wf-issue-card').length - document.querySelectorAll('.wf-issue-card:not([style*="display: none"])').length;
+    const badge = document.getElementById('filterCount');
+    if (badge) {
+      badge.classList.toggle('hidden', hidden === 0);
+      badge.textContent = hidden;
+    }
+  }
+
+  const searchEl = document.getElementById('boardSearch');
+  if (searchEl) searchEl.addEventListener('input', e => {
+    filters.search = e.target.value.trim().toLowerCase();
+    applyFilters();
+  });
+
+  [['Priority', 'priority'], ['Assignee', 'assignee']].forEach(([label, key]) => {
+    document.querySelectorAll(`.wf-btn-secondar[y i]`).forEach(() => {});
+  });
+
+  const filterBtns = document.querySelectorAll('[data-filter-popover]');
+  filterBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pop = document.getElementById('filterPopover');
+      if (pop) pop.remove();
+      const menu = document.createElement('div');
+      menu.id = 'filterPopover';
+      menu.className = 'wf-menu';
+      menu.style.top = btn.offsetTop + btn.offsetHeight + 6 + 'px';
+      menu.style.left = btn.offsetLeft + 'px';
+      menu.innerHTML = `
+        <div class="px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-[var(--wf-text-tertiary)]">Priority</div>
+        ${['','low','medium','high','critical'].map(p =>
+          `<button class="wf-menu-item" data-set="${p}" data-key="priority">${p || 'All priorities'}</button>`).join('')}
+        <div class="px-3 py-1 mt-1 text-[11px] font-bold uppercase tracking-wide text-[var(--wf-text-tertiary)]">Assignee</div>
+        ${['','sc','mj','ps','dk','ob','jw'].map(a =>
+          `<button class="wf-menu-item" data-set="${a}" data-key="assignee">${a ? '&nbsp;' + a.toUpperCase() : 'Everyone'}</button>`).join('')}
+        <button class="wf-menu-item danger mt-1" data-clear>Clear filters</button>`;
+      document.body.appendChild(menu);
+      menu.querySelectorAll('[data-set]').forEach(item => {
+        item.addEventListener('click', () => {
+          filters[item.dataset.key] = item.dataset.set;
+          applyFilters();
+          menu.remove();
+        });
+      });
+      menu.querySelector('[data-clear]').addEventListener('click', () => {
+        filters = { search: '', priority: '', assignee: '' };
+        if (searchEl) searchEl.value = '';
+        applyFilters();
+        menu.remove();
+      });
+      window.addEventListener('click', e => {
+        if (menu && !menu.contains(e.target) && !btn.contains(e.target)) menu.remove();
+      }, { once: true });
+    });
+  });
+
+})();
+</script>
+{% endblock %}
+
+<style>
+  @media (max-width: 1024px) {
+    .wf-board { overflow-x: auto; }
+    .wf-column { min-width: 300px; }
+  }
+</style>
+{% endblock %}

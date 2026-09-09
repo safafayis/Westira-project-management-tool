@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+
+{% block title %}Sprints{% endblock %}
+
+{% block content %}
+{% set active_sprint = sprints|selectattr('status','equalto','Active')|first %}
+{% set kpi_total_points = sprints|map(attribute='story_points_total')|sum %}
+{% set kpi_done_points = sprints|map(attribute='story_points_done')|sum %}
+{% set kpi_completed = sprints|map(attribute='done')|sum %}
+{% set kpi_remaining = (sprints|map(attribute='to_do')|sum) + (sprints|map(attribute='in_progress')|sum) + (sprints|map(attribute='in_review')|sum) %}
+{% set kpi_progress = (kpi_done_points / (kpi_total_points or 1) * 100)|round|int %}
+{% set active_progress = ((active_sprint.story_points_done if active_sprint else 0) / (active_sprint.story_points_total if active_sprint and active_sprint.story_points_total else 1) * 100)|round|int %}
+
+<div class="wf-fade-up">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <div>
+      <nav class="flex items-center gap-1.5 text-[12px] text-[var(--wf-text-tertiary)] mb-1">
+        <a href="/projects" class="hover:text-[var(--wf-primary)]">Projects</a>
+        <i data-lucide="chevron-right" style="width:12px;height:12px"></i>
+        <span class="text-[var(--wf-text-secondary)]">{{ project.name }}</span>
+        <i data-lucide="chevron-right" style="width:12px;height:12px"></i>
+        <span class="text-[var(--wf-text)] font-medium">Sprints</span>
+      </nav>
+      <h1 class="text-[20px] font-bold text-[var(--wf-text)]">Sprints</h1>
+      <p class="text-[12.5px] text-[var(--wf-text-secondary)] mt-0.5">Plan, track, and manage sprint cycles</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <button class="wf-btn wf-btn-secondary wf-btn-sm"><i data-lucide="calendar-plus" style="width:14px;height:14px"></i> Create Sprint</button>
+      <button class="wf-btn wf-btn-ghost wf-btn-sm" onclick="Wexira.showToast('Sprint 12 started with 18 issues.','success','Sprint started')">
+        <i data-lucide="play" style="width:13px;height:13px"></i> Start Sprint
+      </button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="wf-card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <span class="wf-kpi-icon" style="width:38px;height:38px;background:#eef2ff;color:#4f46e5"><i data-lucide="timer" style="width:18px;height:18px"></i></span>
+        {% if active_sprint %}<span class="wf-badge wf-badge-soft-green">Active</span>{% endif %}
+      </div>
+      <div class="text-[20px] font-bold text-[var(--wf-text)] leading-none truncate">{{ active_sprint.name if active_sprint else 'No active sprint' }}</div>
+      <div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">Current Sprint</div>
+    </div>
+    <div class="wf-card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <span class="wf-kpi-icon" style="width:38px;height:38px;background:#ecfdf5;color:#059669"><i data-lucide="gauge" style="width:18px;height:18px"></i></span>
+      </div>
+      <div class="text-[24px] font-bold text-[var(--wf-text)] leading-none">{{ kpi_progress }}%</div>
+      <div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">Sprint Progress</div>
+    </div>
+    <div class="wf-card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <span class="wf-kpi-icon" style="width:38px;height:38px;background:#f5f3ff;color:#7c3aed"><i data-lucide="target" style="width:18px;height:18px"></i></span>
+      </div>
+      <div class="text-[24px] font-bold text-[var(--wf-text)] leading-none">{{ kpi_done_points }}<span class="text-[14px] font-semibold text-[var(--wf-text-tertiary)]">/{{ kpi_total_points }}</span></div>
+      <div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">Story Points</div>
+    </div>
+    <div class="wf-card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <span class="wf-kpi-icon" style="width:38px;height:38px;background:#ecfeff;color:#0891b2"><i data-lucide="check-circle-2" style="width:18px;height:18px"></i></span>
+      </div>
+      <div class="text-[24px] font-bold text-[var(--wf-text)] leading-none">{{ kpi_completed }}<span class="text-[14px] font-semibold text-[var(--wf-text-tertiary)]">/{{ kpi_completed + kpi_remaining }}</span></div>
+      <div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">Completed Tasks</div>
+      <div class="text-[11px] text-[var(--wf-text-tertiary)] mt-0.5">{{ kpi_remaining }} remaining</div>
+    </div>
+  </div>
+
+  {% if active_sprint %}
+  <div class="wf-card mb-4 overflow-hidden">
+    <div class="p-5 border-b border-[var(--wf-border-soft)]">
+      <div class="flex flex-wrap items-center gap-2 justify-between mb-1">
+        <div class="text-[11px] font-semibold uppercase tracking-[.05em] text-[var(--wf-text-tertiary)]">Current Sprint</div>
+        <div class="flex items-center gap-2">
+          <span class="wf-badge wf-badge-soft-green">Active</span>
+          <span class="text-[12.5px] text-[var(--wf-text-secondary)]">{{ active_sprint.start_date }} → {{ active_sprint.end_date }}</span>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <h2 class="text-[17px] font-bold text-[var(--wf-text)]">{{ active_sprint.name }}</h2>
+        <span class="wf-chip" style="background:#f5f3ff;color:#7c3aed">{{ active_sprint.story_points_total }} pts</span>
+      </div>
+      <p class="text-[13px] text-[var(--wf-text-secondary)] mt-1"><i data-lucide="flag" style="width:13px;height:13px;display:inline;vertical-align:-2px;margin-right:4px"></i>{{ active_sprint.goal or 'No sprint goal set' }}</p>
+    </div>
+    <div class="p-5">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[12.5px] font-semibold text-[var(--wf-text)]">Progress</span>
+        <span class="text-[13px] font-bold text-[var(--wf-primary)]">{{ active_progress }}%</span>
+      </div>
+      <div class="wf-progress-track" style="height:8px">
+        <div class="wf-progress-bar" style="width:{{ active_progress }}%;background:var(--wf-primary)"></div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
+        <div>
+          <div class="text-[20px] font-bold text-[var(--wf-text)] leading-none">{{ active_sprint.story_points_done }}<span class="text-[13px] font-semibold text-[var(--wf-text-tertiary)]">/{{ active_sprint.story_points_total }}</span></div>
+          <div class="text-[11.5px] font-medium text-[var(--wf-text-secondary)] mt-1">Story Points Done</div>
+        </div>
+        <div>
+          <div class="text-[20px] font-bold text-[var(--wf-success)] leading-none">{{ active_sprint.done }}</div>
+          <div class="text-[11.5px] font-medium text-[var(--wf-text-secondary)] mt-1">Completed Tasks</div>
+        </div>
+        <div>
+          <div class="text-[20px] font-bold text-[var(--wf-warning)] leading-none">{{ active_sprint.to_do + active_sprint.in_progress + active_sprint.in_review }}</div>
+          <div class="text-[11.5px] font-medium text-[var(--wf-text-secondary)] mt-1">Remaining Tasks</div>
+        </div>
+        <div>
+          <div class="text-[20px] font-bold text-[var(--wf-text)] leading-none">{{ active_sprint.to_do + active_sprint.in_progress + active_sprint.in_review + active_sprint.done }}</div>
+          <div class="text-[11.5px] font-medium text-[var(--wf-text-secondary)] mt-1">Total Tasks</div>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-3 pt-4 mt-4 border-t border-[var(--wf-border-soft)] text-[12px] text-[var(--wf-text-secondary)]">
+        <span><i data-lucide="circle" style="width:10px;height:10px;display:inline;vertical-align:-1px;color:var(--wf-text-tertiary)"></i> To Do: <b class="text-[var(--wf-text)]">{{ active_sprint.to_do }}</b></span>
+        <span><i data-lucide="loader" style="width:10px;height:10px;display:inline;vertical-align:-1px;color:#4f46e5"></i> In Progress: <b class="text-[var(--wf-text)]">{{ active_sprint.in_progress }}</b></span>
+        <span><i data-lucide="eye" style="width:10px;height:10px;display:inline;vertical-align:-1px;color:#7c3aed"></i> In Review: <b class="text-[var(--wf-text)]">{{ active_sprint.in_review }}</b></span>
+        <span><i data-lucide="check-circle-2" style="width:10px;height:10px;display:inline;vertical-align:-1px;color:var(--wf-success)"></i> Done: <b class="text-[var(--wf-text)]">{{ active_sprint.done }}</b></span>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="wf-card overflow-hidden">
+    <div class="p-4 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--wf-border-soft)]">
+      <h2 class="text-[14px] font-bold text-[var(--wf-text)]">All Sprints</h2>
+      <span class="wf-badge wf-badge-soft-gray">{{ sprints|length }} sprints</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="wf-table">
+        <thead><tr><th>Sprint</th><th>Status</th><th>Dates</th><th>Goal</th><th>Progress</th><th>Story Points</th><th>Completed</th><th>Remaining</th></tr></thead>
+        <tbody>
+          {% for sp in sprints %}
+          <tr class="{{ 'bg-[#fafbff]' if sp.status == 'Active' else '' }}">
+            <td>
+              <div class="flex items-center gap-3 min-w-[140px]">
+                <span class="w-8 h-8 rounded-lg grid place-items-center text-white" style="background:{{ '#4f46e5' if sp.status == 'Active' else '#9ca3af' if sp.status == 'Completed' else '#c7d2fe' }}"><i data-lucide="timer" style="width:15px;height:15px"></i></span>
+                <div class="font-semibold text-[var(--wf-text)] text-[13.5px]">{{ sp.name }}</div>
+              </div>
+            </td>
+            <td>
+              {% if sp.status == 'Active' %}<span class="wf-badge wf-badge-soft-green">Active</span>
+              {% elif sp.status == 'Completed' %}<span class="wf-badge wf-badge-soft-gray">Completed</span>
+              {% else %}<span class="wf-badge wf-badge-soft-blue">Planned</span>{% endif %}
+            </td>
+            <td><span class="text-[12.5px] text-[var(--wf-text-secondary)] whitespace-nowrap">{{ sp.start_date }} → {{ sp.end_date }}</span></td>
+            <td><span class="text-[12.5px] text-[var(--wf-text-secondary)] max-w-[220px] truncate block">{{ sp.goal or '—' }}</span></td>
+            <td>
+              {% set sp_pct = (sp.story_points_done / (sp.story_points_total or 1) * 100)|round|int %}
+              <div class="flex items-center gap-2 min-w-[120px]">
+                <div class="wf-progress-track" style="height:7px">
+                  <div class="wf-progress-bar" style="width:{{ sp_pct }}%;background:{{ '#059669' if sp_pct >= 100 else '#4f46e5' if sp.status == 'Active' else '#c7d2fe' }}"></div>
+                </div>
+                <span class="text-[12px] font-semibold text-[var(--wf-text-secondary)]">{{ sp_pct }}%</span>
+              </div>
+            </td>
+            <td><span class="text-[12.5px] font-semibold text-[var(--wf-text)]">{{ sp.story_points_done }}<span class="text-[var(--wf-text-tertiary)]">/{{ sp.story_points_total }}</span></span></td>
+            <td><span class="text-[12.5px] font-semibold text-[var(--wf-success)]">{{ sp.done }}</span></td>
+            <td><span class="text-[12.5px] font-semibold text-[var(--wf-warning)]">{{ sp.to_do + sp.in_progress + sp.in_review }}</span></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" class="text-center py-8 text-[13px] text-[var(--wf-text-tertiary)]">No sprints yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

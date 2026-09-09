@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block title %}Projects{% endblock %}
+
+{% block content %}
+<div class="wf-fade-up">
+  <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+    <div>
+      <h1 class="text-[22px] font-bold text-[var(--wf-text)]">Projects</h1>
+      <p class="text-[13.5px] text-[var(--wf-text-secondary)] mt-1">Manage projects across your organization.</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <button class="wf-btn wf-btn-secondary wf-btn-sm"><i data-lucide="filter" style="width:14px;height:14px"></i> Filter</button>
+      <button class="wf-btn wf-btn-secondary wf-btn-sm"><i data-lucide="arrow-up-down" style="width:14px;height:14px"></i> Sort</button>
+      <button class="wf-btn wf-btn-primary wf-btn-sm" onclick="Wexira.openCreateIssue('ECOM')"><i data-lucide="plus" style="width:14px;height:14px"></i> Create Project</button>
+    </div>
+  </div>
+
+  <div class="wf-card">
+    <div class="p-4 flex flex-wrap items-center gap-3 border-b border-[var(--wf-border-soft)]">
+      <div class="wf-search" style="max-width:320px;flex:1">
+        <i data-lucide="search" style="width:15px;height:15px"></i>
+        <input type="text" id="projSearch" placeholder="Search projects…">
+      </div>
+      <div class="flex items-center gap-2 text-[12.5px]">
+        <span class="text-[var(--wf-text-secondary)]">Status:</span>
+        <button class="wf-chip cursor-pointer hover:bg-[var(--wf-primary-50)]" onclick="filterProjects('all')">All</button>
+        <button class="wf-chip cursor-pointer hover:bg-[var(--wf-primary-50)]" onclick="filterProjects('In Progress')">In Progress</button>
+        <button class="wf-chip cursor-pointer hover:bg-[var(--wf-primary-50)]" onclick="filterProjects('Planning')">Planning</button>
+        <button class="wf-chip cursor-pointer hover:bg-[var(--wf-primary-50)]" onclick="filterProjects('Completed')">Completed</button>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="wf-table" id="projTable">
+        <thead><tr>
+          <th>Project</th><th>Key</th><th>Manager</th><th>Team</th><th>Progress</th><th>Status</th><th>Start</th><th>Due</th>
+        </tr></thead>
+        <tbody>
+          {% for p in projects %}
+          <tr data-status="{{ p.status }}" data-name="{{ p.name|lower }}" class="cursor-pointer" onclick="location='/project/{{ p.key }}'">
+            <td>
+              <div class="flex items-center gap-2.5 min-w-[200px]">
+                <span class="w-9 h-9 rounded-lg grid place-items-center text-white text-[11px] font-bold" style="background:{{ p.color }}">{{ p.key[:3] }}</span>
+                <div>
+                  <div class="font-semibold text-[var(--wf-text)]">{{ p.name }}</div>
+                  <div class="text-[11.5px] text-[var(--wf-text-tertiary)]">{{ p.description[:52] }}{{ '…' if p.description|length > 52 }}</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="wf-badge wf-badge-soft-gray">{{ p.key }}</span></td>
+            <td>
+              <span class="inline-flex items-center gap-2">
+                <span class="wf-avatar wf-avatar-sm" style="background:{{ p.lead.color if p.lead else p.color }}">{{ p.lead_initials }}</span>
+                <span class="text-[12.5px]">{{ p.lead.name if p.lead else p.lead_initials }}</span>
+              </span>
+            </td>
+            <td>
+              <div class="wf-avatar-group">
+                <span class="wf-avatar wf-avatar-sm" style="background:{{ p.color }}">{{ p.lead_initials }}</span>
+                {% set ns = namespace(count=0) %}
+                {% for u in users if ns.count < 3 %}
+                  <span class="wf-avatar wf-avatar-sm" style="background:{{ u.color }}">{{ u.initials }}</span>
+                  {% set ns.count = ns.count + 1 %}
+                {% endfor %}
+                {% if p.key != 'HRMS' %}
+                <span class="wf-avatar wf-avatar-sm" style="background:#9ca3af">+{{ 2 if p.key == 'ECOM' else 1 }}</span>
+                {% endif %}
+              </div>
+            </td>
+            <td>
+              <div class="flex items-center gap-2 min-w-[100px]">
+                <div class="wf-progress-track" style="height:7px">
+                  <div class="wf-progress-bar" style="width:{{ p.progress }}%;background:{{ p.color }}"></div>
+                </div>
+                <span class="text-[12px] font-semibold text-[var(--wf-text-secondary)]">{{ p.progress }}%</span>
+              </div>
+            </td>
+            <td>
+              {% if p.status == 'In Progress' %}<span class="wf-status wf-status-progress"><span class="dot"></span>In Progress</span>
+              {% elif p.status == 'Planning' %}<span class="wf-status wf-status-todo"><span class="dot"></span>Planning</span>
+              {% elif p.status == 'On Hold' %}<span class="wf-status wf-status-blocked"><span class="dot"></span>On Hold</span>
+              {% else %}<span class="wf-status wf-status-done"><span class="dot"></span>{{ p.status }}</span>{% endif %}
+            </td>
+            <td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">{{ p.start_date }}</span></td>
+            <td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">{{ p.due_date }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% block scripts %}
+<script>
+  function filterProjects(status) {
+    document.querySelectorAll('#projTable tbody tr').forEach(r => {
+      if (status === 'all') r.style.display = '';
+      else r.style.display = r.dataset.status === status ? '' : 'none';
+    });
+  }
+  document.getElementById('projSearch').addEventListener('input', e => {
+    const q = e.target.value.trim().toLowerCase();
+    document.querySelectorAll('#projTable tbody tr').forEach(r => {
+      r.style.display = r.dataset.name.includes(q) ? '' : 'none';
+    });
+  });
+</script>
+{% endblock %}
+{% endblock %}

@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+
+{% block title %}Backlog{% endblock %}
+
+{% block content %}
+<div class="wf-fade-up">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <div>
+      <nav class="flex items-center gap-1.5 text-[12px] text-[var(--wf-text-tertiary)] mb-1">
+        <a href="/projects" class="hover:text-[var(--wf-primary)]">Projects</a>
+        <i data-lucide="chevron-right" style="width:12px;height:12px"></i>
+        <span class="text-[var(--wf-text-secondary)]">{{ project.name }}</span>
+        <i data-lucide="chevron-right" style="width:12px;height:12px"></i>
+        <span class="text-[var(--wf-text)] font-medium">Backlog</span>
+      </nav>
+      <h1 class="text-[20px] font-bold text-[var(--wf-text)]">Backlog</h1>
+      <p class="text-[12.5px] text-[var(--wf-text-secondary)] mt-0.5">Plan and organize work for upcoming sprints</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <button class="wf-btn wf-btn-secondary wf-btn-sm"><i data-lucide="calendar-plus" style="width:14px;height:14px"></i> Create Sprint</button>
+      <button class="wf-btn wf-btn-ghost wf-btn-sm" onclick="Wexira.showToast('Sprint 12 started with 18 issues.','success','Sprint started')">
+        <i data-lucide="play" style="width:13px;height:13px"></i> Start Sprint
+      </button>
+    </div>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-2 mb-4">
+    <div class="wf-search" style="max-width:280px;flex:1;min-width:160px">
+      <i data-lucide="search" style="width:14px;height:14px"></i>
+      <input type="text" id="backlogSearch" placeholder="Search backlog…">
+    </div>
+    <button class="wf-btn wf-btn-sm wf-btn-secondary"><i data-lucide="filter" style="width:13px;height:13px"></i> Filter</button>
+    <button class="wf-btn wf-btn-sm wf-btn-secondary"><i data-lucide="layers" style="width:13px;height:13px"></i> Epic</button>
+    <button class="wf-btn wf-btn-sm wf-btn-secondary"><i data-lucide="flag" style="width:13px;height:13px"></i> Priority</button>
+  </div>
+
+  <div class="wf-card">
+    {# ---------------- EPICS ---------------- #}
+    <div class="backlog-section border-b border-[var(--wf-border-soft)]">
+      <button class="w-full flex items-center gap-2.5 px-5 py-3.5 hover:bg-[#fafafb] transition-colors cursor-pointer bg-none" style="background:none;border:none;text-align:left" onclick="toggleSection(this, 'epicsBody')">
+        <i data-lucide="chevron-right" class="section-chevron transition-transform" style="width:15px;height:15px;color:var(--wf-text-tertiary)"></i>
+        <i data-lucide="layers" style="width:16px;height:16px;color:var(--wf-purple)"></i>
+        <span class="text-[13.5px] font-bold text-[var(--wf-text)]">Epics</span>
+        <span class="wf-badge wf-badge-soft-purple">{{ all_issues|selectattr('issue_type','equalto','Epic')|list|length }}</span>
+        <span class="ml-auto text-[12px] text-[var(--wf-text-tertiary)]">{{ all_issues|selectattr('issue_type','equalto','Epic')|list|map(attribute='points')|sum }} pts</span>
+      </button>
+      <div id="epicsBody" class="backlog-body hidden">
+        {% for i in all_issues if i.issue_type == 'Epic' %}
+        {% include '_backlog_row.html' %}
+        {% endfor %}
+      </div>
+    </div>
+
+    {# ---------------- SPRINT SECTIONS ---------------- #}
+    {% for sp in sprints %}
+    <div class="backlog-section {{ '' if sp.status != 'Active' else '' }} border-b border-[var(--wf-border-soft)]">
+      <button class="w-full flex items-center gap-2.5 px-5 py-3.5 hover:bg-[#fafafb] transition-colors cursor-pointer" style="background:none;border:none;text-align:left" onclick="toggleSection(this, 'sprintBody{{ sp.number }}')">
+        <i data-lucide="chevron-right" class="section-chevron {{ '' if sp.status != 'Active' else 'rotate-90' }} transition-transform" style="width:15px;height:15px;color:var(--wf-text-tertiary)"></i>
+        <span class="flex items-center gap-1.5">
+          <i data-lucide="timer" style="width:16px;height:16px;color:var(--wf-primary)"></i>
+          <span class="text-[13.5px] font-bold text-[var(--wf-text)]">{{ sp.name }}</span>
+        </span>
+        {% if sp.status == 'Active' %}<span class="wf-badge wf-badge-soft-green">Active</span>
+        {% elif sp.status == 'Completed' %}<span class="wf-badge wf-badge-soft-gray">Completed</span>
+        {% else %}<span class="wf-badge wf-badge-soft-blue">Planned</span>{% endif %}
+        <span class="ml-auto flex items-center gap-3 text-[12px] text-[var(--wf-text-secondary)]">
+          <span>{{ sp.start_date }} → {{ sp.end_date }}</span>
+          <span class="font-semibold">{{ sp.to_do + sp.in_progress + sp.in_review + sp.done }} issues</span>
+          <span class="font-semibold">{{ sp.story_points_total }} pts</span>
+        </span>
+      </button>
+      <div id="sprintBody{{ sp.number }}" class="backlog-body {{ '' if sp.status != 'Active' else '' }}">
+        {% set sprint_issues = issues|selectattr('sprint','equalto',sp.number)|list %}
+        {% if sprint_issues %}
+          {% for i in sprint_issues %}
+          {% include '_backlog_row.html' %}
+          {% endfor %}
+        {% else %}
+          <div class="px-5 py-4 text-[12.5px] text-[var(--wf-text-tertiary)]">No issues planned for this sprint yet.</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+
+    {# ---------------- FUTURE BACKLOG ---------------- #}
+    <div class="backlog-section">
+      <button class="w-full flex items-center gap-2.5 px-5 py-3.5 hover:bg-[#fafafb] transition-colors cursor-pointer" style="background:none;border:none;text-align:left" onclick="toggleSection(this, 'futureBody')">
+        <i data-lucide="chevron-right" class="section-chevron transition-transform" style="width:15px;height:15px;color:var(--wf-text-tertiary)"></i>
+        <i data-lucide="inbox" style="width:16px;height:16px;color:var(--wf-text-secondary)"></i>
+        <span class="text-[13.5px] font-bold text-[var(--wf-text)]">Future Backlog</span>
+        <span class="wf-badge wf-badge-soft-gray">{{ issues|selectattr('sprint','none')|list|length }}</span>
+      </button>
+      <div id="futureBody" class="backlog-body hidden">
+        {% for i in issues if i.sprint is none %}
+        {% include '_backlog_row.html' %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% block scripts %}
+<script>
+/* ============================================================
+   Wexira — Backlog
+   ============================================================ */
+(function () {
+  'use strict';
+
+  function toggleSection(header, bodyId) {
+    const chevron = header.querySelector('.section-chevron');
+    const body = document.getElementById(bodyId);
+    if (!body) return;
+    const isOpen = !body.classList.contains('hidden');
+    body.classList.toggle('hidden', isOpen);
+    chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
+  }
+
+  window.toggleSection = toggleSection;
+
+  const search = document.getElementById('backlogSearch');
+  if (search) {
+    search.addEventListener('input', e => {
+      const q = e.target.value.trim().toLowerCase();
+      document.querySelectorAll('.backlog-row').forEach(row => {
+        row.style.display = row.dataset.title.includes(q) ? '' : 'none';
+      });
+    });
+  }
+})();
+</script>
+{% endblock %}
+{% endblock %}

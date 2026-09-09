@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="wf-fade-up">
+  {# ---------------- PROJECT HEADER ---------------- #}
+  <div class="wf-card p-6 mb-4">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div class="flex items-start gap-4">
+        <span class="w-12 h-12 rounded-xl grid place-items-center text-white text-[14px] font-bold flex-none" style="background:{{ project.color }}">{{ project.key }}</span>
+        <div>
+          <div class="flex items-center gap-3 flex-wrap">
+            <h1 class="text-[22px] font-bold text-[var(--wf-text)]">{{ project.name }}</h1>
+            <span class="wf-status wf-status-progress"><span class="dot"></span>{{ project.status }}</span>
+          </div>
+          <p class="text-[13px] text-[var(--wf-text-secondary)] mt-1 max-w-xl">{{ project.description }}</p>
+          <div class="flex items-center gap-5 mt-3 flex-wrap text-[12.5px]">
+            <span class="flex items-center gap-2 text-[var(--wf-text-secondary)]">
+              <i data-lucide="user" style="width:14px;height:14px;color:var(--wf-text-tertiary)"></i>
+              <span class="font-semibold text-[var(--wf-text)]">Alex Morgan</span> · Project Lead
+            </span>
+            <span class="flex items-center gap-1.5 text-[var(--wf-text-secondary)]">
+              <i data-lucide="calendar" style="width:14px;height:14px;color:var(--wf-text-tertiary)"></i> {{ project.start_date }} →
+            </span>
+            <span class="font-semibold text-[{{ '#dc2626' if project.progress < 68 else '#059669' }}]">{{ project.due_date }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button class="wf-btn wf-btn-secondary wf-btn-sm" onclick="Wexira.showToast('Project shared with 6 members.','success','Shared')"><i data-lucide="share-2" style="width:14px;height:14px"></i> Share</button>
+        <button class="wf-btn wf-btn-primary wf-btn-sm" onclick="openReportModal()"><i data-lucide="download" style="width:14px;height:14px"></i> Export</button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6 pt-5 border-t border-[var(--wf-border-soft)]">
+      <div>
+        <div class="text-[11.5px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide">Project lead</div>
+        <div class="flex items-center gap-2 mt-1.5">
+          <span class="wf-avatar" style="background:{{ project.color }}">{{ project.lead_initials }}</span>
+          <span class="text-[13px] font-medium">{{ project.lead.name if project.lead else project.lead_initials }}</span>
+        </div>
+      </div>
+      <div>
+        <div class="text-[11.5px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide">Team members</div>
+        <div class="wf-avatar-group mt-1.5">
+          {% for m in members %}
+          <span class="wf-avatar wf-avatar-sm" style="background:{{ m.color }}">{{ m.initials }}</span>
+          {% endfor %}
+          <span class="wf-avatar wf-avatar-sm" style="background:#9ca3af">+2</span>
+        </div>
+      </div>
+      <div>
+        <div class="text-[11.5px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide">Start date</div>
+        <div class="text-[13.5px] font-semibold mt-1.5">{{ project.start_date }}</div>
+      </div>
+      <div>
+        <div class="text-[11.5px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide">Target date</div>
+        <div class="text-[13.5px] font-semibold mt-1.5">{{ project.due_date }}</div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3 mt-5">
+      <div class="flex items-center gap-2 min-w-[200px] flex-1">
+        <div class="wf-progress-track" style="height:9px">
+          <div class="wf-progress-bar" style="width:{{ project.progress }}%;background:{{ project.color }}"></div>
+        </div>
+        <span class="text-[13px] font-bold text-[var(--wf-text)]">{{ project.progress }}%</span>
+        <span class="text-[12px] text-[var(--wf-text-secondary)]">complete</span>
+      </div>
+    </div>
+  </div>
+
+  {# ---------------- PROJECT NAV ---------------- #}
+  <div class="wf-tabs mb-4 rounded-t-lg overflow-hidden">
+    {% set subtabs = [
+      ('overview','Overview','layout-dashboard','/project/{{ project.key }}'),
+      ('board','Board','columns-3','/kanban/{{ project.key }}'),
+      ('backlog','Backlog','layers','/backlog/{{ project.key }}'),
+      ('issues','Issues','alert-circle','/project/{{ project.key }}'),
+      ('sprints','Sprints','timer','/kanban/{{ project.key }}'),
+      ('reports','Reports','bar-chart-3','/reports'),
+      ('calendar','Calendar','calendar-days','/calendar'),
+      ('files','Files','folder','/project/{{ project.key }}'),
+      ('ai','AI Assistant','sparkles','/ai-assistant'),
+    ] %}
+    {% for k,label,icon,href in subtabs %}
+    <a href="{{ href }}" class="wf-tab {{ 'is-active' if k == 'overview' else '' }}"><i data-lucide="{{ icon }}" style="width:15px;height:15px"></i> {{ label }}</a>
+    {% endfor %}
+  </div>
+
+  {# ---------------- HEALTH + SPRINT ---------------- #}
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+    <div class="wf-card lg:col-span-2">
+      <div class="wf-card-header">
+        <div>
+          <h2 class="text-[15px] font-bold text-[var(--wf-text)]">Project Health</h2>
+          <p class="text-[12px] text-[var(--wf-text-secondary)]">Real-time health indicators</p>
+        </div>
+        <span class="wf-badge wf-badge-soft-green">Healthy</span>
+      </div>
+      <div class="p-5 grid grid-cols-2 md:grid-cols-4 gap-3">
+        {% set health = [
+          ('Schedule','schedule','calendar-check','On Track','#059669',project.health_schedule),
+          ('Budget','budget','wallet','On Track','#059669',project.health_budget),
+          ('Scope','scope','target','At Risk','#d97706',project.health_scope),
+          ('Team Capacity','capacity','gauge','Good','#059669',project.health_capacity),
+        ] %}
+        {% for name,key,icon,hue,good,v in health %}
+        <div class="rounded-lg border border-[var(--wf-border)] p-3.5">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="w-7 h-7 rounded-lg grid place-items-center" style="background:{{ good }}1a;color:{{ good }}">
+              <i data-lucide="{{ icon }}" style="width:14px;height:14px"></i>
+            </span>
+            <span class="text-[11.5px] font-semibold text-[var(--wf-text-secondary)]">{{ name }}</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full" style="background:{{ 'var(--wf-success)' if v == 'On Track' or v == 'Good' else 'var(--wf-warning)' }}"></span>
+            <span class="text-[13px] font-bold text-[var(--wf-text)]">{{ v }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="wf-card">
+      {% set sp = sprints[1] if sprints|length > 1 else sprints[0] %}
+      <div class="wf-card-header">
+        <div>
+          <h2 class="text-[15px] font-bold text-[var(--wf-text)]">{{ sp.name }}</h2>
+          <p class="text-[12px] text-[var(--wf-text-secondary)]">{{ sp.start_date }} → {{ sp.end_date }}</p>
+        </div>
+        <span class="wf-badge wf-badge-soft-green">Active</span>
+      </div>
+      <div class="p-5">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[12.5px] text-[var(--wf-text-secondary)]">Complete</span>
+          <span class="text-[20px] font-bold text-[var(--wf-text)]">{{ (sp.story_points_done / (sp.story_points_total or 1) * 100)|int }}%</span>
+        </div>
+        <div class="wf-progress-track mb-5" style="height:8px">
+          <div class="wf-progress-bar" style="width:{{ (sp.story_points_done / (sp.story_points_total or 1) * 100)|int }}%;background:var(--wf-primary)"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mb-4">
+          <div class="rounded-lg p-2.5 flex items-center justify-between" style="background:#eef2ff">
+            <span class="text-[11.5px] font-medium text-[#4338ca]">To Do</span>
+            <span class="text-[16px] font-bold text-[#4f46e5]">{{ sp.to_do }}</span>
+          </div>
+          <div class="rounded-lg p-2.5 flex items-center justify-between" style="background:#ecfeff">
+            <span class="text-[11.5px] font-medium text-[#0e7490]">In Progress</span>
+            <span class="text-[16px] font-bold text-[#0891b2]">{{ sp.in_progress }}</span>
+          </div>
+          <div class="rounded-lg p-2.5 flex items-center justify-between" style="background:#f5f3ff">
+            <span class="text-[11.5px] font-medium text-[#6d28d9]">In Review</span>
+            <span class="text-[16px] font-bold text-[#7c3aed]">{{ sp.in_review }}</span>
+          </div>
+          <div class="rounded-lg p-2.5 flex items-center justify-between" style="background:#ecfdf5">
+            <span class="text-[11.5px] font-medium text-[#047857]">Done</span>
+            <span class="text-[16px] font-bold text-[#059669]">{{ sp.done }}</span>
+          </div>
+        </div>
+        <div class="text-[11.5px] text-[var(--wf-text-tertiary)] mb-3"><i data-lucide="target" style="width:12px;height:12px;display:inline;vertical-align:-2px"></i> {{ sp.goal }}</div>
+        <a href="/kanban" class="wf-btn wf-btn-secondary wf-btn-sm w-full justify-center"><i data-lucide="columns-3" style="width:13px;height:13px"></i> Open Sprint Board</a>
+      </div>
+    </div>
+  </div>
+
+  {# ---------------- DEADLINES + ACTIVITY ---------------- #}
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div class="wf-card">
+      <div class="wf-card-header">
+        <h2 class="text-[15px] font-bold text-[var(--wf-text)]">Upcoming Deadlines</h2>
+      </div>
+      <div class="p-4 flex flex-col gap-2">
+        {% set deadlines = [
+          ('ECOM-148','Payment validation error','David Kim','Today','#dc2626'),
+          ('ECOM-142','Implement checkout API','Sarah Chen','Sep 08','#d97706'),
+          ('ECOM-143','Design payment confirmation','Priya Sharma','Sep 09','#d97706'),
+          ('ECOM-145','Add order tracking','Olivia Brown','Sep 11','#0891b2'),
+        ] %}
+        {% for id,t,who,d,c in deadlines %}
+        <div class="flex items-center gap-3 p-2.5 rounded-lg hover:bg-[#fafafb] cursor-pointer transition-colors" onclick="location='/issue/{{ id.split('-')[1] }}'">
+          <span class="w-1.5 h-9 rounded-full" style="background:{{ c }}"></span>
+          <div class="min-w-0 flex-1">
+            <div class="text-[13px] font-medium text-[var(--wf-text)]">{{ t }}</div>
+            <div class="text-[11.5px] text-[var(--wf-text-tertiary)]">{{ id }} · {{ who }}</div>
+          </div>
+          <span class="text-[12px] font-semibold {{ 'text-[var(--wf-error)]' if d == 'Today' else 'text-[var(--wf-text-secondary)]' }}" style="color:{{ c }}">{{ d }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="wf-card lg:col-span-2">
+      <div class="wf-card-header">
+        <div>
+          <h2 class="text-[15px] font-bold text-[var(--wf-text)]">Recent Activity</h2>
+          <p class="text-[12px] text-[var(--wf-text-secondary)]">Latest updates in {{ project.name }}</p>
+        </div>
+      </div>
+      <div class="p-5">
+        <div class="wf-timeline">
+          {% for a in activity %}
+          <div class="wf-timeline-item">
+            <div class="flex gap-2.5">
+              <span class="w-6 h-6 rounded-full grid place-items-center flex-none mt-0.5" style="background:{{ a.color }}1a;color:{{ a.color }}">
+                {% set icons = {'plus':'plus','user':'user-plus','comment':'message-square','arrow':'arrow-right','flag':'flag','check':'check'} %}
+                <i data-lucide="{{ icons.get(a.icon,'circle') }}" style="width:12px;height:12px"></i>
+              </span>
+              <div>
+                <div class="text-[13px] text-[var(--wf-text)] leading-snug">{{ a.text }}</div>
+                <div class="text-[11.5px] text-[var(--wf-text-tertiary)] mt-0.5">{{ a.detail }}</div>
+                <div class="text-[11px] text-[var(--wf-text-tertiary)] mt-0.5">{{ a.time }}</div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openReportModal() {
+    Wexira.showToast('Project report is being generated and will download shortly.', 'success', 'Export started');
+  }
+</script>
+{% endblock %}

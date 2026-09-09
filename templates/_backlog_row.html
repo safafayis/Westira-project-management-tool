@@ -1,0 +1,26 @@
+<div class="backlog-row flex items-center gap-3 px-5 py-2.5 border-b border-[var(--wf-border-soft)] last:border-0 hover:bg-[#fafafb] transition-colors cursor-pointer" data-title="{{ i.title|lower }}" data-id="{{ i.id }}" data-key="{{ i.project.key }}-{{ i.number }}" onclick="this.querySelector('a').click()">
+  <input type="checkbox" class="wf-checkbox" onclick="event.stopPropagation()">
+  <a href="/issue/{{ i.id }}" class="flex items-center gap-3 text-[var(--wf-text)] flex-1 min-w-0" onclick="event.stopPropagation()">
+    <span class="w-5 h-5 rounded-lg grid place-items-center text-[10px] font-bold {{ 'bg-[var(--wf-primary-50)] text-[var(--wf-primary)]' if i.issue_type == 'Story' else 'bg-[#fef2f2] text-[var(--wf-error)]' if i.issue_type == 'Bug' else 'bg-[#f5f3ff] text-[var(--wf-purple)]' if i.issue_type == 'Epic' else 'bg-[#f3f4f6] text-[var(--wf-text-secondary)]' }}">
+      {{ {'Story':'S','Bug':'B','Task':'T','Epic':'E'}.get(i.issue_type,'?') }}
+    </span>
+    <span class="text-[12px] font-bold text-[var(--wf-text-tertiary)] w-[64px] flex-none">{{ i.project.key }}-{{ i.number }}</span>
+    <span class="text-[13px] font-medium truncate">{{ i.title }}</span>
+  </a>
+  <span class="wf-badge wf-badge-soft-gray w-[54px] justify-center text-center" style="font-size:10.5px;padding:1px 6px">{{ i.issue_type }}</span>
+  <span class="wf-badge {{ 'wf-prio-' ~ i.priority|lower }} w-[60px] justify-center text-center" style="font-size:10.5px;padding:1px 6px">{{ i.priority }}</span>
+  <span class="w-[44px] text-center text-[12px] font-semibold text-[var(--wf-text-secondary)] flex-none">{{ i.points }}</span>
+  <span class="w-10 flex-none">
+    {% if i.assignee %}
+    <span class="wf-avatar wf-avatar-sm" style="background:{{ i.assignee_color }}">{{ i.assignee }}</span>
+    {% else %}
+    <span class="wf-avatar wf-avatar-sm" style="background:#e5e7eb;color:#9ca3af">?</span>
+    {% endif %}
+  </span>
+  <span class="w-[90px] flex-none hidden md:block">
+    {% if i.status in ('done',) %}<span class="wf-status wf-status-done" style="padding:1px 8px"><span class="dot"></span>Done</span>
+    {% elif i.status in ('in_progress',) %}<span class="wf-status wf-status-progress" style="padding:1px 8px"><span class="dot"></span>In Progress</span>
+    {% elif i.status in ('in_review',) %}<span class="wf-status wf-status-review" style="padding:1px 8px"><span class="dot"></span>In Review</span>
+    {% else %}<span class="wf-status wf-status-todo" style="padding:1px 8px"><span class="dot"></span>To Do</span>{% endif %}
+  </span>
+</div>

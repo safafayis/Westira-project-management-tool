@@ -1,0 +1,1761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Wexira{% endblock %} — Wexira</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter','system-ui','sans-serif'] } } } };
+  </script>
+  <style>
+/* ==========================================================================
+   WEXIRA — Design System
+   Project Management & Team Collaboration Platform
+   ========================================================================== */
+
+:root {
+  /* Color tokens */
+  --wf-primary: #4f46e5;
+  --wf-primary-600: #4338ca;
+  --wf-primary-700: #4338ca;
+  --wf-primary-50: #eef2ff;
+  --wf-primary-100: #e0e7ff;
+  --wf-bg: #f7f8fa;
+  --wf-card: #ffffff;
+  --wf-border: #e5e7eb;
+  --wf-border-soft: #f0f1f4;
+  --wf-text: #111827;
+  --wf-text-secondary: #6b7280;
+  --wf-text-tertiary: #9ca3af;
+  --wf-success: #059669;
+  --wf-success-50: #ecfdf5;
+  --wf-warning: #d97706;
+  --wf-warning-50: #fffbeb;
+  --wf-error: #dc2626;
+  --wf-error-50: #fef2f2;
+  --wf-info: #0891b2;
+  --wf-info-50: #ecfeff;
+  --wf-purple: #7c3aed;
+  --wf-purple-50: #f5f3ff;
+
+  /* Shadow tokens */
+  --wf-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --wf-shadow: 0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --wf-shadow-md: 0 4px 6px -1px rgba(16, 24, 40, 0.08), 0 2px 4px -2px rgba(16, 24, 40, 0.05);
+  --wf-shadow-lg: 0 10px 15px -3px rgba(16, 24, 40, 0.10), 0 4px 6px -4px rgba(16, 24, 40, 0.04);
+  --wf-shadow-xl: 0 20px 25px -5px rgba(16, 24, 40, 0.12), 0 8px 10px -6px rgba(16, 24, 40, 0.04);
+
+  /* Radius tokens */
+  --wf-radius-sm: 6px;
+  --wf-radius: 8px;
+  --wf-radius-md: 10px;
+  --wf-radius-lg: 12px;
+  --wf-radius-xl: 16px;
+  --wf-radius-full: 9999px;
+
+  --wf-sidebar-w: 248px;
+  --wf-sidebar-w-collapsed: 72px;
+  --wf-navbar-h: 64px;
+}
+
+/* --------------------------------------------------------------------
+   Base
+   -------------------------------------------------------------------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: var(--wf-bg);
+  color: var(--wf-text);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font-family: inherit; }
+a { text-decoration: none; color: inherit; }
+
+/* --------------------------------------------------------------------
+   Layout shell
+   -------------------------------------------------------------------- */
+.wf-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.wf-sidebar {
+  width: var(--wf-sidebar-w);
+  background: var(--wf-card);
+  border-right: 1px solid var(--wf-border);
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  transition: width .2s cubic-bezier(.4,0,.2,1);
+  overflow: hidden;
+}
+
+.wf-sidebar.is-collapsed {
+  width: var(--wf-sidebar-w-collapsed);
+}
+
+.wf-main {
+  flex: 1;
+  margin-left: var(--wf-sidebar-w);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  transition: margin-left .2s cubic-bezier(.4,0,.2,1);
+}
+
+.wf-main.is-collapsed {
+  margin-left: var(--wf-sidebar-w-collapsed);
+}
+
+.wf-content {
+  padding: 24px 32px 48px;
+  flex: 1;
+  max-width: 1600px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Sidebar logo */
+.wf-logo {
+  height: var(--wf-navbar-h);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--wf-border-soft);
+}
+
+.wf-logo-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex: none;
+  box-shadow: 0 4px 10px rgba(79, 70, 229, .35);
+}
+
+.wf-logo-text {
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.wf-logo-text span { color: var(--wf-primary); }
+
+/* Sidebar nav */
+.wf-nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 12px;
+}
+
+.wf-nav-section {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--wf-text-tertiary);
+  padding: 16px 12px 6px;
+  white-space: nowrap;
+}
+
+.wf-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  margin: 1px 0;
+  border-radius: var(--wf-radius);
+  color: var(--wf-text-secondary);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  position: relative;
+  transition: background .12s, color .12s;
+}
+
+.wf-nav-item:hover { background: #f3f4f6; color: var(--wf-text); }
+
+.wf-nav-item.is-active {
+  background: var(--wf-primary-50);
+  color: var(--wf-primary-700);
+  font-weight: 600;
+}
+
+.wf-nav-item.is-active::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--wf-primary);
+}
+
+.wf-nav-item svg { flex: none; }
+
+.wf-nav-item .wf-nav-badge {
+  margin-left: auto;
+  background: var(--wf-error);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: var(--wf-radius-full);
+}
+
+.wf-sidebar.is-collapsed .wf-nav-label,
+.wf-sidebar.is-collapsed .wf-nav-section,
+.wf-sidebar.is-collapsed .wf-nav-badge,
+.wf-sidebar.is-collapsed .wf-logo-text,
+.wf-sidebar.is-collapsed .wf-sidebar-bottom-text {
+  display: none;
+}
+
+.wf-sidebar.is-collapsed .wf-nav-item { justify-content: center; padding: 10px; }
+.wf-sidebar.is-collapsed .wf-nav-section { padding: 8px; height: 4px; }
+
+.wf-sidebar-bottom {
+  padding: 12px;
+  border-top: 1px solid var(--wf-border-soft);
+}
+
+#sidebarCollapseBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: var(--wf-radius);
+  background: none;
+  border: none;
+  color: var(--wf-text-secondary);
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+#sidebarCollapseBtn:hover { background: #f3f4f6; color: var(--wf-text); }
+.wf-sidebar.is-collapsed #sidebarCollapseBtn { justify-content: center; }
+
+.wf-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--wf-radius);
+  cursor: pointer;
+}
+.wf-profile-card:hover { background: #f3f4f6; }
+
+/* --------------------------------------------------------------------
+   Top navbar
+   -------------------------------------------------------------------- */
+.wf-navbar {
+  height: var(--wf-navbar-h);
+  background: var(--wf-card);
+  border-bottom: 1px solid var(--wf-border-soft);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 32px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.wf-shell.is-dashboard .wf-navbar {
+  height: 78px;
+  padding: 12px 32px;
+}
+
+.wf-search {
+  flex: 1;
+  max-width: 460px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f1f2f4;
+  border: 1px solid transparent;
+  border-radius: var(--wf-radius);
+  padding: 0 12px;
+  height: 38px;
+  color: var(--wf-text-tertiary);
+  transition: border .15s, background .15s, box-shadow .15s;
+}
+
+.wf-search:focus-within {
+  background: #fff;
+  border-color: var(--wf-primary);
+  box-shadow: 0 0 0 3px rgba(79,70,229,.15);
+}
+
+.wf-search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  flex: 1;
+  font-size: 13.5px;
+  color: var(--wf-text);
+}
+.wf-search input::placeholder { color: var(--wf-text-tertiary); }
+
+.wf-icon-btn {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--wf-radius);
+  border: 1px solid var(--wf-border);
+  background: var(--wf-card);
+  color: var(--wf-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all .12s;
+}
+.wf-icon-btn:hover { background: #f3f4f6; color: var(--wf-text); }
+
+.wf-navbar .wf-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px 4px 4px;
+  border-radius: var(--wf-radius-full);
+  cursor: pointer;
+}
+.wf-navbar .wf-user:hover { background: #f3f4f6; }
+
+/* --------------------------------------------------------------------
+   Buttons
+   -------------------------------------------------------------------- */
+.wf-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: var(--wf-radius);
+  font-size: 13.5px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all .12s;
+  white-space: nowrap;
+}
+.wf-btn:active { transform: translateY(1px); }
+.wf-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.wf-btn-primary {
+  background: var(--wf-primary);
+  color: #fff;
+  box-shadow: var(--wf-shadow-sm);
+}
+.wf-btn-primary:hover { background: var(--wf-primary-600); }
+
+.wf-btn-secondary {
+  background: var(--wf-card);
+  border-color: var(--wf-border);
+  color: var(--wf-text);
+}
+.wf-btn-secondary:hover { background: #f3f4f6; }
+
+.wf-btn-ghost { background: transparent; color: var(--wf-text-secondary); }
+.wf-btn-ghost:hover { background: #f3f4f6; color: var(--wf-text); }
+
+.wf-btn-danger { background: var(--wf-error); color: #fff; }
+.wf-btn-danger:hover { background: #b91c1c; }
+
+.wf-btn-sm { padding: 5px 10px; font-size: 12.5px; gap: 6px; }
+.wf-btn-xs { padding: 3px 8px; font-size: 11.5px; gap: 5px; }
+
+/* --------------------------------------------------------------------
+   Cards
+   -------------------------------------------------------------------- */
+.wf-card {
+  background: var(--wf-card);
+  border: 1px solid var(--wf-border);
+  border-radius: var(--wf-radius-lg);
+  box-shadow: var(--wf-shadow-sm);
+}
+
+.wf-card-pad { padding: 20px; }
+
+.wf-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--wf-border-soft);
+}
+
+/* --------------------------------------------------------------------
+   Badges & status
+   -------------------------------------------------------------------- */
+.wf-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: var(--wf-radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1.6;
+}
+
+.wf-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--wf-radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.55;
+}
+.wf-status .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.wf-status-todo    { background: #eef2ff; color: #4f46e5; }
+.wf-status-progress{ background: #ecfeff; color: #0891b2; }
+.wf-status-review  { background: #f5f3ff; color: #7c3aed; }
+.wf-status-done    { background: #ecfdf5; color: #059669; }
+.wf-status-blocked { background: #fef2f2; color: #dc2626; }
+
+.wf-prio-low      { background: #eef2ff; color: #4f46e5; }
+.wf-prio-medium   { background: #ecfeff; color: #0891b2; }
+.wf-prio-high     { background: #fffbeb; color: #d97706; }
+.wf-prio-critical { background: #fef2f2; color: #dc2626; }
+
+.wf-badge-soft-blue   { background: #eef2ff; color: #4338ca; }
+.wf-badge-soft-grape  { background: #f5f3ff; color: #6d28d9; }
+.wf-badge-soft-green  { background: #ecfdf5; color: #047857; }
+.wf-badge-soft-amber  { background: #fffbeb; color: #b45309; }
+.wf-badge-soft-red    { background: #fef2f2; color: #b91c1c; }
+.wf-badge-soft-cyan   { background: #ecfeff; color: #0e7490; }
+.wf-badge-soft-gray   { background: #f3f4f6; color: #4b5563; }
+
+/* --------------------------------------------------------------------
+   Avatars
+   -------------------------------------------------------------------- */
+.wf-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border: 2px solid #fff;
+}
+.wf-avatar-sm { width: 26px; height: 26px; font-size: 10px; }
+.wf-avatar-lg { width: 40px; height: 40px; font-size: 14px; }
+.wf-avatar-xl { width: 56px; height: 56px; font-size: 18px; }
+
+.wf-avatar-group { display: flex; }
+.wf-avatar-group .wf-avatar { margin-left: -7px; }
+.wf-avatar-group .wf-avatar:first-child { margin-left: 0; }
+
+/* --------------------------------------------------------------------
+   Tables
+   -------------------------------------------------------------------- */
+.wf-table { width: 100%; border-collapse: collapse; }
+.wf-table th {
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--wf-text-secondary);
+  padding: 10px 14px;
+  background: #fafafb;
+  border-bottom: 1px solid var(--wf-border);
+  white-space: nowrap;
+}
+.wf-table td {
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--wf-border-soft);
+  font-size: 13.5px;
+  vertical-align: middle;
+}
+.wf-table tbody tr { transition: background .1s; }
+.wf-table tbody tr:hover { background: #fafafb; }
+.wf-table tbody tr:last-child td { border-bottom: none; }
+
+/* --------------------------------------------------------------------
+   Progress
+   -------------------------------------------------------------------- */
+.wf-progress-track {
+  height: 7px;
+  border-radius: var(--wf-radius-full);
+  background: #eef0f3;
+  overflow: hidden;
+  flex: 1;
+  min-width: 60px;
+}
+.wf-progress-bar {
+  height: 100%;
+  border-radius: var(--wf-radius-full);
+  transition: width .4s ease;
+}
+
+.wf-progress-ring {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.wf-progress-ring circle { transition: stroke-dashoffset .5s ease; }
+
+/* --------------------------------------------------------------------
+   Kanban
+   -------------------------------------------------------------------- */
+.wf-board {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  align-items: flex-start;
+}
+
+.wf-column {
+  width: 290px;
+  flex: none;
+  background: #eef0f3;
+  border-radius: var(--wf-radius-lg);
+  display: flex;
+  flex-direction: column;
+  min-height: 70vh;
+}
+
+.wf-column-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 14px 10px;
+}
+.wf-column-count {
+  background: var(--wf-card);
+  border: 1px solid var(--wf-border);
+  color: var(--wf-text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: var(--wf-radius-full);
+}
+.wf-column-wip {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--wf-text-tertiary);
+  font-weight: 500;
+}
+
+.wf-column-body {
+  padding: 4px 10px 14px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 120px;
+}
+
+.wf-column.is-dragover .wf-column-body {
+  outline: 2px dashed var(--wf-primary);
+  outline-offset: -4px;
+  border-radius: var(--wf-radius);
+  background: rgba(79,70,229,.04);
+}
+
+.wf-column-empty {
+  border: 2px dashed var(--wf-border);
+  border-radius: var(--wf-radius);
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--wf-text-tertiary);
+  font-size: 12.5px;
+}
+
+/* Task card */
+.wf-issue-card {
+  background: var(--wf-card);
+  border: 1px solid var(--wf-border);
+  border-radius: var(--wf-radius);
+  padding: 12px;
+  box-shadow: var(--wf-shadow-sm);
+  cursor: grab;
+  transition: box-shadow .12s, border-color .12s, transform .12s;
+}
+.wf-issue-card:hover {
+  box-shadow: var(--wf-shadow-md);
+  border-color: #d1d5db;
+}
+.wf-issue-card.is-selected {
+  border-color: var(--wf-primary);
+  box-shadow: 0 0 0 3px rgba(79,70,229,.18);
+}
+.wf-issue-card.is-dragging {
+  opacity: .55;
+  transform: rotate(2deg) scale(1.02);
+  box-shadow: var(--wf-shadow-lg);
+  border-color: var(--wf-primary);
+}
+
+.issue-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.issue-id {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--wf-text-tertiary);
+}
+.issue-prio-dot {
+  width: 10px; height: 10px;
+  border-radius: 3px;
+}
+
+.issue-card-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--wf-text);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.issue-card-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+
+.issue-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.issue-points {
+  background: #f3f4f6;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--wf-text-secondary);
+}
+.issue-due {
+  font-size: 11.5px;
+  color: var(--wf-text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.issue-due.urgent { color: var(--wf-error); font-weight: 600; }
+.issue-card-footer .wf-avatar { margin-left: auto; }
+
+/* --------------------------------------------------------------------
+   Forms
+   -------------------------------------------------------------------- */
+.wf-label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--wf-text);
+  margin-bottom: 6px;
+}
+.wf-label .req { color: var(--wf-error); }
+
+.wf-input, .wf-select, .wf-textarea {
+  width: 100%;
+  border: 1px solid var(--wf-border);
+  border-radius: var(--wf-radius);
+  padding: 9px 12px;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: var(--wf-text);
+  background: #fff;
+  outline: none;
+  transition: border .12s, box-shadow .12s;
+}
+.wf-input:focus, .wf-select:focus, .wf-textarea:focus {
+  border-color: var(--wf-primary);
+  box-shadow: 0 0 0 3px rgba(79,70,229,.15);
+}
+.wf-input::placeholder, .wf-textarea::placeholder { color: var(--wf-text-tertiary); }
+.wf-input.is-invalid { border-color: var(--wf-error); }
+.wf-help { font-size: 12px; color: var(--wf-text-secondary); margin-top: 5px; }
+.wf-field { margin-bottom: 16px; }
+
+.wf-checkbox {
+  width: 16px; height: 16px;
+  accent-color: var(--wf-primary);
+  cursor: pointer;
+}
+
+/* --------------------------------------------------------------------
+   Tabs
+   -------------------------------------------------------------------- */
+.wf-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--wf-border);
+  background: var(--wf-card);
+}
+.wf-tab {
+  padding: 11px 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--wf-text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.wf-tab:hover { color: var(--wf-text); }
+.wf-tab.is-active {
+  color: var(--wf-primary);
+  border-bottom-color: var(--wf-primary);
+}
+
+/* --------------------------------------------------------------------
+   Chat
+   -------------------------------------------------------------------- */
+.wf-chat-bubble {
+  max-width: 78%;
+  padding: 12px 14px;
+  border-radius: var(--wf-radius-lg);
+  font-size: 13.5px;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+.wf-chat-user {
+  background: var(--wf-primary);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+  align-self: flex-end;
+}
+.wf-chat-ai {
+  background: var(--wf-card);
+  border: 1px solid var(--wf-border);
+  border-bottom-left-radius: 4px;
+  align-self: flex-start;
+  box-shadow: var(--wf-shadow-sm);
+}
+
+.wf-typing { display: inline-flex; gap: 5px; padding: 4px 2px; }
+.wf-typing span {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--wf-text-tertiary);
+  animation: wf-blink 1.2s infinite;
+}
+.wf-typing span:nth-child(2) { animation-delay: .2s; }
+.wf-typing span:nth-child(3) { animation-delay: .4s; }
+
+@keyframes wf-blink {
+  0%, 80%, 100% { opacity: .25; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-3px); }
+}
+
+/* --------------------------------------------------------------------
+   Animations
+   -------------------------------------------------------------------- */
+@keyframes wf-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.wf-fade-up { animation: wf-fade-up .25s ease both; }
+
+@keyframes wf-pop {
+  from { opacity: 0; transform: scale(.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+.wf-pop { animation: wf-pop .18s ease both; }
+
+/* Modal */
+.wf-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, .5);
+  backdrop-filter: blur(2px);
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 24px;
+  overflow-y: auto;
+}
+
+.wf-modal {
+  background: var(--wf-card);
+  border-radius: var(--wf-radius-xl);
+  box-shadow: var(--wf-shadow-xl);
+  width: 100%;
+  max-width: 640px;
+  animation: wf-pop .18s ease both;
+}
+
+/* Drawer */
+.wf-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17,24,39,.32);
+  z-index: 55;
+  animation: wf-fade 0   .2s ease both;
+}
+@keyframes wf-fade { from { opacity: 0 } to { opacity: 1 } }
+
+.wf-drawer {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: 420px;
+  max-width: 92vw;
+  background: var(--wf-card);
+  box-shadow: var(--wf-shadow-xl);
+  z-index: 56;
+  display: flex;
+  flex-direction: column;
+  animation: wf-slide-in .22s cubic-bezier(.4,0,.2,1) both;
+}
+@keyframes wf-slide-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* Floating AI button */
+.wf-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 50;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #fff;
+  border: none;
+  box-shadow: 0 8px 20px rgba(79,70,229,.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform .15s;
+}
+.wf-fab:hover { transform: scale(1.06); }
+
+/* Toast */
+.wf-toast-wrap {
+  position: fixed;
+  top: 76px;
+  right: 24px;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.wf-toast {
+  background: var(--wf-card);
+  border: 1px solid var(--wf-border);
+  border-left: 4px solid var(--wf-primary);
+  border-radius: var(--wf-radius);
+  box-shadow: var(--wf-shadow-lg);
+  padding: 12px 16px;
+  min-width: 300px;
+  max-width: 380px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  animation: wf-fade-up .2s ease both;
+}
+.wf-toast.success { border-left-color: var(--wf-success); }
+.wf-toast.error { border-left-color: var(--wf-error); }
+.wf-toast.warning { border-left-color: var(--wf-warning); }
+
+/* Timeline */
+.wf-timeline { position: relative; padding-left: 24px; }
+.wf-timeline::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: var(--wf-border);
+}
+.wf-timeline-item { position: relative; padding-bottom: 20px; }
+.wf-timeline-item::before {
+  content: '';
+  position: absolute;
+  left: -24px;
+  top: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--wf-card);
+  border: 2px solid var(--wf-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Dropdown menus */
+.wf-menu {
+  position: absolute;
+  z-index: 50;
+  background: var(--wf-card);
+  border: 1px solid var(--wf-border);
+  border-radius: var(--wf-radius);
+  box-shadow: var(--wf-shadow-lg);
+  padding: 5px;
+  min-width: 200px;
+  animation: wf-pop .12s ease both;
+}
+.wf-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--wf-text);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+.wf-menu-item:hover { background: #f3f4f6; }
+.wf-menu-item.danger { color: var(--wf-error); }
+
+/* KPI cards */
+.wf-kpi {
+  position: relative;
+  overflow: hidden;
+}
+.wf-kpi-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--wf-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+/* Empty states */
+.wf-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 44px 24px;
+  gap: 8px;
+}
+
+/* Util */
+.wf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f3f4f6;
+  border-radius: var(--wf-radius-full);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--wf-text-secondary);
+}
+
+.animate-pulse-soft { animation: wf-pulse 1.6s ease-in-out infinite; }
+@keyframes wf-pulse { 0%,100% { opacity: 1 } 50% { opacity: .5 } }
+
+/* --------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------- */
+@media (max-width: 1280px) {
+  .wf-content { padding: 20px 24px 40px; }
+  .wf-column { width: 268px; }
+}
+
+@media (max-width: 1024px) {
+  .wf-sidebar { width: var(--wf-sidebar-w-collapsed); }
+  .wf-sidebar .wf-nav-label,
+  .wf-sidebar .wf-nav-section,
+  .wf-sidebar .wf-nav-badge,
+  .wf-sidebar .wf-logo-text,
+  .wf-sidebar .wf-sidebar-bottom-text { display: none; }
+  .wf-sidebar .wf-nav-item { justify-content: center; padding: 10px; }
+  .wf-main { margin-left: var(--wf-sidebar-w-collapsed); }
+}
+
+@media (max-width: 780px) {
+  .wf-navbar { padding: 0 16px; gap: 10px; }
+  .wf-search .wf-search-kbd { display: none; }
+  .wf-navbar .wf-user-name, .wf-navbar .wf-role { display: none; }
+  .wf-content { padding: 16px 16px 96px; }
+  .wf-board { gap: 12px; }
+}
+
+/* Navbar: only visible on dashboard */
+body:not(.is-dashboard) .wf-navbar {
+  display: none !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+@media (max-width: 640px) {
+  .wf-fab { bottom: 84px; right: 16px; }
+  .wf-content { padding-bottom: 120px; }
+  .wf-tab { font-size: 12.5px; padding: 10px; }
+}
+  </style>
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="wf-shell {{ 'is-dashboard' if active_page == 'dashboard' else '' }}">
+
+  {% block body_start %}{% endblock %}
+
+  {# ============================================================
+     SIDEBAR
+     ============================================================ #}
+  <aside class="wf-sidebar" id="appSidebar">
+    <a href="/dashboard" class="wf-logo">
+      <div class="wf-logo-mark">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-9"/><path d="M3 21h18"/><path d="M15 8h6v6"/></svg>
+      </div>
+      <span class="wf-logo-text">We<span>xira</span></span>
+    </a>
+
+    <div style="padding: 12px 12px 0;">
+      <button id="sidebarCollapseBtn" type="button">
+        <i data-lucide="panel-left-close" style="width:18px;height:18px"></i>
+        <span class="wf-nav-label">Collapse</span>
+      </button>
+    </div>
+
+    <nav class="wf-nav">
+      <div class="wf-nav-section">Workspace</div>
+
+      {% set nav_items = [
+        ('dashboard', 'Dashboard', 'layout-dashboard', '/dashboard'),
+        ('projects', 'Projects', 'folder-kanban', '/projects'),
+        ('my_work', 'My Work', 'briefcase-business', '/my-work'),
+      ] %}
+      {% for key, label, icon, href in nav_items %}
+      <a href="{{ href }}" class="wf-nav-item {{ 'is-active' if active_page == key else '' }}" data-nav-label="{{ label }}">
+        <i data-lucide="{{ icon }}" style="width:18px;height:18px"></i>
+        <span class="wf-nav-label">{{ label }}</span>
+      </a>
+      {% endfor %}
+
+      <div class="wf-nav-section">Manage</div>
+      {% set nav_manage = [
+        ('kanban', 'Kanban Board', 'columns-3', '/kanban', ''),
+        ('backlog', 'Backlog', 'layers', '/backlog', ''),
+        ('sprints', 'Sprints', 'timer', '/sprints', ''),
+        ('ai-assistant', 'AI Assistant', 'sparkles', '/ai-assistant', 'New'),
+        ('reports', 'Reports', 'bar-chart-3', '/reports', ''),
+        ('team', 'Team', 'users', '/team', ''),
+      ] %}
+      {% for key, label, icon, href, badge in nav_manage %}
+      <a href="{{ href }}" class="wf-nav-item {{ 'is-active' if active_page == key else '' }}">
+        <i data-lucide="{{ icon }}" style="width:18px;height:18px"></i>
+        <span class="wf-nav-label">{{ label }}</span>
+        {% if badge %}<span class="wf-nav-badge">{{ badge }}</span>{% endif %}
+      </a>
+      {% endfor %}
+
+      <div class="wf-nav-section">System</div>
+      {% set nav_system = [
+        ('notifications', 'Notifications', 'bell', '/notifications'),
+        ('settings', 'Settings', 'settings', '/settings'),
+      ] %}
+      {% for key, label, icon, href in nav_system %}
+      <a href="{{ href }}" class="wf-nav-item {{ 'is-active' if active_page == key else '' }}">
+        <i data-lucide="{{ icon }}" style="width:18px;height:18px"></i>
+        <span class="wf-nav-label">{{ label }}</span>
+      </a>
+      {% endfor %}
+    </nav>
+
+    <div class="wf-sidebar-bottom">
+      <a href="/ai-assistant" class="wf-nav-item">
+        <i data-lucide="circle-help" style="width:18px;height:18px"></i>
+        <span class="wf-nav-label">Help Center</span>
+      </a>
+      <div class="wf-profile-card">
+        {% set cu = current_user %}
+        <div class="wf-avatar wf-avatar-lg" style="background:{{ cu.color }}">{{ cu.initials }}</div>
+        <div class="min-w-0">
+          <div class="text-[13px] font-semibold text-[var(--wf-text)] leading-tight truncate">{{ cu.name }}</div>
+          <div class="text-[11.5px] text-[var(--wf-text-secondary)] truncate">{{ cu.role }}</div>
+          <span class="wf-badge wf-badge-soft-gray mt-1" style="padding:1px 8px;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em">{% if cu.plan == 'pro' %}<span style="color:#7c3aed">Pro</span>{% elif cu.plan == 'plus' %}<span style="color:#0891b2">Plus</span>{% else %}<span style="color:#6b7280">Lite</span>{% endif %}</span>
+        </div>
+      </div>
+      <a href="/logout" class="wf-nav-item">
+        <i data-lucide="log-out" style="width:18px;height:18px"></i>
+        <span class="wf-nav-label">Sign out</span>
+      </a>
+    </div>
+  </aside>
+
+  {# ============================================================
+     MAIN
+     ============================================================ #}
+  <div class="wf-main" id="appMain">
+    <header class="wf-navbar">
+      <div class="ml-auto flex items-center gap-2">
+        {% if current_user and current_user.plan == 'pro' %}
+        <a href="/people-hub" class="wf-btn wf-btn-sm wf-btn-secondary" style="white-space:nowrap">
+          <i data-lucide="users" style="width:14px;height:14px"></i> People Hub
+        </a>
+        {% endif %}
+      </div>
+    </header>
+
+    <main class="wf-content" id="appContent">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="mb-4 rounded-lg px-4 py-3 text-[13px] font-medium flex items-center gap-2 {{ 'bg-[#fef2f2] text-[#dc2626] border border-[#fecaca]' if category == 'error' else 'bg-[#ecfdf5] text-[#059669] border border-[#a7f3d0]' if category == 'success' else 'bg-[#ecfeff] text-[#0891b2] border border-[#a5f3fc]' }}" style="animation:wf-fade-up .25s ease both">
+          <i data-lucide="{{ 'alert-circle' if category == 'error' else 'check-circle-2' if category == 'success' else 'info' }}" style="width:16px;height:16px;flex:none"></i>
+          {{ message }}
+        </div>
+        {% endfor %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  {# ============================================================
+     GLOBAL OVERLAYS
+     ============================================================ #}
+  <div id="modalRoot"></div>
+  <div id="toastWrap" class="wf-toast-wrap"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  {% block scripts %}{% endblock %}
+  <script>
+/* ============================================================
+   Wexira — AI Assistant
+   Handles the floating drawer and the full-page assistant.
+   ============================================================ */
+
+(function () {
+  'use strict';
+
+  const apiUrl = '/api/ai';
+
+  function contextInfo() {
+    const path = window.location.pathname;
+    let context = path.replace(/^\//, '').split('/')[0] || 'dashboard';
+    if (path.includes('/kanban')) context = 'kanban board';
+    else if (path.includes('/backlog')) context = 'backlog';
+    else if (path.includes('/issue')) context = 'issue detail';
+    else if (path.includes('/ai-assistant')) context = 'assistant';
+    else if (path.includes('/calendar')) context = 'calendar';
+    else if (path.includes('/reports')) context = 'reports';
+    else if (path.includes('/team')) context = 'team';
+    return context;
+  }
+
+  function makeUserBubble(text, container) {
+    const div = document.createElement('div');
+    div.className = 'wf-chat-bubble wf-chat-user wf-fade-up';
+    div.textContent = text;
+    container.appendChild(div);
+  }
+
+  function makeAiBubble(text, type, container, opts = {}) {
+    const holder = document.createElement('div');
+    holder.className = 'flex flex-col gap-2 wf-fade-up self-start max-w-[78%]';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'wf-chat-bubble wf-chat-ai';
+    bubble.innerHTML = formatAiText(text);
+    holder.appendChild(bubble);
+
+    if (type === 'sprint_summary') {
+      const card = document.createElement('div');
+      card.className = 'bg-white border border-[var(--wf-border)] rounded-lg shadow-sm p-3';
+      const pct = parseInt((opts.pctText || text).match(/(\d+)%/)?.[1] || '0', 10);
+      card.innerHTML = `
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[12px] font-semibold text-[var(--wf-text)]">Sprint progress</span>
+          <span class="text-[12px] font-bold text-[var(--wf-primary)]">${pct}%</span>
+        </div>
+        <div class="wf-progress-track" style="height:8px">
+          <div class="wf-progress-bar" style="width:${pct}%;background:var(--wf-primary)"></div>
+        </div>`;
+      holder.appendChild(card);
+      attachActions(holder, [{ label: 'Sprint summary', q: 'What is the sprint summary?', text: 'What is blocking this sprint?' },
+                             { label: 'View blockers', q: 'What is blocking this sprint?', text: 'What is blocking this sprint?' }]);
+    } else if (type === 'project_summary') {
+      const card = document.createElement('div');
+      card.className = 'bg-white border border-[var(--wf-border)] rounded-lg shadow-sm p-3';
+      const pct = parseInt((opts.pctText || text).match(/(\d+)%/)?.[1] || '68', 10);
+      card.innerHTML = `
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-7 h-7 rounded-lg grid place-items-center text-white text-[10px] font-bold" style="background:var(--wf-primary)">EC</span>
+          <div>
+            <div class="text-[12.5px] font-semibold text-[var(--wf-text)]">E-Commerce Platform</div>
+            <div class="text-[10.5px] text-[var(--wf-text-secondary)]">ECOM · In Progress</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="wf-progress-track" style="height:6px">
+            <div class="wf-progress-bar" style="width:${pct}%;background:var(--wf-primary)"></div>
+          </div>
+          <span class="text-[11.5px] font-bold text-[var(--wf-primary)]">${pct}%</span>
+        </div>`;
+      holder.appendChild(card);
+      attachActions(holder, [{ label: 'Open project', q: '', url: '/project' },
+                             { label: 'Overdue issues', q: 'Which issues are overdue?', text: 'Which issues are overdue?' }]);
+    } else if (type === 'task_list') {
+      attachActions(holder, [{ label: 'Show pending tasks', q: 'Show me my pending tasks', text: 'Show me my pending tasks' },
+                             { label: 'High priority', q: 'Show high-priority bugs', text: 'Show high-priority bugs' }]);
+    } else if (type === 'action') {
+      attachActions(holder, [{ label: 'Create task', q: 'Create a task', text: 'Create a task' },
+                             { label: 'Assign issue', q: 'Assign an issue to someone', text: 'Assign an issue to someone' },
+                             { label: 'Show overdue', q: 'Which issues are overdue?', text: 'Which issues are overdue?' }]);
+    } else {
+      attachActions(holder, [{ label: 'Sprint summary', q: 'What is the progress of Sprint 12?', text: 'What is the progress of Sprint 12?' },
+                             { label: 'Team workload', q: 'Who is overloaded this week?', text: 'Who is overloaded this week?' },
+                             { label: 'Overdue tasks', q: 'Which issues are overdue?', text: 'Which issues are overdue?' }]);
+    }
+
+    container.appendChild(holder);
+    return holder;
+  }
+
+  function attachActions(holder, actions) {
+    const row = document.createElement('div');
+    row.className = 'flex flex-wrap gap-1.5';
+    actions.forEach(a => {
+      const btn = document.createElement('button');
+      btn.className = 'wf-chip hover:bg-[var(--wf-primary-50)] transition-colors cursor-pointer border border-[var(--wf-border)]';
+      btn.textContent = a.label;
+      btn.addEventListener('click', () => {
+        if (a.url) { window.location.href = a.url; return; }
+        const active = document.querySelector('.wf-chat-page-active');
+        if (active) sendQuestion(a.q, getContainerFor(active));
+      });
+      row.appendChild(btn);
+    });
+    holder.appendChild(row);
+  }
+
+  function getContainerFor(activeEl) {
+    return document.getElementById('pageAiMessages');
+  }
+
+  function addTyping(container) {
+    const holder = document.createElement('div');
+    holder.className = 'self-start wf-fade-up';
+    holder.innerHTML = `
+      <div class="wf-chat-bubble wf-chat-ai" style="padding:12px 14px">
+        <span class="wf-typing"><span></span><span></span><span></span></span>
+      </div>`;
+    container.appendChild(holder);
+    holder.scrollIntoView({ block: 'end', behavior: 'smooth' });
+    return holder;
+  }
+
+  function ask(text, container, onDone) {
+    const loading = addTyping(container);
+    fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text, context: contextInfo() }),
+    })
+      .then(r => {
+        if (!r.ok) throw new Error('network');
+        return r.json();
+      })
+      .then(data => {
+        setTimeout(() => {
+          loading.remove();
+          makeAiBubble(data.response, data.type || 'text', container, { pctText: data.response });
+          if (onDone) onDone(data);
+        }, 650);
+      })
+      .catch(() => {
+        loading.remove();
+        const holder = document.createElement('div');
+        holder.className = 'self-start wf-chat-bubble wf-chat-ai wf-fade-up';
+        holder.innerHTML = '<span data-lucide="alert-triangle" style="width:14px;height:14px;color:var(--wf-error);display:inline-block;vertical-align:-2px"></span> <strong style="color:var(--wf-error)">Connection issue</strong> — I could not reach the assistant. Please try again.';
+        container.appendChild(holder);
+        lucide.createIcons();
+        if (onDone) onDone(null);
+      });
+  }
+
+  function sendQuestion(question, container) {
+    const q = (question || '').trim();
+    if (!q) return;
+    makeUserBubble(q, container);
+    ask(q, container);
+    container.scrollIntoView({ block: 'end', behavior: 'smooth' });
+  }
+
+  function autoGrow(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 110) + 'px';
+  }
+
+  /* ------------------------------------------------------------------
+     Full page
+     ------------------------------------------------------------------ */
+  function wirePage() {
+    const sendBtn = document.getElementById('pageAiSend');
+    const inp = document.getElementById('pageAiInput');
+    const messages = document.getElementById('pageAiMessages');
+    const welcome = document.getElementById('pageAiWelcome');
+    const history = document.getElementById('pageAiHistory');
+
+    function sendFromPage() {
+      const q = (inp.value || '').trim();
+      if (!q) return;
+      if (welcome) welcome.classList.add('hidden');
+      if (messages) sendQuestion(q, messages);
+      inp.value = '';
+      autoGrow(inp);
+      const pageEl = document.getElementById('aiChatPage');
+      if (pageEl) pageEl.classList.add('wf-chat-page-active');
+    }
+
+    if (sendBtn) sendBtn.addEventListener('click', sendFromPage);
+    if (inp) {
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendFromPage(); } });
+      inp.addEventListener('input', () => autoGrow(inp));
+    }
+
+    const suggestions = document.getElementById('pageAiSuggestions');
+    if (suggestions) {
+      suggestions.querySelectorAll('[data-q]').forEach(s => {
+        s.addEventListener('click', () => {
+          if (welcome) welcome.classList.add('hidden');
+          if (messages) sendQuestion(s.getAttribute('data-q'), messages);
+        });
+      });
+    }
+
+    const historyItems = history ? history.querySelectorAll('[data-q]') : [];
+    historyItems.forEach(h => {
+      h.addEventListener('click', () => {
+        if (welcome) welcome.classList.add('hidden');
+        if (messages) sendQuestion(h.getAttribute('data-q'), messages);
+      });
+    });
+
+    const newChat = document.getElementById('aiNewChat');
+    if (newChat) newChat.addEventListener('click', () => {
+      if (messages) messages.innerHTML = '';
+      if (welcome) welcome.classList.remove('hidden');
+    });
+  }
+
+  function init() {
+    wirePage();
+    window.Wexira.askAI = ask;
+    window.Wexira.sendQuestion = sendQuestion;
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+  </script>
+  <script>
+/* ============================================================
+   Wexira — Global application logic
+   ============================================================ */
+
+const SIDEBAR_KEY = 'wexira.sidebar.collapsed';
+
+function formatAiText(text) {
+  const esc = String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  return esc
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>');
+}
+
+/* ------------------------------------------------------------------
+   Toasts
+   ------------------------------------------------------------------ */
+window.showToast = function (message, type = 'success', title = '') {
+  const wrap = document.getElementById('toastWrap');
+  const icons = { success: 'check-circle-2', error: 'alert-circle', warning: 'alert-triangle' };
+  const el = document.createElement('div');
+  el.className = `wf-toast ${type}`;
+  el.innerHTML = `
+    <i data-lucide="${icons[type] || icons.success}" style="width:17px;height:17px;color:var(--wf-${type === 'success' ? 'success' : type === 'error' ? 'error' : 'warning'});flex:none;margin-top:1px"></i>
+    <div>
+      ${title ? `<div class="text-[13px] font-semibold text-[var(--wf-text)]">${title}</div>` : ''}
+      <div class="text-[12.5px] text-[var(--wf-text-secondary)]">${message}</div>
+    </div>
+    <button class="ml-auto text-[var(--wf-text-tertiary)] hover:text-[var(--wf-text)]" style="background:none;border:none;cursor:pointer" onclick="this.closest('.wf-toast').remove()">
+      <i data-lucide="x" style="width:14px;height:14px"></i>
+    </button>`;
+  wrap.appendChild(el);
+  lucide.createIcons({ attrs: {}, nodes: [el] });
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 320); }, 4200);
+};
+
+/* ------------------------------------------------------------------
+   Sidebar
+   ------------------------------------------------------------------ */
+const sidebarEl = document.getElementById('appSidebar');
+const mainEl = document.getElementById('appMain');
+
+function setSidebarCollapsed(collapsed) {
+  if (!sidebarEl) return;
+  sidebarEl.classList.toggle('is-collapsed', collapsed);
+  if (mainEl) mainEl.classList.toggle('is-collapsed', collapsed);
+  try { localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0'); } catch (e) {}
+  setTimeout(() => lucide.createIcons(), 240);
+}
+
+(function initSidebar() {
+  let saved = '0';
+  try { saved = localStorage.getItem(SIDEBAR_KEY) || '0'; } catch (e) {}
+  setSidebarCollapsed(saved === '1');
+
+  const btn = document.getElementById('sidebarCollapseBtn');
+  if (btn) btn.addEventListener('click', () => {
+    setSidebarCollapsed(!sidebarEl.classList.contains('is-collapsed'));
+    showToast(btn.classList.contains('is-collapsed') ? 'Sidebar expanded' : 'Sidebar collapsed', 'success');
+  });
+
+  const mobileBtn = document.getElementById('mobileMenuBtn');
+  if (mobileBtn) mobileBtn.addEventListener('click', () => {
+    if (window.innerWidth < 1024) {
+      document.body.classList.toggle('overflow-hidden');
+      if (sidebarEl) sidebarEl.classList.toggle('is-mobile-open');
+    } else {
+      setSidebarCollapsed(!sidebarEl.classList.contains('is-collapsed'));
+    }
+  });
+})();
+
+/* ------------------------------------------------------------------
+   Global search
+   ------------------------------------------------------------------ */
+const searchInput = document.getElementById('globalSearch');
+if (searchInput) {
+  document.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      searchInput.focus();
+    }
+  });
+  searchInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const q = searchInput.value.trim();
+      if (q) {
+        window.location.href = `/issues?q=${encodeURIComponent(q)}`;
+      }
+    }
+  });
+}
+
+/* ------------------------------------------------------------------
+   Create issue modal
+   ------------------------------------------------------------------ */
+function openCreateIssue(project = 'ECOM') {
+  fetch(`/api/issues?project=${project}`)
+    .then(r => r.json())
+    .then(() => {})
+    .catch(() => {});
+
+  const modalRoot = document.getElementById('modalRoot');
+  const closes = [];
+
+  function esc(v) { return escapeHtml(v || ''); }
+
+  modalRoot.innerHTML = `
+    <div class="wf-modal-backdrop" id="ciBackdrop">
+      <div class="wf-modal" style="max-width:720px">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-[var(--wf-border-soft)]">
+          <div>
+            <h2 class="text-[16px] font-bold text-[var(--wf-text)]">Create issue</h2>
+            <p class="text-[12px] text-[var(--wf-text-secondary)]">Track a task, bug, or story for your team</p>
+          </div>
+          <button type="button" class="wf-icon-btn" data-close><i data-lucide="x" style="width:16px;height:16px"></i></button>
+        </div>
+        <div class="px-6 py-5">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+            <div class="wf-field md:col-span-2">
+              <label class="wf-label">Issue Type <span class="req">*</span></label>
+              <select class="wf-select" id="ci-type">
+                <option>Story</option><option>Task</option><option>Bug</option><option>Epic</option>
+              </select>
+            </div>
+            <div class="wf-field md:col-span-2">
+              <label class="wf-label">Summary <span class="req">*</span></label>
+              <input class="wf-input" id="ci-summary" placeholder="What needs to be done?" value="">
+            </div>
+            <div class="wf-field md:col-span-2">
+              <label class="wf-label">Description</label>
+              <textarea class="wf-textarea" id="ci-desc" rows="3" placeholder="Describe the work in detail…"></textarea>
+            </div>
+            <div class="wf-field">
+              <label class="wf-label">Project</label>
+              <select class="wf-select" id="ci-project">
+                <option value="ECOM" selected>E-Commerce Platform (ECOM)</option>
+                <option value="BANK">Mobile Banking App (BANK)</option>
+                <option value="SUPT">Customer Support Portal (SUPT)</option>
+                <option value="AIPL">AI Analytics Platform (AIPL)</option>
+              </select>
+            </div>
+            <div class="wf-field">
+              <label class="wf-label">Priority</label>
+              <select class="wf-select" id="ci-priority">
+                <option>Low</option><option selected>Medium</option><option>High</option><option>Critical</option>
+              </select>
+            </div>
+            <div class="wf-field">
+              <label class="wf-label">Assignee</label>
+              <select class="wf-select" id="ci-assignee">
+                <option value="">Unassigned</option>
+                <option>SC</option><option>MJ</option><option>PS</option>
+                <option>DK</option><option>JW</option><option>OB</option><option>ER</option>
+              </select>
+            </div>
+            <div class="wf-field">
+              <label class="wf-label">Story points</label>
+              <input class="wf-input" id="ci-points" type="number" min="0" max="20" value="3">
+            </div>
+            <div class="wf-field">
+              <label class="wf-label">Sprint</label>
+              <select class="wf-select" id="ci-sprint">
+                <option value="">No sprint</option>
+                <option value="13">Sprint 13</option>
+                <option value="14">Sprint 14</option>
+                <option value="15">Sprint 15</option>
+              </select>
+            </div>
+            <div class="wf-field">
+              <label class="wf-label">Due date</label>
+              <input class="wf-input" id="ci-due" type="date">
+            </div>
+            <div class="wf-field md:col-span-2">
+              <label class="wf-label">Labels</label>
+              <input class="wf-input" id="ci-labels" placeholder="backend, frontend, bug, ui…">
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--wf-border-soft)] bg-[#fafafb]">
+          <button class="wf-btn wf-btn-secondary" data-close>Cancel</button>
+          <button class="wf-btn wf-btn-primary" id="ci-submit"><i data-lucide="plus" style="width:15px;height:15px"></i> Create Issue</button>
+        </div>
+      </div>
+    </div>`;
+
+  lucide.createIcons({ nodes: [modalRoot] });
+
+  modalRoot.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', close));
+  document.getElementById('ciBackdrop').addEventListener('click', e => {
+    if (e.target.id === 'ciBackdrop') close();
+  });
+
+  function close() {
+    modalRoot.innerHTML = '';
+    document.body.style.overflow = '';
+  }
+
+  document.getElementById('ci-submit').addEventListener('click', () => {
+    const summary = document.getElementById('ci-summary').value.trim();
+    if (!summary) {
+      showToast('Please enter a summary for the issue.', 'error');
+      return;
+    }
+    const labels = document.getElementById('ci-labels').value.split(',').map(s => s.trim()).filter(Boolean);
+    fetch('/api/issues', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        issue_type: document.getElementById('ci-type').value,
+        summary,
+        description: document.getElementById('ci-desc').value,
+        project: document.getElementById('ci-project').value,
+        priority: document.getElementById('ci-priority').value,
+        assignee: document.getElementById('ci-assignee').value,
+        points: document.getElementById('ci-points').value,
+        sprint: document.getElementById('ci-sprint').value,
+        due_date: document.getElementById('ci-due').value,
+        labels,
+      }),
+    })
+      .then(r => r.json())
+      .then(issue => {
+        close();
+        showToast(`${issue.key} created successfully.`, 'success', 'Issue created');
+        setTimeout(() => { if (window.location.pathname.startsWith('/kanban') || window.location.pathname.startsWith('/backlog')) location.reload(); }, 500);
+      })
+      .catch(() => showToast('Could not create the issue.', 'error'));
+  });
+}
+
+const createIssueBtn = document.getElementById('createIssueBtn');
+if (createIssueBtn) createIssueBtn.addEventListener('click', () => openCreateIssue());
+
+/* ------------------------------------------------------------------
+   Global helpers
+   ------------------------------------------------------------------ */
+function escapeHtml(v) {
+  return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+document.addEventListener('click', e => {
+  if (e.target.matches('.wf-nav-item') && window.innerWidth < 1024 && document.body.classList.contains('overflow-hidden')) {
+    document.body.classList.remove('overflow-hidden');
+  }
+});
+
+/* ------------------------------------------------------------------
+   Delete user (Pro only) with email confirmation
+   ------------------------------------------------------------------ */
+function deleteUser(userId, userEmail, userName) {
+  const modalRoot = document.getElementById('modalRoot');
+  modalRoot.innerHTML = `
+    <div class="wf-modal-backdrop" id="duBackdrop">
+      <div class="wf-modal" style="max-width:480px">
+        <div class="flex items-start gap-4 px-6 py-5 border-b border-[var(--wf-border-soft)]">
+          <span class="w-10 h-10 rounded-xl grid place-items-center flex-none" style="background:#fef2f2;color:var(--wf-error)"><i data-lucide="trash-2" style="width:18px;height:18px"></i></span>
+          <div class="flex-1">
+            <h2 class="text-[16px] font-bold text-[var(--wf-text)]">Delete ${escapeHtml(userName)}?</h2>
+            <p class="text-[12.5px] text-[var(--wf-text-secondary)] mt-1">This action is permanent and cannot be undone. All of this user's assignments and access will be removed.</p>
+          </div>
+          <button type="button" class="wf-icon-btn" data-close><i data-lucide="x" style="width:16px;height:16px"></i></button>
+        </div>
+        <div class="px-6 py-5">
+          <div class="rounded-lg p-4 mb-4" style="background:#fef2f2;border:1px solid #fecaca">
+            <div class="text-[12.5px] font-semibold text-[var(--wf-error)]"><i data-lucide="alert-triangle" style="width:13px;height:13px;display:inline;vertical-align:-2px"></i> Warning</div>
+            <div class="text-[12px] text-[#b91c1c] mt-1">Deleting this user will remove them from all projects and unassign their issues.</div>
+          </div>
+          <div class="wf-field">
+            <label class="wf-label">Type the user's email to confirm</label>
+            <input class="wf-input" id="du-email" type="text" placeholder="${escapeHtml(userEmail)}" autocomplete="off">
+            <p class="wf-help">Enter <span class="font-semibold">${escapeHtml(userEmail)}</span> to enable deletion.</p>
+          </div>
+        </div>
+        <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--wf-border-soft)] bg-[#fafafb]">
+          <button class="wf-btn wf-btn-secondary" data-close>Cancel</button>
+          <button class="wf-btn" id="du-confirm" disabled style="background:var(--wf-error);border-color:var(--wf-error);color:#fff"><i data-lucide="trash-2" style="width:15px;height:15px"></i> Delete user</button>
+        </div>
+      </div>
+    </div>`;
+
+  lucide.createIcons({ nodes: [modalRoot] });
+
+  function close() {
+    modalRoot.innerHTML = '';
+    document.body.style.overflow = '';
+  }
+  document.getElementById('duBackdrop').addEventListener('click', e => {
+    if (e.target.id === 'duBackdrop') close();
+  });
+  modalRoot.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', close));
+
+  const emailInput = document.getElementById('du-email');
+  const confirmBtn = document.getElementById('du-confirm');
+  const target = userEmail.trim().toLowerCase();
+  const update = () => {
+    confirmBtn.disabled = emailInput.value.trim().toLowerCase() !== target;
+  };
+  emailInput.addEventListener('input', update);
+
+  confirmBtn.addEventListener('click', () => {
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<span class="inline-flex items-center gap-2"><i data-lucide="loader-2" style="width:15px;height:15px" class="animate-spin"></i> Deleting…</span>';
+    lucide.createIcons({ nodes: [confirmBtn] });
+    fetch(`/api/users/${userId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm_email: emailInput.value.trim() }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) {
+          showToast(`${userName} was deleted.`, 'success', 'User removed');
+          close();
+          setTimeout(() => location.reload(), 600);
+        } else {
+          showToast(data.error || 'Could not delete the user.', 'error', 'Delete failed');
+          confirmBtn.disabled = false;
+          confirmBtn.innerHTML = '<i data-lucide="trash-2" style="width:15px;height:15px"></i> Delete user';
+          lucide.createIcons({ nodes: [confirmBtn] });
+        }
+      })
+      .catch(() => {
+        showToast('Could not delete the user.', 'error', 'Delete failed');
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = '<i data-lucide="trash-2" style="width:15px;height:15px"></i> Delete user';
+        lucide.createIcons({ nodes: [confirmBtn] });
+      });
+  });
+}
+
+window.Wexira = { showToast, openCreateIssue, formatAiText, escapeHtml, deleteUser };
+
+setTimeout(() => lucide.createIcons(), 300);
+  </script>
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>

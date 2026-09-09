@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+
+{% block title %}AI Assistant{% endblock %}
+
+{% block content %}
+<div class="wf-fade-up" id="aiChatPage" style="height:calc(100vh - 56px - 96px);min-height:560px">
+  <div class="grid grid-cols-1 lg:grid-cols-4 h-full gap-4">
+    {# ---------------- CHAT HISTORY ---------------- #}
+    <div class="wf-card hidden lg:flex flex-col">
+      <div class="wf-card-header">
+        <h2 class="text-[14px] font-bold text-[var(--wf-text)]">Conversations</h2>
+        <button class="wf-icon-btn" title="New chat" id="aiNewChat"><i data-lucide="plus" style="width:14px;height:14px"></i></button>
+      </div>
+      <div class="p-3 flex-1 overflow-y-auto" id="pageAiHistory">
+        <div class="text-[11px] font-bold uppercase tracking-wide text-[var(--wf-text-tertiary)] px-2 py-2">Today</div>
+        <button class="wf-menu-item" data-q="What's the status of the E-Commerce project?"><i data-lucide="message-square" style="width:14px;height:14px;color:var(--wf-primary)"></i>E-Commerce project status</button>
+        <button class="wf-menu-item" data-q="What is the progress of Sprint 12?"><i data-lucide="message-square" style="width:14px;height:14px;color:var(--wf-primary)"></i>Sprint 12 progress</button>
+        <div class="text-[11px] font-bold uppercase tracking-wide text-[var(--wf-text-tertiary)] px-2 py-2 mt-3">Yesterday</div>
+        <button class="wf-menu-item" data-q="Which issues are overdue?"><i data-lucide="message-square" style="width:14px;height:14px;color:var(--wf-primary)"></i>Overdue issues review</button>
+        <button class="wf-menu-item" data-q="Who is overloaded this week?"><i data-lucide="message-square" style="width:14px;height:14px;color:var(--wf-primary)"></i>Team workload analysis</button>
+        <button class="wf-menu-item" data-q="Show high-priority bugs"><i data-lucide="message-square" style="width:14px;height:14px;color:var(--wf-primary)"></i>High-priority bugs</button>
+        <div class="text-[11px] font-bold uppercase tracking-wide text-[var(--wf-text-tertiary)] px-2 py-2 mt-3">Last week</div>
+        <button class="wf-menu-item" data-q="Summarize the E-Commerce project"><i data-lucide="message-square" style="width:14px;height:14px;color:var(--wf-primary)"></i>Project summary</button>
+        <button class="wf-menu-item" data-q="Create a task for the frontend team"><i data-lucide="message-square" style="width:14px;height:14px;color:var(--wf-primary)"></i>Create frontend task</button>
+        <button class="wf-menu-item" data-q="What should the team prioritize?"><i data-lucide="message-square" style="width:14px;height:14px;color:var(--wf-primary)"></i>Priorities for the week</button>
+      </div>
+    </div>
+
+    {# ---------------- CHAT AREA ---------------- #}
+    <div class="wf-card lg:col-span-3 flex flex-col h-full min-h-0">
+      <div class="flex items-center gap-3 px-5 py-3.5 border-b border-[var(--wf-border-soft)]">
+        <div class="w-10 h-10 rounded-xl grid place-items-center text-white" style="background:linear-gradient(135deg,#4f46e5,#7c3aed)">
+          <i data-lucide="sparkles" style="width:20px;height:20px"></i>
+        </div>
+        <div>
+          <div class="text-[15px] font-bold text-[var(--wf-text)]">Wexira AI</div>
+          <div class="flex items-center gap-1.5 text-[11.5px] text-[var(--wf-success)]">
+            <span class="w-2 h-2 rounded-full bg-[var(--wf-success)]"></span> Online
+          </div>
+        </div>
+        <div class="px-3 py-1.5 rounded-full bg-[var(--wf-bg)] border border-[var(--wf-border)] ml-2 hidden md:block">
+          <span class="text-[11.5px] text-[var(--wf-text-secondary)]"><i data-lucide="layers" style="width:12px;height:12px;display:inline;vertical-align:-2px"></i> Context: E-Commerce Platform</span>
+        </div>
+        <div class="ml-auto flex items-center gap-2">
+          <button class="wf-btn wf-btn-sm wf-btn-secondary" onclick="Wexira.showToast('Voice input not available in this demo.','info')"><i data-lucide="mic" style="width:13px;height:13px"></i></button>
+          <button class="wf-btn wf-btn-sm wf-btn-secondary" onclick="Wexira.showToast('Conversation saved.','success')"><i data-lucide="download" style="width:13px;height:13px"></i></button>
+        </div>
+      </div>
+
+      {# ---------------- MESSAGES ---------------- #}
+      <div class="flex-1 overflow-y-auto px-5 py-5 bg-[var(--wf-bg)]" id="pageAiMessages"></div>
+
+      {# ---------------- WELCOME ---------------- #}
+      <div id="pageAiWelcome" class="px-6 pb-2">
+        <div class="text-center">
+          <div class="w-20 h-20 mx-auto rounded-3xl grid place-items-center text-white mb-4" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);box-shadow:0 12px 30px rgba(79,70,229,.35)">
+            <i data-lucide="sparkles" style="width:38px;height:38px"></i>
+          </div>
+          <h2 class="text-[20px] font-bold text-[var(--wf-text)]">How can I help you today?</h2>
+          <p class="text-[13px] text-[var(--wf-text-secondary)] mt-1.5">Ask me about your projects, tasks, issues, sprints, and team workload.</p>
+        </div>
+        <div id="pageAiSuggestions" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 mt-6 max-w-4xl mx-auto">
+          {% set suggestions = [
+            ('Show me my pending tasks','ClipboardList','Show me my pending tasks'),
+            ("What's the progress of Sprint 12?",'ChartLine','What is the progress of Sprint 12?'),
+            ('Which issues are overdue?','Clock','Which issues are overdue?'),
+            ('Summarize the E-Commerce project','FolderKanban','Summarize the E-Commerce project'),
+            ('Who is overloaded this week?','Users','Who is overloaded this week?'),
+            ('What should the team prioritize?','Target','What should the team prioritize?'),
+            ('Show high-priority bugs','Bug','Show high-priority bugs'),
+            ('Create a task for the frontend team','Wand2','Create a task for the frontend team'),
+          ] %}
+          {% for label, icon, q in suggestions %}
+          <button class="group text-left p-3 rounded-xl border border-[var(--wf-border)] bg-white hover:border-[var(--wf-primary)] hover:shadow-md transition-all cursor-pointer" data-q="{{ q }}">
+            <span class="w-7 h-7 rounded-lg grid place-items-center mb-2" style="background:#eef2ff;color:var(--wf-primary)"><i data-lucide="{{ icon }}" style="width:14px;height:14px"></i></span>
+            <span class="text-[12px] font-medium text-[var(--wf-text-secondary)] group-hover:text-[var(--wf-text)] leading-snug">{{ label }}</span>
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+
+      {# ---------------- QUICK ACTIONS + INPUT ---------------- #}
+      <div class="px-5 py-3 border-t border-[var(--wf-border-soft)] bg-white">
+        <div class="flex flex-wrap gap-1.5 mb-2.5">
+          {% set quick = [('Create Task','plus'),('Assign Issue','user-plus'),('Summarize Project','folder-kanban'),('Overdue Tasks','clock'),('Sprint Summary','timer')] %}
+          {% for label, icon in quick %}
+          <button class="wf-chip wf-btn-xs cursor-pointer hover:bg-[var(--wf-primary-50)] border border-[var(--wf-border)]" data-q="{{ label + ': ' ~ ('create' if loop.first else 'ECOM') }}">
+            <i data-lucide="{{ icon }}" style="width:12px;height:12px"></i>{{ label }}
+          </button>
+          {% endfor %}
+        </div>
+        <div class="flex items-end gap-2">
+          <button class="wf-icon-btn flex-none" title="Attach" onclick="Wexira.showToast('Attachment added to message.','success')"><i data-lucide="paperclip" style="width:16px;height:16px"></i></button>
+          <div class="flex-1 rounded-xl border border-[var(--wf-border)] bg-[var(--wf-bg)] px-4 py-2.5 focus-within:border-[var(--wf-primary)] focus-within:shadow-[0_0_0_3px_rgba(79,70,229,.15)] transition-shadow">
+            <textarea id="pageAiInput" rows="1" class="w-full resize-none bg-transparent outline-none text-[13.5px] text-[var(--wf-text)]" placeholder="Ask Wexira AI anything…"></textarea>
+          </div>
+          <button id="pageAiSend" type="button" class="wf-fab" style="position:static;width:42px;height:42px;flex:none" title="Send">
+            <i data-lucide="send-horizontal" style="width:18px;height:18px"></i>
+          </button>
+        </div>
+        <p class="text-[11px] text-[var(--wf-text-tertiary)] mt-2 text-center">Wexira AI may get some things wrong. Verify important answers with your team.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

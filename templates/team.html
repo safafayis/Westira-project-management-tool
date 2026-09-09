@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+
+{% block title %}Team{% endblock %}
+
+{% block content %}
+<div class="wf-fade-up">
+  <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+    <div>
+      <h1 class="text-[22px] font-bold text-[var(--wf-text)]">Team</h1>
+      <p class="text-[13.5px] text-[var(--wf-text-secondary)] mt-1">People, roles, and workload across your organization.</p>
+    </div>
+    <button class="wf-btn wf-btn-primary wf-btn-sm"><i data-lucide="user-plus" style="width:14px;height:14px"></i> Invite Member</button>
+  </div>
+
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    {% set team_kpis = [
+      (users|length, 'Total Members', 'users', '#4f46e5', '#eef2ff', '+2'),
+      (users|selectattr('status','equalto','Active')|list|length, 'Active Members', 'user-check', '#059669', '#ecfdf5', '+1'),
+      (users|map(attribute='team')|list|unique|list|length, 'Teams', 'building-2', '#0891b2', '#ecfeff', ''),
+      ((users|map(attribute='capacity')|sum / (users|length or 1))|round|int, 'Avg Capacity', 'gauge', '#7c3aed', '#f5f3ff', ''),
+    ] %}
+    {% for value, label, icon, color, bg, trend in team_kpis %}
+    <div class="wf-card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <span class="wf-kpi-icon" style="width:38px;height:38px;background:{{ bg }};color:{{ color }}"><i data-lucide="{{ icon }}" style="width:18px;height:18px"></i></span>
+        {% if trend %}<span class="wf-chip" style="background:#ecfdf5;color:#059669">{{ trend }}</span>{% endif %}
+      </div>
+      <div class="text-[24px] font-bold text-[var(--wf-text)] leading-none">{{ value }}</div>
+      <div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">{{ label }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="wf-card">
+    <div class="p-4 flex flex-wrap items-center gap-3 border-b border-[var(--wf-border-soft)]">
+      <div class="wf-search" style="max-width:320px;flex:1;min-width:180px">
+        <i data-lucide="search" style="width:15px;height:15px"></i>
+        <input type="text" id="teamSearch" placeholder="Search team members…">
+      </div>
+      <button class="wf-btn wf-btn-sm wf-btn-secondary"><i data-lucide="filter" style="width:13px;height:13px"></i> Role</button>
+      <button class="wf-btn wf-btn-sm wf-btn-secondary"><i data-lucide="filter" style="width:13px;height:13px"></i> Team</button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="wf-table">
+        <thead><tr><th>Member</th><th>Role</th><th>Team</th><th>Projects</th><th>Tasks</th><th>Capacity</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for u in users %}
+          <tr class="cursor-pointer hover:bg-[#fafafb]">
+            <td>
+              <div class="flex items-center gap-3 min-w-[170px]">
+                <span class="wf-avatar" style="background:{{ u.color }}">{{ u.initials }}</span>
+                <div>
+                  <div class="font-semibold text-[var(--wf-text)] text-[13.5px]">{{ u.name }}</div>
+                  <div class="text-[11.5px] text-[var(--wf-text-tertiary)]">{{ u.email }}</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="wf-badge {{ 'wf-badge-soft-purple' if 'Manager' in u.role else 'wf-badge-soft-blue' if 'Developer' in u.role else 'wf-badge-soft-green' if u.role.startswith('UI') else 'wf-badge-soft-amber' if u.role.startswith('QA') else 'wf-badge-soft-cyan' if 'DevOps' in u.role else 'wf-badge-soft-gray' }}">
+                {{ u.role }}
+              </span>
+            </td>
+            <td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">{{ u.team }}</span></td>
+            <td><span class="text-[12.5px] font-semibold text-[var(--wf-text)]">{{ u.active_projects }}</span></td>
+            <td><span class="text-[12.5px] font-semibold {{ 'text-[var(--wf-error)]' if u.current_tasks > 12 else 'text-[var(--wf-text)]' }}">{{ u.current_tasks }}</span></td>
+            <td>
+              <div class="flex items-center gap-2 min-w-[130px]">
+                <div class="wf-progress-track" style="height:7px">
+                  <div class="wf-progress-bar" style="width:{{ u.capacity }}%;background:{{ '#dc2626' if u.capacity > 90 else '#d97706' if u.capacity > 75 else '#059669' }}"></div>
+                </div>
+                <span class="text-[12px] font-semibold {{ 'text-[var(--wf-error)]' if u.capacity > 90 else 'text-[var(--wf-warning)]' if u.capacity > 75 else 'text-[var(--wf-success)]' }}">{{ u.capacity }}%</span>
+              </div>
+              {% if u.capacity > 90 %}<div class="text-[10.5px] text-[var(--wf-error)] mt-0.5 ml-1"><i data-lucide="alert-triangle" style="width:10px;height:10px;display:inline;vertical-align:-1px"></i> At capacity</div>{% endif %}
+            </td>
+            <td><span class="wf-status {{ 'wf-status-done' if u.status == 'Active' else 'wf-status-blocked' }}"><span class="dot"></span>{{ u.status }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+    <div class="wf-card lg:col-span-2">
+      <div class="wf-card-header"><h2 class="text-[15px] font-bold text-[var(--wf-text)]">Team by Role</h2></div>
+      <div class="p-5">
+        {% set roles = {} %}
+        {% for u in users %}{% set _ = roles.update({u.role: roles.get(u.role, []) + [u]}) %}{% endfor %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {% for role, members in roles.items() %}
+          <div class="rounded-lg border border-[var(--wf-border)] p-3.5">
+            <div class="flex items-center justify-between mb-2.5">
+              <span class="text-[12.5px] font-semibold text-[var(--wf-text)]">{{ role }}</span>
+              <span class="wf-badge wf-badge-soft-gray">{{ members|length }}</span>
+            </div>
+            <div class="wf-avatar-group">
+              {% for m in members %}
+              <span class="wf-avatar" style="background:{{ m.color }}" title="{{ m.name }}">{{ m.initials }}</span>
+              {% endfor %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <div class="wf-card">
+      <div class="wf-card-header"><h2 class="text-[15px] font-bold text-[var(--wf-text)]">Workload Summary</h2></div>
+      <div class="p-5 flex flex-col gap-3">
+        {% for u in users[:5] %}
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[12.5px] font-medium text-[var(--wf-text-secondary)]">{{ u.initials }} · {{ u.name.split()[-1] }}</span>
+            <span class="text-[12px] font-bold text-[var(--wf-text)]">{{ u.current_tasks }} tasks</span>
+          </div>
+          <div class="wf-progress-track"><div class="wf-progress-bar" style="width:{{ u.capacity }}%;background:{{ '#dc2626' if u.capacity > 90 else '#d97706' if u.capacity > 75 else '#4f46e5' }}"></div></div>
+        </div>
+        {% endfor %}
+        <div class="mt-2 pt-3 border-t border-[var(--wf-border-soft)]">
+          <div class="wf-chip"><i data-lucide="alert-triangle" style="width:12px;height:12px;color:var(--wf-warning)"></i> David Kim is at 95% capacity</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.getElementById('teamSearch').addEventListener('input', e => {
+    const q = e.target.value.trim().toLowerCase();
+    document.querySelectorAll('#teamTable tbody tr').forEach(() => {});
+    document.querySelectorAll('table tbody tr').forEach(r => {
+      r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+</script>
+{% endblock %}

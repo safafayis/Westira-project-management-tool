@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="wf-fade-up">
+  <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+    <div>
+      <h1 class="text-[22px] font-bold text-[var(--wf-text)]">Good morning, {{ current_user.name.split()[0] }} !</h1>
+      <p class="text-[13.5px] text-[var(--wf-text-secondary)] mt-1">Here's what's assigned to you.</p>
+    </div>
+    <a href="/my-work" class="wf-btn wf-btn-primary wf-btn-sm">
+      <i data-lucide="briefcase-business" style="width:14px;height:14px"></i> My Work
+    </a>
+  </div>
+
+  {# ---------------- PERSONAL KPI CARDS ---------------- #}
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="wf-card wf-kpi wf-fade-up p-5">
+      <div class="flex items-start justify-between mb-4">
+        <div class="wf-kpi-icon" style="background:#eef2ff;color:#4f46e5"><i data-lucide="list-todo" style="width:20px;height:20px"></i></div>
+        <span class="wf-chip" style="background:#ecfdf5;color:#059669">assigned</span>
+      </div>
+      <div class="text-[26px] font-bold text-[var(--wf-text)] leading-none">{{ my_tasks|length }}</div>
+      <div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">My Tasks</div>
+    </div>
+    <div class="wf-card wf-kpi wf-fade-up p-5">
+      <div class="flex items-start justify-between mb-4">
+        <div class="wf-kpi-icon" style="background:#ecfeff;color:#0891b2"><i data-lucide="loader" style="width:20px;height:20px"></i></div>
+      </div>
+      <div class="text-[26px] font-bold text-[var(--wf-text)] leading-none">{{ my_tasks|selectattr('status','equalto','in_progress')|list|length }}</div>
+      <div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">In Progress</div>
+    </div>
+    <div class="wf-card wf-kpi wf-fade-up p-5">
+      <div class="flex items-start justify-between mb-4">
+        <div class="wf-kpi-icon" style="background:#fffbeb;color:#d97706"><i data-lucide="clock" style="width:20px;height:20px"></i></div>
+      </div>
+      <div class="text-[26px] font-bold text-[var(--wf-text)] leading-none">{{ current_user.current_tasks }}</div>
+      <div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">Active Tasks</div>
+    </div>
+    <div class="wf-card wf-kpi wf-fade-up p-5">
+      <div class="flex items-start justify-between mb-4">
+        <div class="wf-kpi-icon" style="background:#f5f3ff;color:#7c3aed"><i data-lucide="gauge" style="width:20px;height:20px"></i></div>
+      </div>
+      <div class="text-[26px] font-bold text-[var(--wf-text)] leading-none">{{ current_user.capacity }}<span class="text-[var(--wf-text-tertiary)] text-[16px] font-semibold">%</span></div>
+      <div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">My Capacity</div>
+    </div>
+  </div>
+
+  {# ---------------- MY WORK + CURRENT SPRINT ---------------- #}
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div class="wf-card lg:col-span-2">
+      <div class="wf-card-header">
+        <div>
+          <h2 class="text-[15px] font-bold text-[var(--wf-text)]">My Work</h2>
+          <p class="text-[12px] text-[var(--wf-text-secondary)]">Tasks assigned to you</p>
+        </div>
+        <a href="/my-work" class="text-[12.5px] font-semibold text-[var(--wf-primary)] hover:underline">Open <i data-lucide="arrow-up-right" style="width:13px;height:13px;display:inline;vertical-align:-2px"></i></a>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="wf-table">
+          <thead><tr><th>Issue</th><th>Project</th><th>Priority</th><th>Status</th><th>Due</th></tr></thead>
+          <tbody>
+            {% for task in my_tasks %}
+            <tr class="cursor-pointer" onclick="location='/issue/{{ task.id }}'">
+              <td>
+                <div class="flex items-center gap-2.5">
+                  <span class="text-[11.5px] font-bold text-[var(--wf-text-tertiary)]">{{ task.project.key }}-{{ task.number }}</span>
+                  <span class="font-medium text-[var(--wf-text)]">{{ task.title }}</span>
+                </div>
+              </td>
+              <td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">{{ task.project.name[:14] }}{{ '…' if task.project.name|length > 14 }}</span></td>
+              <td><span class="wf-prio-{{ task.priority|lower }} wf-badge" style="padding:2px 8px">{{ task.priority }}</span></td>
+              <td>
+                {% if task.status == 'in_progress' %}<span class="wf-status wf-status-progress"><span class="dot"></span>In Progress</span>
+                {% elif task.status == 'in_review' %}<span class="wf-status wf-status-review"><span class="dot"></span>In Review</span>
+                {% elif task.status == 'done' %}<span class="wf-status wf-status-done"><span class="dot"></span>Done</span>
+                {% else %}<span class="wf-status wf-status-todo"><span class="dot"></span>To Do</span>{% endif %}
+              </td>
+              <td><span class="text-[12.5px] {{ 'text-[var(--wf-error)] font-semibold' if task.due_date == 'Sep 07' else 'text-[var(--wf-text-secondary)]' }}">{{ task.due_date }}</span></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5"><div class="text-center py-10 text-[var(--wf-text-tertiary)]"><i data-lucide="inbox" style="width:28px;height:28px;margin:0 auto 8px"></i><div>No tasks assigned to you right now.</div></div></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="wf-card">
+      <div class="wf-card-header">
+        <div>
+          <h2 class="text-[15px] font-bold text-[var(--wf-text)]">Current Sprint</h2>
+          <p class="text-[12px] text-[var(--wf-text-secondary)]">Sprint 12 · Complete checkout flow</p>
+        </div>
+        <span class="wf-badge wf-badge-soft-green">Active</span>
+      </div>
+      <div class="p-5">
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <div class="text-[20px] font-bold text-[var(--wf-text)]">
+              {% set sp = active_sprint %} {{ (sp.story_points_done if sp else 46) }}<span class="text-[var(--wf-text-tertiary)] text-[14px] font-semibold"> / {{ (sp.story_points_total if sp else 64) }} pts</span>
+            </div>
+            <div class="text-[12px] text-[var(--wf-text-secondary)]">Story points completed</div>
+          </div>
+          {% set sp_pct_raw = ((sp.story_points_done / (sp.story_points_total or 1)) * 100) if sp else 72 %}
+          {% set sp_pct_show = (sp_pct_raw | round) | int %}
+          {% set sp_pct_show = [sp_pct_show, 100] | min %}
+          {% set sp_pct_show = [sp_pct_show, 0] | max %}
+          <div class="w-14 h-14 rounded-full grid place-items-center text-white text-[14px] font-bold" style="background:conic-gradient(var(--wf-primary) {{ sp_pct_show }}%,#eef0f3 0)">
+            <div class="w-11 h-11 rounded-full bg-white grid place-items-center text-[var(--wf-primary)]">{{ sp_pct_show }}%</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5 mt-5">
+          <div class="rounded-lg p-3" style="background:#eef2ff">
+            <div class="text-[20px] font-bold text-[#4f46e5]">{{ sp.to_do if sp else 18 }}</div>
+            <div class="text-[11.5px] font-medium text-[#4338ca]">To Do</div>
+          </div>
+          <div class="rounded-lg p-3" style="background:#ecfeff">
+            <div class="text-[20px] font-bold text-[#0891b2]">{{ sp.in_progress if sp else 12 }}</div>
+            <div class="text-[11.5px] font-medium text-[#0e7490]">In Progress</div>
+          </div>
+          <div class="rounded-lg p-3" style="background:#f5f3ff">
+            <div class="text-[20px] font-bold text-[#7c3aed]">{{ sp.in_review if sp else 7 }}</div>
+            <div class="text-[11.5px] font-medium text-[#6d28d9]">In Review</div>
+          </div>
+          <div class="rounded-lg p-3" style="background:#ecfdf5">
+            <div class="text-[20px] font-bold text-[#059669]">{{ sp.done if sp else 42 }}</div>
+            <div class="text-[11.5px] font-medium text-[#047857]">Done</div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between mt-5 pt-4 border-t border-[var(--wf-border-soft)]">
+          <span class="text-[11.5px] text-[var(--wf-text-tertiary)]">Sprint ends Sep 14</span>
+          <a href="/kanban" class="wf-btn wf-btn-primary wf-btn-sm"><i data-lucide="columns-3" style="width:13px;height:13px"></i> Open board</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

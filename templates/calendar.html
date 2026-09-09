@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+
+{% block title %}Calendar{% endblock %}
+
+{% block content %}
+<div class="wf-fade-up">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+    <div>
+      <h1 class="text-[22px] font-bold text-[var(--wf-text)]">Calendar</h1>
+      <p class="text-[13.5px] text-[var(--wf-text-secondary)] mt-1">Deadlines, sprints, and milestones at a glance.</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <div class="flex rounded-lg border border-[var(--wf-border)] overflow-hidden bg-white">
+        <button class="px-3 py-1.5 text-[12px] font-semibold text-[var(--wf-text-secondary)] hover:bg-[#f3f4f6] transition-colors cursor-pointer bg-none" data-view="day">Day</button>
+        <button class="px-3 py-1.5 text-[12px] font-semibold text-[var(--wf-text-secondary)] hover:bg-[#f3f4f6] transition-colors cursor-pointer bg-none" data-view="week">Week</button>
+        <button class="px-3 py-1.5 text-[12px] font-bold text-white transition-colors cursor-pointer bg-none" data-view="month" style="background:var(--wf-primary)">Month</button>
+      </div>
+      <button class="wf-icon-btn" title="Today"><i data-lucide="corner-left-up" style="width:16px;height:16px"></i></button>
+    </div>
+  </div>
+
+  <div class="wf-card">
+    <div class="flex items-center justify-between px-5 py-3.5 border-b border-[var(--wf-border-soft)]">
+      <div class="flex items-center gap-3">
+        <button class="wf-icon-btn"><i data-lucide="chevron-left" style="width:16px;height:16px"></i></button>
+        <h2 class="text-[16px] font-bold text-[var(--wf-text)]">September 2026</h2>
+        <button class="wf-icon-btn"><i data-lucide="chevron-right" style="width:16px;height:16px"></i></button>
+      </div>
+      <div class="flex items-center gap-3 text-[11.5px]">
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:var(--wf-primary)"></span> Deadlines</span>
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:var(--wf-success)"></span> Sprints</span>
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:var(--wf-warning)"></span> Milestones</span>
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:var(--wf-purple)"></span> Releases</span>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <div class="min-w-[840px]">
+        <div class="grid grid-cols-7 border-b border-[var(--wf-border-soft)]">
+          {% for d in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}
+          <div class="px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-[var(--wf-text-secondary)] text-center border-r border-[var(--wf-border-soft)] last:border-r-0">{{ d }}</div>
+          {% endfor %}
+        </div>
+        <div class="grid grid-cols-7" id="calGrid">
+          {% set days = [
+            (31,'prev'),(1,'cur'),(2,'cur'),(3,'cur'),(4,'cur'),(5,'cur'),(6,'cur'),
+            (7,'cur'),(8,'cur'),(9,'cur'),(10,'cur'),(11,'cur'),(12,'cur'),(13,'cur'),
+            (14,'cur'),(15,'cur'),(16,'cur'),(17,'cur'),(18,'cur'),(19,'cur'),(20,'cur'),
+            (21,'cur'),(22,'cur'),(23,'cur'),(24,'cur'),(25,'cur'),(26,'cur'),(27,'cur'),
+            (28,'cur'),(29,'cur'),(30,'cur'),(1,'next'),(2,'next'),(3,'next'),(4,'next'),
+          ] %}
+          {% for day, kind in days %}
+          <div class="min-h-[110px] border-r border-b border-[var(--wf-border-soft)] last:border-r-0 p-1.5 hover:bg-[#fafafb] transition-colors" data-day="{{ day }}">
+            <div class="text-center text-[12px] font-semibold {{ 'text-[var(--wf-text-tertiary)]' if kind != 'cur' else '' }} {{ 'text-white' if day == 7 and kind == 'cur' }} mb-1.5 {{ 'rounded-full w-6 h-6 grid place-items-center mx-auto' if day == 7 and kind == 'cur' }}" style="{{ 'background:var(--wf-primary)' if day == 7 and kind == 'cur' else '' }}">{{ day }}</div>
+            {% if day == 1 and kind == 'cur' %}
+            <div class="rounded-md px-2 py-1 mb-1 text-[11px] font-semibold text-white cursor-pointer truncate" style="background:var(--wf-success)">Sprint 12 starts</div>
+            {% endif %}
+            {% if day in [7,8] and kind == 'cur' %}
+            <div class="rounded-md px-2 py-1 mb-1 text-[11px] font-semibold text-white cursor-pointer truncate" style="background:var(--wf-primary)">ECOM-148 due</div>
+            {% endif %}
+            {% if day == 8 and kind == 'cur' %}
+            <div class="rounded-md px-2 py-1 mb-1 text-[11px] font-semibold text-white cursor-pointer truncate" style="background:var(--wf-primary)">ECOM-142 · Checkout API</div>
+            {% endif %}
+            {% if day == 12 and kind == 'cur' %}
+            <div class="rounded-md px-2 py-1 mb-1 text-[11px] font-semibold text-white cursor-pointer truncate" style="background:var(--wf-warning)">Milestone: Alpha</div>
+            {% endif %}
+            {% if day == 14 and kind == 'cur' %}
+            <div class="rounded-md px-2 py-1 mb-1 text-[11px] font-semibold text-white cursor-pointer truncate" style="background:var(--wf-success)">Sprint 12 ends</div>
+            {% endif %}
+            {% if day == 18 and kind == 'cur' %}
+            <div class="rounded-md px-2 py-1 mb-1 text-[11px] font-semibold text-white cursor-pointer truncate" style="background:var(--wf-purple)">Release 1.4.2</div>
+            {% endif %}
+            {% if day == 15 and kind == 'cur' %}
+            <div class="rounded-md px-2 py-1 mb-1 text-[11px] font-semibold text-white cursor-pointer truncate" style="background:var(--wf-success)">Sprint 13 starts</div>
+            {% endif %}
+            {% if day == 25 and kind == 'cur' %}
+            <div class="rounded-md px-2 py-1 mb-1 text-[11px] font-semibold text-white cursor-pointer truncate" style="background:var(--wf-primary)">BANK-032 · OAuth</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+    <div class="wf-card">
+      <div class="wf-card-header"><h2 class="text-[14px] font-bold text-[var(--wf-text)]">Today</h2><span class="wf-badge wf-badge-soft-blue">Sep 07</span></div>
+      <div class="p-4 flex flex-col gap-2">
+        <div class="flex items-center gap-2.5 rounded-lg border border-[var(--wf-border)] p-2.5">
+          <span class="w-1.5 h-8 rounded-full" style="background:var(--wf-error)"></span>
+          <div><div class="text-[12.5px] font-semibold text-[var(--wf-text)]">ECOM-148 · Payment validation</div><div class="text-[11px] text-[var(--wf-text-tertiary)]">Due today · David Kim</div></div>
+        </div>
+        <div class="flex items-center gap-2.5 rounded-lg border border-[var(--wf-border)] p-2.5">
+          <span class="w-1.5 h-8 rounded-full" style="background:var(--wf-success)"></span>
+          <div><div class="text-[12.5px] font-semibold text-[var(--wf-text)]">Sprint Planning · 10:00</div><div class="text-[11px] text-[var(--wf-text-tertiary)]">P0 · Alex Morgan</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="wf-card md:col-span-2">
+      <div class="wf-card-header"><h2 class="text-[14px] font-bold text-[var(--wf-text)]">This Week</h2></div>
+      <div class="p-4">
+        <div class="flex flex-col gap-2">
+          {% for _, t, who, d in [
+            ('#dc2626','ECOM-148 · Payment validation error','David Kim','Sep 07'),
+            ('#d97706','ECOM-142 · Implement checkout API','Sarah Chen','Sep 08'),
+            ('#d97706','ECOM-143 · Design payment confirmation','Priya Sharma','Sep 09'),
+            ('#0891b2','ECOM-145 · Add order tracking','Olivia Brown','Sep 11'),
+            ('#7c3aed','BANK-032 · OAuth token refresh','Marcus Johnson','Sep 12'),
+          ] %}
+          <div class="flex items-center gap-3 py-2 px-2.5 rounded-lg hover:bg-[#fafafb]">
+            <span class="w-1.5 h-7 rounded-full flex-none" style="background:{{ t and _ }}"></span>
+            <div class="w-3 flex-none text-center text-[10px] font-bold text-white rounded px-1" style="background:{{ _ }}">{{ d.split()[-1] }}</div>
+            <span class="text-[12.5px] font-medium text-[var(--wf-text)] flex-1 truncate">{{ t }}</span>
+            <span class="text-[11.5px] text-[var(--wf-text-tertiary)] hidden sm:block">{{ who }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

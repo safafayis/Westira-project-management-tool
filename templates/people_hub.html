@@ -1,0 +1,576 @@
+{% extends 'base.html' %}
+{% block title %}People Hub{% endblock %}
+
+{% block content %}
+<div class="wf-fade-up">
+  <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+    <div>
+      <h1 class="text-[22px] font-bold text-[var(--wf-text)]">People Hub</h1>
+      <p class="text-[13.5px] text-[var(--wf-text-secondary)] mt-1">Full directory of everyone in the organization — roles, plans, and contact details.</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <button class="wf-btn wf-btn-primary wf-btn-sm" onclick="PH.openAddUser()">
+        <i data-lucide="user-plus" style="width:14px;height:14px"></i> Add User
+      </button>
+      <button class="wf-btn wf-btn-secondary wf-btn-sm" onclick="PH.refresh()">
+        <i data-lucide="refresh-cw" style="width:14px;height:14px"></i> Refresh
+      </button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="phSummary"></div>
+
+  <div class="wf-card">
+    <div class="p-4 flex flex-wrap items-center gap-3 border-b border-[var(--wf-border-soft)]">
+      <div class="wf-search" style="max-width:320px;flex:1;min-width:180px">
+        <i data-lucide="search" style="width:15px;height:15px"></i>
+        <input type="text" id="phSearch" placeholder="Search by name, email, team, or role…" oninput="PH.applyFilters()">
+      </div>
+      <select class="wf-select" id="phFilterPlan" style="width:auto;min-width:120px;padding:6px 10px;font-size:12.5px" onchange="PH.applyFilters()">
+        <option value="">All Plans</option>
+        <option value="pro">Pro</option>
+        <option value="plus">Plus</option>
+        <option value="lite">Lite</option>
+      </select>
+      <select class="wf-select" id="phFilterRole" style="width:auto;min-width:140px;padding:6px 10px;font-size:12.5px" onchange="PH.applyFilters()">
+        <option value="">All Roles</option>
+        <option value="Project Manager">Project Manager</option>
+        <option value="Product Manager">Product Manager</option>
+        <option value="Frontend Developer">Frontend Developer</option>
+        <option value="Backend Developer">Backend Developer</option>
+        <option value="UI/UX Designer">UI/UX Designer</option>
+        <option value="QA Engineer">QA Engineer</option>
+        <option value="DevOps Engineer">DevOps Engineer</option>
+      </select>
+      <select class="wf-select" id="phFilterStatus" style="width:auto;min-width:120px;padding:6px 10px;font-size:12.5px" onchange="PH.applyFilters()">
+        <option value="">All Status</option>
+        <option value="online">Online</option>
+        <option value="offline">Offline</option>
+      </select>
+      <select class="wf-select" id="phFilterTeam" style="width:auto;min-width:130px;padding:6px 10px;font-size:12.5px" onchange="PH.applyFilters()">
+        <option value="">All Teams</option>
+      </select>
+      <span class="wf-chip hidden sm:inline-flex"><i data-lucide="shield-check" style="width:12px;height:12px"></i> Pro only</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="wf-table">
+        <thead><tr>
+          <th>Member</th><th>Role</th><th>Plan</th><th>Team</th><th>Email</th>
+          <th>Projects</th><th>Tasks</th><th>Capacity</th><th>Status</th><th style="width:110px">Actions</th>
+        </tr></thead>
+        <tbody id="phTableBody"></tbody>
+      </table>
+      <div id="phEmpty" class="hidden">
+        <div class="wf-empty py-12">
+          <i data-lucide="users" style="width:36px;height:36px;color:var(--wf-text-tertiary)"></i>
+          <div class="text-[14px] font-semibold text-[var(--wf-text-secondary)]">No users found</div>
+          <div class="text-[12.5px] text-[var(--wf-text-tertiary)]">Try adjusting your search or filters.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="phModals"></div>
+
+<script>
+const PH = {
+  users: [],
+  filtered: [],
+  currentUserId: {{ current_user.id }},
+  currentUserEmail: '{{ current_user.email }}',
+
+  async init() {
+    await this.fetchUsers();
+  },
+
+  async fetchUsers() {
+    try {
+      const res = await fetch('/api/users');
+      this.users = await res.json();
+      this.buildTeamFilter();
+      this.applyFilters();
+    } catch(e) {
+      Wexira.showToast('Failed to load users.', 'error');
+    }
+  },
+
+  buildTeamFilter() {
+    const teams = [...new Set(this.users.map(u => u.team).filter(Boolean))].sort();
+    const sel = document.getElementById('phFilterTeam');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">All Teams</option>' + teams.map(t => `<option value="${PH.esc(t)}">${PH.esc(t)}</option>`).join('');
+    sel.value = current;
+  },
+
+  applyFilters() {
+    const q = (document.getElementById('phSearch').value || '').trim().toLowerCase();
+    const plan = document.getElementById('phFilterPlan').value;
+    const role = document.getElementById('phFilterRole').value;
+    const status = document.getElementById('phFilterStatus').value;
+    const team = document.getElementById('phFilterTeam').value;
+
+    this.filtered = this.users.filter(u => {
+      if (q && !u.name.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q) && !(u.team||'').toLowerCase().includes(q) && !(u.role||'').toLowerCase().includes(q)) return false;
+      if (plan && u.plan !== plan) return false;
+      if (role && u.role !== role) return false;
+      if (team && u.team !== team) return false;
+      if (status === 'online' && !u.is_online) return false;
+      if (status === 'offline' && u.is_online) return false;
+      return true;
+    });
+    this.renderSummary();
+    this.renderTable();
+  },
+
+  renderSummary() {
+    const total = this.users.length;
+    const pro = this.users.filter(u => u.plan === 'pro').length;
+    const plus = this.users.filter(u => u.plan === 'plus').length;
+    const lite = this.users.filter(u => u.plan === 'lite').length;
+    const kpis = [
+      [total, 'Total People', 'users', '#4f46e5', '#eef2ff'],
+      [pro, 'Pro Members', 'crown', '#7c3aed', '#f5f3ff'],
+      [plus, 'Plus Members', 'zap', '#0891b2', '#ecfeff'],
+      [lite, 'Lite Members', 'arrow-right-circle', '#6b7280', '#f3f4f6'],
+    ];
+    document.getElementById('phSummary').innerHTML = kpis.map(([val, lbl, icon, color, bg]) => `
+      <div class="wf-card p-5">
+        <div class="flex items-center justify-between mb-3">
+          <span class="wf-kpi-icon" style="width:38px;height:38px;background:${bg};color:${color}"><i data-lucide="${icon}" style="width:18px;height:18px"></i></span>
+        </div>
+        <div class="text-[24px] font-bold text-[var(--wf-text)] leading-none">${val}</div>
+        <div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">${lbl}</div>
+      </div>
+    `).join('');
+    lucide.createIcons({ nodes: [document.getElementById('phSummary')] });
+  },
+
+  renderTable() {
+    const tbody = document.getElementById('phTableBody');
+    const empty = document.getElementById('phEmpty');
+    if (!this.filtered.length) {
+      tbody.innerHTML = '';
+      empty.classList.remove('hidden');
+      lucide.createIcons({ nodes: [empty] });
+      return;
+    }
+    empty.classList.add('hidden');
+    tbody.innerHTML = this.filtered.map(u => {
+      const capColor = u.capacity > 90 ? '#dc2626' : u.capacity > 75 ? '#d97706' : '#059669';
+      const capText = u.capacity > 90 ? 'text-[var(--wf-error)]' : u.capacity > 75 ? 'text-[var(--wf-warning)]' : 'text-[var(--wf-success)]';
+      const planBadge = u.plan === 'pro' ? `<span class="wf-badge wf-badge-soft-purple"><i data-lucide="crown" style="width:11px;height:11px;display:inline;vertical-align:-1px"></i> Pro</span>`
+        : u.plan === 'plus' ? `<span class="wf-badge wf-badge-soft-blue"><i data-lucide="zap" style="width:11px;height:11px;display:inline;vertical-align:-1px"></i> Plus</span>`
+        : `<span class="wf-badge wf-badge-soft-gray">Lite</span>`;
+const roleBadge = (u.role||'').includes('Manager') ? 'wf-badge-soft-purple' : (u.role||'').includes('Developer') ? 'wf-badge-soft-blue' : (u.role||'').startsWith('UI') ? 'wf-badge-soft-green' : (u.role||'').startsWith('QA') ? 'wf-badge-soft-amber' : (u.role||'').includes('DevOps') ? 'wf-badge-soft-cyan' : 'wf-badge-soft-gray';
+      const onlineDot = u.is_online
+        ? '<span class="wf-status wf-status-done"><span class="dot"></span>Online</span>'
+        : '<span class="wf-status wf-status-blocked"><span class="dot"></span>Offline</span>';
+      const isSelf = u.id === PH.currentUserId;
+      const actions = `
+        <div class="flex items-center gap-1">
+          <button class="wf-btn wf-btn-ghost wf-btn-xs" title="Edit" onclick="PH.openEditUser(${u.id})"><i data-lucide="pencil" style="width:13px;height:13px"></i></button>
+          <button class="wf-btn wf-btn-ghost wf-btn-xs" title="Delete" onclick="PH.openDeleteConfirm(${u.id})" ${isSelf ? 'disabled style="opacity:.3;cursor:not-allowed"' : ''}><i data-lucide="trash-2" style="width:13px;height:13px"></i></button>
+        </div>`;
+      return `<tr style="cursor:pointer" onclick="PH.viewUserDetails(${u.id})">
+        <td>
+          <div class="flex items-center gap-3 min-w-[170px]">
+            <span class="wf-avatar" style="background:${u.color}">${u.initials}</span>
+            <div>
+              <div class="font-semibold text-[var(--wf-text)] text-[13.5px]">${PH.esc(u.name)}</div>
+            </div>
+          </div>
+        </td>
+        <td><span class="wf-badge ${roleBadge}">${PH.esc(u.role)}</span></td>
+        <td>${planBadge}</td>
+        <td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">${PH.esc(u.team)}</span></td>
+        <td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">${PH.esc(u.email)}</span></td>
+        <td><span class="text-[12.5px] font-semibold text-[var(--wf-text)]">${u.active_projects}</span></td>
+        <td><span class="text-[12.5px] font-semibold ${u.current_tasks > 12 ? 'text-[var(--wf-error)]' : 'text-[var(--wf-text)]'}">${u.current_tasks}</span></td>
+        <td>
+          <div class="flex items-center gap-2 min-w-[130px]">
+            <div class="wf-progress-track" style="height:7px">
+              <div class="wf-progress-bar" style="width:${u.capacity}%;background:${capColor}"></div>
+            </div>
+            <span class="text-[12px] font-semibold ${capText}">${u.capacity}%</span>
+          </div>
+        </td>
+        <td onclick="event.stopPropagation()">${onlineDot}</td>
+        <td onclick="event.stopPropagation()">${actions}</td>
+      </tr>`;
+    }).join('');
+    lucide.createIcons({ nodes: [tbody] });
+  },
+
+  viewUserDetails(userId) {
+    const u = this.users.find(x => x.id === userId);
+    if (!u) return;
+    const modalRoot = document.getElementById('phModals');
+    const onlineDot = u.is_online
+      ? '<span class="wf-status wf-status-done" style="font-size:12px"><span class="dot"></span>Online</span>'
+      : '<span class="wf-status wf-status-blocked" style="font-size:12px"><span class="dot"></span>Offline</span>';
+    const planBadge = u.plan === 'pro' ? '<span class="wf-badge wf-badge-soft-purple" style="font-size:12px"><i data-lucide="crown" style="width:11px;height:11px;display:inline;vertical-align:-1px"></i> Pro</span>'
+      : u.plan === 'plus' ? '<span class="wf-badge wf-badge-soft-blue" style="font-size:12px"><i data-lucide="zap" style="width:11px;height:11px;display:inline;vertical-align:-1px"></i> Plus</span>'
+      : '<span class="wf-badge wf-badge-soft-gray" style="font-size:12px">Lite</span>';
+    const roleBadge = (u.role||'').includes('Manager') ? 'wf-badge-soft-purple' : (u.role||'').includes('Developer') ? 'wf-badge-soft-blue' : (u.role||'').startsWith('UI') ? 'wf-badge-soft-green' : (u.role||'').startsWith('QA') ? 'wf-badge-soft-amber' : (u.role||'').includes('DevOps') ? 'wf-badge-soft-cyan' : 'wf-badge-soft-gray';
+    const isSelf = u.id === PH.currentUserId;
+
+    modalRoot.innerHTML = `
+      <div class="wf-modal-backdrop" id="phDetailBackdrop">
+        <div class="wf-modal" style="max-width:560px">
+          <div class="flex items-center justify-between px-6 py-4 border-b border-[var(--wf-border-soft)]">
+            <h2 class="text-[16px] font-bold text-[var(--wf-text)]">User Details</h2>
+            <button type="button" class="wf-icon-btn" data-ph-close><i data-lucide="x" style="width:16px;height:16px"></i></button>
+          </div>
+          <div class="px-6 py-5">
+            <div class="flex items-center gap-4 mb-5">
+              <span class="wf-avatar wf-avatar-xl" style="background:${u.color};font-size:20px;width:64px;height:64px">${u.initials}</span>
+              <div>
+                <div class="text-[18px] font-bold text-[var(--wf-text)]">${PH.esc(u.name)}</div>
+                <div class="text-[13px] text-[var(--wf-text-secondary)]">${PH.esc(u.email)}</div>
+                <div class="flex items-center gap-2 mt-1.5">${onlineDot}</div>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4 mb-5">
+              <div class="rounded-lg p-3" style="background:var(--wf-bg)">
+                <div class="text-[11px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide mb-1">Role</div>
+                <span class="wf-badge ${roleBadge}">${PH.esc(u.role)}</span>
+              </div>
+              <div class="rounded-lg p-3" style="background:var(--wf-bg)">
+                <div class="text-[11px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide mb-1">Plan</div>
+                ${planBadge}
+              </div>
+              <div class="rounded-lg p-3" style="background:var(--wf-bg)">
+                <div class="text-[11px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide mb-1">Team</div>
+                <div class="text-[13px] font-semibold text-[var(--wf-text)]">${PH.esc(u.team)}</div>
+              </div>
+              <div class="rounded-lg p-3" style="background:var(--wf-bg)">
+                <div class="text-[11px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide mb-1">Capacity</div>
+                <div class="flex items-center gap-2">
+                  <div class="wf-progress-track" style="height:7px;flex:1">
+                    <div class="wf-progress-bar" style="width:${u.capacity}%;background:${u.capacity > 90 ? '#dc2626' : u.capacity > 75 ? '#d97706' : '#059669'}"></div>
+                  </div>
+                  <span class="text-[12px] font-semibold text-[var(--wf-text)]">${u.capacity}%</span>
+                </div>
+              </div>
+              <div class="rounded-lg p-3" style="background:var(--wf-bg)">
+                <div class="text-[11px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide mb-1">Active Projects</div>
+                <div class="text-[20px] font-bold text-[var(--wf-text)]">${u.active_projects}</div>
+              </div>
+              <div class="rounded-lg p-3" style="background:var(--wf-bg)">
+                <div class="text-[11px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide mb-1">Current Tasks</div>
+                <div class="text-[20px] font-bold text-[var(--wf-text)]">${u.current_tasks}</div>
+              </div>
+            </div>
+            ${u.last_seen ? `<div class="text-[12px] text-[var(--wf-text-tertiary)] mb-4">Last active: ${new Date(u.last_seen).toLocaleString()}</div>` : ''}
+          </div>
+          <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--wf-border-soft)] bg-[#fafafb]">
+            <button class="wf-btn wf-btn-secondary" data-ph-close>Close</button>
+            <button class="wf-btn wf-btn-primary" onclick="document.getElementById('phModals').innerHTML='';PH.openEditUser(${u.id})"><i data-lucide="pencil" style="width:14px;height:14px"></i> Edit</button>
+            ${!isSelf ? `<button class="wf-btn" style="background:var(--wf-error);border-color:var(--wf-error);color:#fff" onclick="document.getElementById('phModals').innerHTML='';PH.openDeleteConfirm(${u.id})"><i data-lucide="trash-2" style="width:14px;height:14px"></i> Delete</button>` : ''}
+          </div>
+        </div>
+      </div>`;
+    lucide.createIcons({ nodes: [modalRoot] });
+    modalRoot.querySelectorAll('[data-ph-close]').forEach(b => b.addEventListener('click', () => { modalRoot.innerHTML = ''; }));
+    document.getElementById('phDetailBackdrop').addEventListener('click', e => { if (e.target.id === 'phDetailBackdrop') modalRoot.innerHTML = ''; });
+  },
+
+  openAddUser() {
+    const modalRoot = document.getElementById('phModals');
+    modalRoot.innerHTML = `
+      <div class="wf-modal-backdrop" id="phAddBackdrop">
+        <div class="wf-modal" style="max-width:560px">
+          <div class="flex items-center justify-between px-6 py-4 border-b border-[var(--wf-border-soft)]">
+            <div>
+              <h2 class="text-[16px] font-bold text-[var(--wf-text)]">Add User</h2>
+              <p class="text-[12px] text-[var(--wf-text-secondary)]">Create a new team member account</p>
+            </div>
+            <button type="button" class="wf-icon-btn" data-ph-close><i data-lucide="x" style="width:16px;height:16px"></i></button>
+          </div>
+          <div class="px-6 py-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+              <div class="wf-field md:col-span-2">
+                <label class="wf-label">Full Name <span class="req">*</span></label>
+                <input class="wf-input" id="phAddName" placeholder="e.g. John Smith">
+              </div>
+              <div class="wf-field md:col-span-2">
+                <label class="wf-label">Email <span class="req">*</span></label>
+                <input class="wf-input" id="phAddEmail" type="email" placeholder="john@example.com">
+              </div>
+              <div class="wf-field md:col-span-2">
+                <label class="wf-label">Password <span class="req">*</span></label>
+                <input class="wf-input" id="phAddPassword" type="password" placeholder="At least 6 characters">
+              </div>
+              <div class="wf-field">
+                <label class="wf-label">Role <span class="req">*</span></label>
+                <select class="wf-select" id="phAddRole">
+                  <option value="">Select role</option>
+                  <option>Project Manager</option><option>Product Manager</option>
+                  <option>Frontend Developer</option><option>Backend Developer</option>
+                  <option>UI/UX Designer</option><option>QA Engineer</option><option>DevOps Engineer</option>
+                </select>
+              </div>
+              <div class="wf-field">
+                <label class="wf-label">Plan <span class="req">*</span></label>
+                <select class="wf-select" id="phAddPlan">
+                  <option value="lite">Lite</option><option value="plus">Plus</option><option value="pro">Pro</option>
+                </select>
+              </div>
+              <div class="wf-field">
+                <label class="wf-label">Team</label>
+                <select class="wf-select" id="phAddTeam">
+                  <option>Platform</option><option>Checkout</option><option>Quality</option>
+                  <option>Product</option><option>Infrastructure</option><option>Storefront</option><option>General</option>
+                </select>
+              </div>
+              <div class="wf-field">
+                <label class="wf-label">Status</label>
+                <select class="wf-select" id="phAddStatus">
+                  <option>Active</option><option>Inactive</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--wf-border-soft)] bg-[#fafafb]">
+            <button class="wf-btn wf-btn-secondary" data-ph-close>Cancel</button>
+            <button class="wf-btn wf-btn-primary" id="phAddSubmit"><i data-lucide="user-plus" style="width:15px;height:15px"></i> Create User</button>
+          </div>
+        </div>
+      </div>`;
+    lucide.createIcons({ nodes: [modalRoot] });
+    modalRoot.querySelectorAll('[data-ph-close]').forEach(b => b.addEventListener('click', () => { modalRoot.innerHTML = ''; }));
+    document.getElementById('phAddBackdrop').addEventListener('click', e => { if (e.target.id === 'phAddBackdrop') modalRoot.innerHTML = ''; });
+    document.getElementById('phAddSubmit').addEventListener('click', async () => {
+      const name = document.getElementById('phAddName').value.trim();
+      const email = document.getElementById('phAddEmail').value.trim();
+      const password = document.getElementById('phAddPassword').value;
+      const role = document.getElementById('phAddRole').value;
+      const plan = document.getElementById('phAddPlan').value;
+      const team = document.getElementById('phAddTeam').value;
+      const status = document.getElementById('phAddStatus').value;
+      if (!name) { Wexira.showToast('Name is required.', 'error'); return; }
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { Wexira.showToast('A valid email is required.', 'error'); return; }
+      if (!password || password.length < 6) { Wexira.showToast('Password must be at least 6 characters.', 'error'); return; }
+      if (!role) { Wexira.showToast('Role is required.', 'error'); return; }
+      const btn = document.getElementById('phAddSubmit');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="inline-flex items-center gap-2"><i data-lucide="loader-2" style="width:15px;height:15px" class="animate-spin"></i> Creating…</span>';
+      lucide.createIcons({ nodes: [btn] });
+      try {
+        const res = await fetch('/api/users', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name, email, password, role, plan, team, status }) });
+        const data = await res.json();
+        if (data.ok === false) { Wexira.showToast(data.error || 'Could not create user.', 'error'); btn.disabled = false; btn.innerHTML = '<i data-lucide="user-plus" style="width:15px;height:15px"></i> Create User'; lucide.createIcons({ nodes: [btn] }); return; }
+        Wexira.showToast('User created successfully.', 'success', 'User created');
+        modalRoot.innerHTML = '';
+        await PH.fetchUsers();
+      } catch(e) {
+        Wexira.showToast('Could not create user.', 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="user-plus" style="width:15px;height:15px"></i> Create User';
+        lucide.createIcons({ nodes: [btn] });
+      }
+    });
+  },
+
+  openEditUser(userId) {
+    const u = this.users.find(x => x.id === userId);
+    if (!u) return;
+    const modalRoot = document.getElementById('phModals');
+    modalRoot.innerHTML = `
+      <div class="wf-modal-backdrop" id="phEditBackdrop">
+        <div class="wf-modal" style="max-width:560px">
+          <div class="flex items-center justify-between px-6 py-4 border-b border-[var(--wf-border-soft)]">
+            <div>
+              <h2 class="text-[16px] font-bold text-[var(--wf-text)]">Edit User</h2>
+              <p class="text-[12px] text-[var(--wf-text-secondary)]">Update ${PH.esc(u.name)}'s information</p>
+            </div>
+            <button type="button" class="wf-icon-btn" data-ph-close><i data-lucide="x" style="width:16px;height:16px"></i></button>
+          </div>
+          <div class="px-6 py-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+              <div class="wf-field md:col-span-2">
+                <label class="wf-label">Full Name <span class="req">*</span></label>
+                <input class="wf-input" id="phEditName" value="${PH.esc(u.name)}">
+              </div>
+              <div class="wf-field md:col-span-2">
+                <label class="wf-label">Email <span class="req">*</span></label>
+                <input class="wf-input" id="phEditEmail" type="email" value="${PH.esc(u.email)}">
+              </div>
+              <div class="wf-field">
+                <label class="wf-label">Role <span class="req">*</span></label>
+                <select class="wf-select" id="phEditRole">
+                  ${['Project Manager','Product Manager','Frontend Developer','Backend Developer','UI/UX Designer','QA Engineer','DevOps Engineer'].map(r => `<option ${r===u.role?'selected':''}>${r}</option>`).join('')}
+                </select>
+              </div>
+              <div class="wf-field">
+                <label class="wf-label">Plan <span class="req">*</span></label>
+                <select class="wf-select" id="phEditPlan">
+                  <option value="lite" ${u.plan==='lite'?'selected':''}>Lite</option>
+                  <option value="plus" ${u.plan==='plus'?'selected':''}>Plus</option>
+                  <option value="pro" ${u.plan==='pro'?'selected':''}>Pro</option>
+                </select>
+              </div>
+              <div class="wf-field">
+                <label class="wf-label">Team</label>
+                <select class="wf-select" id="phEditTeam">
+                  ${['Platform','Checkout','Quality','Product','Infrastructure','Storefront','General'].map(t => `<option ${t===u.team?'selected':''}>${t}</option>`).join('')}
+                </select>
+              </div>
+              <div class="wf-field">
+                <label class="wf-label">Capacity (%)</label>
+                <input class="wf-input" id="phEditCapacity" type="number" min="0" max="100" value="${u.capacity}">
+              </div>
+              <div class="wf-field">
+                <label class="wf-label">Status</label>
+                <select class="wf-select" id="phEditStatus">
+                  <option ${u.status==='Active'?'selected':''}>Active</option>
+                  <option ${u.status==='Inactive'?'selected':''}>Inactive</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--wf-border-soft)] bg-[#fafafb]">
+            <button class="wf-btn wf-btn-secondary" data-ph-close>Cancel</button>
+            <button class="wf-btn wf-btn-primary" id="phEditSubmit"><i data-lucide="check" style="width:15px;height:15px"></i> Save Changes</button>
+          </div>
+        </div>
+      </div>`;
+    lucide.createIcons({ nodes: [modalRoot] });
+    modalRoot.querySelectorAll('[data-ph-close]').forEach(b => b.addEventListener('click', () => { modalRoot.innerHTML = ''; }));
+    document.getElementById('phEditBackdrop').addEventListener('click', e => { if (e.target.id === 'phEditBackdrop') modalRoot.innerHTML = ''; });
+    document.getElementById('phEditSubmit').addEventListener('click', async () => {
+      const name = document.getElementById('phEditName').value.trim();
+      const email = document.getElementById('phEditEmail').value.trim();
+      const role = document.getElementById('phEditRole').value;
+      const plan = document.getElementById('phEditPlan').value;
+      const team = document.getElementById('phEditTeam').value;
+      const capacity = document.getElementById('phEditCapacity').value;
+      const status = document.getElementById('phEditStatus').value;
+      if (!name) { Wexira.showToast('Name is required.', 'error'); return; }
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { Wexira.showToast('A valid email is required.', 'error'); return; }
+      if (!role) { Wexira.showToast('Role is required.', 'error'); return; }
+      const btn = document.getElementById('phEditSubmit');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="inline-flex items-center gap-2"><i data-lucide="loader-2" style="width:15px;height:15px" class="animate-spin"></i> Saving…</span>';
+      lucide.createIcons({ nodes: [btn] });
+      try {
+        const res = await fetch(`/api/users/${userId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name, email, role, plan, team, capacity: parseInt(capacity), status }) });
+        const data = await res.json();
+        if (data.ok === false) { Wexira.showToast(data.error || 'Could not update user.', 'error'); btn.disabled = false; btn.innerHTML = '<i data-lucide="check" style="width:15px;height:15px"></i> Save Changes'; lucide.createIcons({ nodes: [btn] }); return; }
+        Wexira.showToast('User updated successfully.', 'success', 'User updated');
+        modalRoot.innerHTML = '';
+        await PH.fetchUsers();
+      } catch(e) {
+        Wexira.showToast('Could not update user.', 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="check" style="width:15px;height:15px"></i> Save Changes';
+        lucide.createIcons({ nodes: [btn] });
+      }
+    });
+  },
+
+  openDeleteConfirm(userId) {
+    const u = this.users.find(x => x.id === userId);
+    if (!u) return;
+    if (u.id === this.currentUserId) {
+      Wexira.showToast("You cannot delete your own account from People Hub.", 'error');
+      return;
+    }
+    const modalRoot = document.getElementById('phModals');
+    modalRoot.innerHTML = `
+      <div class="wf-modal-backdrop" id="phDelBackdrop">
+        <div class="wf-modal" style="max-width:480px">
+          <div class="flex items-start gap-4 px-6 py-5 border-b border-[var(--wf-border-soft)]">
+            <span class="w-10 h-10 rounded-xl grid place-items-center flex-none" style="background:#fef2f2;color:var(--wf-error)"><i data-lucide="trash-2" style="width:18px;height:18px"></i></span>
+            <div class="flex-1">
+              <h2 class="text-[16px] font-bold text-[var(--wf-text)]">Delete ${PH.esc(u.name)}?</h2>
+              <p class="text-[12.5px] text-[var(--wf-text-secondary)] mt-1">This action is permanent and cannot be undone. All of this user's assignments and access will be removed.</p>
+            </div>
+            <button type="button" class="wf-icon-btn" data-ph-close><i data-lucide="x" style="width:16px;height:16px"></i></button>
+          </div>
+          <div class="px-6 py-5">
+            <div class="rounded-lg p-4 mb-4" style="background:#fef2f2;border:1px solid #fecaca">
+              <div class="text-[12.5px] font-semibold text-[var(--wf-error)]"><i data-lucide="alert-triangle" style="width:13px;height:13px;display:inline;vertical-align:-2px"></i> Warning</div>
+              <div class="text-[12px] text-[#b91c1c] mt-1">Deleting this user will remove them from all projects and unassign their issues.</div>
+            </div>
+            <div class="wf-field">
+              <label class="wf-label">To confirm deletion, type the user's email address</label>
+              <div class="flex items-center gap-3 mb-2">
+                <span class="wf-avatar" style="background:${u.color}">${u.initials}</span>
+                <div>
+                  <div class="font-semibold text-[13px] text-[var(--wf-text)]">${PH.esc(u.name)}</div>
+                  <div class="text-[12px] text-[var(--wf-text-secondary)]">${PH.esc(u.email)}</div>
+                </div>
+              </div>
+              <input class="wf-input" id="phDelEmail" type="text" placeholder="${PH.esc(u.email)}" autocomplete="off">
+              <p class="wf-help" id="phDelHelp">Enter <span class="font-semibold">${PH.esc(u.email)}</span> to enable deletion.</p>
+            </div>
+          </div>
+          <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--wf-border-soft)] bg-[#fafafb]">
+            <button class="wf-btn wf-btn-secondary" data-ph-close>Cancel</button>
+            <button class="wf-btn" id="phDelConfirm" disabled style="background:var(--wf-error);border-color:var(--wf-error);color:#fff"><i data-lucide="trash-2" style="width:15px;height:15px"></i> Delete User</button>
+          </div>
+        </div>
+      </div>`;
+    lucide.createIcons({ nodes: [modalRoot] });
+    modalRoot.querySelectorAll('[data-ph-close]').forEach(b => b.addEventListener('click', () => { modalRoot.innerHTML = ''; }));
+    document.getElementById('phDelBackdrop').addEventListener('click', e => { if (e.target.id === 'phDelBackdrop') modalRoot.innerHTML = ''; });
+    const emailInput = document.getElementById('phDelEmail');
+    const confirmBtn = document.getElementById('phDelConfirm');
+    const helpText = document.getElementById('phDelHelp');
+    const target = u.email.trim().toLowerCase();
+    const updateBtn = () => {
+      const val = emailInput.value.trim().toLowerCase();
+      confirmBtn.disabled = val !== target;
+      if (val && val !== target) {
+        helpText.innerHTML = '<span style="color:var(--wf-error);font-weight:600">Email does not match.</span>';
+      } else {
+        helpText.innerHTML = `Enter <span class="font-semibold">${PH.esc(u.email)}</span> to enable deletion.`;
+      }
+    };
+    emailInput.addEventListener('input', updateBtn);
+    confirmBtn.addEventListener('click', async () => {
+      confirmBtn.disabled = true;
+      confirmBtn.innerHTML = '<span class="inline-flex items-center gap-2"><i data-lucide="loader-2" style="width:15px;height:15px" class="animate-spin"></i> Deleting…</span>';
+      lucide.createIcons({ nodes: [confirmBtn] });
+      try {
+        const res = await fetch(`/api/users/${userId}`, {
+          method: 'DELETE',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ confirm_email: emailInput.value.trim() })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          Wexira.showToast(`${u.name} was deleted.`, 'success', 'User removed');
+          modalRoot.innerHTML = '';
+          await PH.fetchUsers();
+        } else {
+          Wexira.showToast(data.error || 'Could not delete the user.', 'error', 'Delete failed');
+          confirmBtn.disabled = false;
+          confirmBtn.innerHTML = '<i data-lucide="trash-2" style="width:15px;height:15px"></i> Delete User';
+          lucide.createIcons({ nodes: [confirmBtn] });
+        }
+      } catch(e) {
+        Wexira.showToast('Could not delete the user.', 'error', 'Delete failed');
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = '<i data-lucide="trash-2" style="width:15px;height:15px"></i> Delete User';
+        lucide.createIcons({ nodes: [confirmBtn] });
+      }
+    });
+  },
+
+  async refresh() {
+    await this.fetchUsers();
+    Wexira.showToast('Directory is up to date.', 'success', 'People Hub');
+  },
+
+  esc(v) {
+    return String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+};
+
+window.PH = PH;
+document.addEventListener('DOMContentLoaded', () => PH.init());
+</script>
+{% endblock %}
