@@ -13,121 +13,164 @@
         <i data-lucide="chevron-right" style="width:12px;height:12px"></i>
         <span class="text-[var(--wf-text)] font-medium">Backlog</span>
       </nav>
-      <h1 class="text-[20px] font-bold text-[var(--wf-text)]">Backlog</h1>
-      <p class="text-[12.5px] text-[var(--wf-text-secondary)] mt-0.5">Plan and organize work for upcoming sprints</p>
-    </div>
-    <div class="flex items-center gap-2">
-      <button class="wf-btn wf-btn-secondary wf-btn-sm"><i data-lucide="calendar-plus" style="width:14px;height:14px"></i> Create Sprint</button>
-      <button class="wf-btn wf-btn-ghost wf-btn-sm" onclick="Wexira.showToast('Sprint 12 started with 18 issues.','success','Sprint started')">
-        <i data-lucide="play" style="width:13px;height:13px"></i> Start Sprint
-      </button>
+      <div class="flex items-center gap-3 flex-wrap">
+        <h1 class="text-[20px] font-bold text-[var(--wf-text)]">{{ project.name }} · Backlog</h1>
+        <div class="wf-project-selector" id="backlogProjectSelector">
+          <button type="button" class="wf-project-selector-trigger" id="backlogProjectTrigger" aria-haspopup="listbox" aria-expanded="false">
+            <span class="wf-project-selector-name" id="backlogProjectName">{{ project.name }}</span>
+            <svg class="wf-project-selector-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="wf-project-selector-dropdown" id="backlogProjectDropdown" role="listbox" aria-label="Select project">
+            {% for p in projects_list %}
+            <div class="wf-project-selector-option {{ 'is-selected' if p.id == project.id }}" role="option" data-key="{{ p.key }}" data-name="{{ p.name }}" aria-selected="{{ 'true' if p.id == project.id else 'false' }}">
+              <span class="wf-project-selector-option-name">{{ p.name }}</span>
+              <svg class="wf-project-selector-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
   <div class="flex flex-wrap items-center gap-2 mb-4">
-    <div class="wf-search" style="max-width:280px;flex:1;min-width:160px">
+    <div class="wf-search" style="max-width:340px;flex:1;min-width:200px">
       <i data-lucide="search" style="width:14px;height:14px"></i>
-      <input type="text" id="backlogSearch" placeholder="Search backlog…">
+      <input type="text" id="backlogSearch" placeholder="Search backlog...">
     </div>
-    <button class="wf-btn wf-btn-sm wf-btn-secondary"><i data-lucide="filter" style="width:13px;height:13px"></i> Filter</button>
-    <button class="wf-btn wf-btn-sm wf-btn-secondary"><i data-lucide="layers" style="width:13px;height:13px"></i> Epic</button>
-    <button class="wf-btn wf-btn-sm wf-btn-secondary"><i data-lucide="flag" style="width:13px;height:13px"></i> Priority</button>
   </div>
 
+  {% set backlog_issues = issues|selectattr('status','equalto','backlog')|list %}
   <div class="wf-card">
-    {# ---------------- EPICS ---------------- #}
-    <div class="backlog-section border-b border-[var(--wf-border-soft)]">
-      <button class="w-full flex items-center gap-2.5 px-5 py-3.5 hover:bg-[#fafafb] transition-colors cursor-pointer bg-none" style="background:none;border:none;text-align:left" onclick="toggleSection(this, 'epicsBody')">
-        <i data-lucide="chevron-right" class="section-chevron transition-transform" style="width:15px;height:15px;color:var(--wf-text-tertiary)"></i>
-        <i data-lucide="layers" style="width:16px;height:16px;color:var(--wf-purple)"></i>
-        <span class="text-[13.5px] font-bold text-[var(--wf-text)]">Epics</span>
-        <span class="wf-badge wf-badge-soft-purple">{{ all_issues|selectattr('issue_type','equalto','Epic')|list|length }}</span>
-        <span class="ml-auto text-[12px] text-[var(--wf-text-tertiary)]">{{ all_issues|selectattr('issue_type','equalto','Epic')|list|map(attribute='points')|sum }} pts</span>
-      </button>
-      <div id="epicsBody" class="backlog-body hidden">
-        {% for i in all_issues if i.issue_type == 'Epic' %}
-        {% include '_backlog_row.html' %}
-        {% endfor %}
-      </div>
+    <div class="flex items-center gap-2.5 px-5 py-3 border-b border-[var(--wf-border-soft)]">
+      <span class="w-2.5 h-2.5 rounded-sm" style="background:#6b7280"></span>
+      <span class="text-[12px] font-bold text-[var(--wf-text)] tracking-wide">BACKLOG</span>
+      <span class="wf-badge wf-badge-soft-gray" data-count>{{ backlog_issues|length }}</span>
     </div>
-
-    {# ---------------- SPRINT SECTIONS ---------------- #}
-    {% for sp in sprints %}
-    <div class="backlog-section {{ '' if sp.status != 'Active' else '' }} border-b border-[var(--wf-border-soft)]">
-      <button class="w-full flex items-center gap-2.5 px-5 py-3.5 hover:bg-[#fafafb] transition-colors cursor-pointer" style="background:none;border:none;text-align:left" onclick="toggleSection(this, 'sprintBody{{ sp.number }}')">
-        <i data-lucide="chevron-right" class="section-chevron {{ '' if sp.status != 'Active' else 'rotate-90' }} transition-transform" style="width:15px;height:15px;color:var(--wf-text-tertiary)"></i>
-        <span class="flex items-center gap-1.5">
-          <i data-lucide="timer" style="width:16px;height:16px;color:var(--wf-primary)"></i>
-          <span class="text-[13.5px] font-bold text-[var(--wf-text)]">{{ sp.name }}</span>
-        </span>
-        {% if sp.status == 'Active' %}<span class="wf-badge wf-badge-soft-green">Active</span>
-        {% elif sp.status == 'Completed' %}<span class="wf-badge wf-badge-soft-gray">Completed</span>
-        {% else %}<span class="wf-badge wf-badge-soft-blue">Planned</span>{% endif %}
-        <span class="ml-auto flex items-center gap-3 text-[12px] text-[var(--wf-text-secondary)]">
-          <span>{{ sp.start_date }} → {{ sp.end_date }}</span>
-          <span class="font-semibold">{{ sp.to_do + sp.in_progress + sp.in_review + sp.done }} issues</span>
-          <span class="font-semibold">{{ sp.story_points_total }} pts</span>
-        </span>
-      </button>
-      <div id="sprintBody{{ sp.number }}" class="backlog-body {{ '' if sp.status != 'Active' else '' }}">
-        {% set sprint_issues = issues|selectattr('sprint','equalto',sp.number)|list %}
-        {% if sprint_issues %}
-          {% for i in sprint_issues %}
-          {% include '_backlog_row.html' %}
+    <div class="p-5 backlog-grid">
+      {% for i in backlog_issues %}
+      <div class="wf-issue-card" data-issue-id="{{ i.id }}" data-key="{{ i.project.key }}-{{ i.number }}" data-title="{{ i.title|lower }}" data-priority="{{ i.priority|lower }}" data-assignee="{{ i.all_assignee_initials }}" data-labels="{{ i.labels|join(',')|lower }}" data-type="{{ i.issue_type|lower }}" data-due="{{ i.due_date|lower or '' }}" data-description="{{ (i.description or '')|lower }}" onclick="selectCard(event, this)">
+        <div class="issue-card-top">
+          <span class="issue-id">{{ i.number }}</span>
+          <div class="flex items-center gap-2">
+            <span class="wf-badge wf-badge-soft-gray" style="padding:1px 7px;font-size:11px">{{ i.issue_type }}</span>
+            <span class="issue-prio-dot" title="{{ i.priority }}" style="background:{{ i.priority_color }}"></span>
+          </div>
+        </div>
+        <div class="issue-card-title">{{ i.title }}</div>
+        <div class="issue-card-tags">
+          {% for l in i.labels[:3] %}
+          <span class="wf-badge wf-badge-soft-gray" style="padding:1px 7px;font-size:10.5px">{{ l }}</span>
           {% endfor %}
-        {% else %}
-          <div class="px-5 py-4 text-[12.5px] text-[var(--wf-text-tertiary)]">No issues planned for this sprint yet.</div>
-        {% endif %}
-      </div>
-    </div>
-    {% endfor %}
+        </div>
+        <div class="issue-card-footer">
+          <span class="issue-points">{{ i.points }} pts</span>
+          {% if i.due_date %}
+          <span class="issue-due {{ 'urgent' if i.due_date in ('Sep 07','Sep 06') or i.due_date|string == 'Today' }}">
+            <i data-lucide="calendar" style="width:11px;height:11px"></i>{{ i.due_date }}
+          </span>
+          {% endif %}
 
-    {# ---------------- FUTURE BACKLOG ---------------- #}
-    <div class="backlog-section">
-      <button class="w-full flex items-center gap-2.5 px-5 py-3.5 hover:bg-[#fafafb] transition-colors cursor-pointer" style="background:none;border:none;text-align:left" onclick="toggleSection(this, 'futureBody')">
-        <i data-lucide="chevron-right" class="section-chevron transition-transform" style="width:15px;height:15px;color:var(--wf-text-tertiary)"></i>
-        <i data-lucide="inbox" style="width:16px;height:16px;color:var(--wf-text-secondary)"></i>
-        <span class="text-[13.5px] font-bold text-[var(--wf-text)]">Future Backlog</span>
-        <span class="wf-badge wf-badge-soft-gray">{{ issues|selectattr('sprint','none')|list|length }}</span>
-      </button>
-      <div id="futureBody" class="backlog-body hidden">
-        {% for i in issues if i.sprint is none %}
-        {% include '_backlog_row.html' %}
-        {% endfor %}
+          {% for av in i.assignee_avatars %}
+          <span class="wf-avatar wf-avatar-sm" style="background:{{ av.color }}" title="{{ av.name or av.initials }}">{{ av.initials }}</span>
+          {% else %}
+          <span class="wf-avatar wf-avatar-sm" style="background:#9ca3af">?</span>
+          {% endfor %}
+        </div>
       </div>
+      {% else %}
+      <div class="wf-empty text-[var(--wf-text-tertiary)]" data-empty>
+        <i data-lucide="inbox" style="width:30px;height:30px"></i><div>No backlog issues.</div>
+      </div>
+      {% endfor %}
     </div>
   </div>
 </div>
 
-{% block scripts %}
 <script>
-/* ============================================================
-   Wexira — Backlog
-   ============================================================ */
-(function () {
-  'use strict';
+  var BACKLOG_PROJECT_KEY = {{ project.key|tojson }};
 
-  function toggleSection(header, bodyId) {
-    const chevron = header.querySelector('.section-chevron');
-    const body = document.getElementById(bodyId);
-    if (!body) return;
-    const isOpen = !body.classList.contains('hidden');
-    body.classList.toggle('hidden', isOpen);
-    chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
+  function selectCard(e, el) {
+    if (el.classList.contains('is-dragging')) return;
+    document.querySelectorAll('.wf-issue-card.is-selected').forEach(c => c.classList.remove('is-selected'));
+    if (e.shiftKey) { el.classList.add('is-selected'); return; }
+    window.location.href = '/issue/' + el.dataset.issueId;
   }
 
-  window.toggleSection = toggleSection;
+  function refreshBacklog() {
+    var path = window.location.pathname;
+    if (path === '/backlog' || path.startsWith('/backlog/')) location.reload();
+  }
 
-  const search = document.getElementById('backlogSearch');
-  if (search) {
-    search.addEventListener('input', e => {
-      const q = e.target.value.trim().toLowerCase();
-      document.querySelectorAll('.backlog-row').forEach(row => {
-        row.style.display = row.dataset.title.includes(q) ? '' : 'none';
+  var backlogSearch = document.getElementById('backlogSearch');
+  if (backlogSearch) {
+    backlogSearch.addEventListener('input', function () {
+      var q = backlogSearch.value.trim().toLowerCase();
+      document.querySelectorAll('.backlog-grid .wf-issue-card').forEach(function (card) {
+        var hits = ((card.dataset.title || '') + ' ' + (card.dataset.key || '') + ' ' +
+                    (card.dataset.labels || '') + ' ' + (card.dataset.type || '')).toLowerCase();
+        card.style.display = hits.indexOf(q) !== -1 ? '' : 'none';
       });
     });
   }
+</script>
+
+<script>
+(function () {
+  var selector = document.getElementById('backlogProjectSelector');
+  if (!selector) return;
+  var trigger = document.getElementById('backlogProjectTrigger');
+  var dropdown = document.getElementById('backlogProjectDropdown');
+
+  function closeDropdown() {
+    dropdown.classList.remove('is-open');
+    trigger.setAttribute('aria-expanded', 'false');
+  }
+
+  function openDropdown() {
+    dropdown.classList.add('is-open');
+    trigger.setAttribute('aria-expanded', 'true');
+  }
+
+  trigger.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (dropdown.classList.contains('is-open')) closeDropdown();
+    else openDropdown();
+  });
+
+  dropdown.querySelectorAll('.wf-project-selector-option').forEach(function (opt) {
+    opt.addEventListener('click', function () {
+      var key = opt.getAttribute('data-key');
+      closeDropdown();
+      if (key && key !== BACKLOG_PROJECT_KEY) {
+        window.location.href = '/backlog/' + encodeURIComponent(key);
+      }
+    });
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!selector.contains(e.target)) closeDropdown();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeDropdown();
+  });
+
+  trigger.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (!dropdown.classList.contains('is-open')) openDropdown();
+    }
+  });
 })();
 </script>
-{% endblock %}
+
+<style>
+  .backlog-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+    align-content: start;
+  }
+</style>
 {% endblock %}

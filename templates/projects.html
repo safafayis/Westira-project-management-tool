@@ -10,35 +10,24 @@
       <p class="text-[13.5px] text-[var(--wf-text-secondary)] mt-1">Manage projects across your organization.</p>
     </div>
     <div class="flex items-center gap-2">
-      <button class="wf-btn wf-btn-secondary wf-btn-sm"><i data-lucide="filter" style="width:14px;height:14px"></i> Filter</button>
-      <button class="wf-btn wf-btn-secondary wf-btn-sm"><i data-lucide="arrow-up-down" style="width:14px;height:14px"></i> Sort</button>
-      <button class="wf-btn wf-btn-primary wf-btn-sm" onclick="Wexira.openCreateIssue('ECOM')"><i data-lucide="plus" style="width:14px;height:14px"></i> Create Project</button>
+      <button class="wf-btn wf-btn-primary wf-btn-sm" onclick="Wexira.openCreateProject()"><i data-lucide="plus" style="width:14px;height:14px"></i> Create Project</button>
     </div>
   </div>
 
   <div class="wf-card">
-    <div class="p-4 flex flex-wrap items-center gap-3 border-b border-[var(--wf-border-soft)]">
-      <div class="wf-search" style="max-width:320px;flex:1">
-        <i data-lucide="search" style="width:15px;height:15px"></i>
-        <input type="text" id="projSearch" placeholder="Search projects…">
-      </div>
-      <div class="flex items-center gap-2 text-[12.5px]">
-        <span class="text-[var(--wf-text-secondary)]">Status:</span>
-        <button class="wf-chip cursor-pointer hover:bg-[var(--wf-primary-50)]" onclick="filterProjects('all')">All</button>
-        <button class="wf-chip cursor-pointer hover:bg-[var(--wf-primary-50)]" onclick="filterProjects('In Progress')">In Progress</button>
-        <button class="wf-chip cursor-pointer hover:bg-[var(--wf-primary-50)]" onclick="filterProjects('Planning')">Planning</button>
-        <button class="wf-chip cursor-pointer hover:bg-[var(--wf-primary-50)]" onclick="filterProjects('Completed')">Completed</button>
-      </div>
-    </div>
-
     <div class="overflow-x-auto">
       <table class="wf-table" id="projTable">
         <thead><tr>
-          <th>Project</th><th>Key</th><th>Manager</th><th>Team</th><th>Progress</th><th>Status</th><th>Start</th><th>Due</th>
+          <th>Project</th><th>Assignee</th><th>Team</th><th>Progress</th>
+          <th class="cursor-pointer select-none" onclick="sortProjects('start')">Start <span class="sort-caret" data-col="start"></span></th>
+          <th class="cursor-pointer select-none" onclick="sortProjects('target')">Target <span class="sort-caret" data-col="target"></span></th>
         </tr></thead>
         <tbody>
           {% for p in projects %}
-          <tr data-status="{{ p.status }}" data-name="{{ p.name|lower }}" class="cursor-pointer" onclick="location='/project/{{ p.key }}'">
+          <tr data-name="{{ p.name|lower }}"
+              data-start="{{ p.start_date }}"
+              data-target="{{ p.due_date }}"
+              class="cursor-pointer" onclick="location='/project/{{ p.key }}'">
             <td>
               <div class="flex items-center gap-2.5 min-w-[200px]">
                 <span class="w-9 h-9 rounded-lg grid place-items-center text-white text-[11px] font-bold" style="background:{{ p.color }}">{{ p.key[:3] }}</span>
@@ -48,7 +37,6 @@
                 </div>
               </div>
             </td>
-            <td><span class="wf-badge wf-badge-soft-gray">{{ p.key }}</span></td>
             <td>
               <span class="inline-flex items-center gap-2">
                 <span class="wf-avatar wf-avatar-sm" style="background:{{ p.lead.color if p.lead else p.color }}">{{ p.lead_initials }}</span>
@@ -57,14 +45,12 @@
             </td>
             <td>
               <div class="wf-avatar-group">
-                <span class="wf-avatar wf-avatar-sm" style="background:{{ p.color }}">{{ p.lead_initials }}</span>
-                {% set ns = namespace(count=0) %}
-                {% for u in users if ns.count < 3 %}
-                  <span class="wf-avatar wf-avatar-sm" style="background:{{ u.color }}">{{ u.initials }}</span>
-                  {% set ns.count = ns.count + 1 %}
+                {% set team = members_per_project.get(p.id, []) %}
+                {% for u in team[:3] %}
+                <span class="wf-avatar wf-avatar-sm" style="background:{{ u.color }}">{{ u.initials }}</span>
                 {% endfor %}
-                {% if p.key != 'HRMS' %}
-                <span class="wf-avatar wf-avatar-sm" style="background:#9ca3af">+{{ 2 if p.key == 'ECOM' else 1 }}</span>
+                {% if team|length > 3 %}
+                <span class="wf-avatar wf-avatar-sm" style="background:#9ca3af">+{{ team|length - 3 }}</span>
                 {% endif %}
               </div>
             </td>
@@ -76,14 +62,8 @@
                 <span class="text-[12px] font-semibold text-[var(--wf-text-secondary)]">{{ p.progress }}%</span>
               </div>
             </td>
-            <td>
-              {% if p.status == 'In Progress' %}<span class="wf-status wf-status-progress"><span class="dot"></span>In Progress</span>
-              {% elif p.status == 'Planning' %}<span class="wf-status wf-status-todo"><span class="dot"></span>Planning</span>
-              {% elif p.status == 'On Hold' %}<span class="wf-status wf-status-blocked"><span class="dot"></span>On Hold</span>
-              {% else %}<span class="wf-status wf-status-done"><span class="dot"></span>{{ p.status }}</span>{% endif %}
-            </td>
-            <td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">{{ p.start_date }}</span></td>
-            <td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">{{ p.due_date }}</span></td>
+            <td><span class="text-[12.5px] text-[var(--wf-text-secondary)]" data-sortval="start">{{ p.start_date }}</span></td>
+            <td><span class="text-[12.5px] text-[var(--wf-text-secondary)]" data-sortval="target">{{ p.due_date }}</span></td>
           </tr>
           {% endfor %}
         </tbody>
@@ -94,18 +74,49 @@
 
 {% block scripts %}
 <script>
-  function filterProjects(status) {
-    document.querySelectorAll('#projTable tbody tr').forEach(r => {
-      if (status === 'all') r.style.display = '';
-      else r.style.display = r.dataset.status === status ? '' : 'none';
+  var projSort = { col: null, dir: 1 };
+
+  function parseDate(s) {
+    if (!s) return 0;
+    var d = new Date(s);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  }
+
+  function sortEvents() {
+    document.querySelectorAll('#projTable tbody tr').forEach(function (r) {
+      if ((projSort.col === null) || (r.dataset.name === undefined)) {
+        r.style.display = '';
+        return;
+      }
     });
   }
-  document.getElementById('projSearch').addEventListener('input', e => {
-    const q = e.target.value.trim().toLowerCase();
-    document.querySelectorAll('#projTable tbody tr').forEach(r => {
-      r.style.display = r.dataset.name.includes(q) ? '' : 'none';
+
+  function sortProjects(col) {
+    if (projSort.col === col) {
+      projSort.dir = -projSort.dir;
+    } else {
+      projSort.col = col;
+      projSort.dir = 1;
+    }
+    var rows = Array.prototype.slice.call(document.querySelectorAll('#projTable tbody tr'));
+    rows.sort(function (a, b) {
+      var av = a.querySelector('[data-sortval="' + col + '"]');
+      var bv = b.querySelector('[data-sortval="' + col + '"]');
+      var aval = parseDate(av ? av.textContent : '');
+      var bval = parseDate(bv ? bv.textContent : '');
+      return (aval - bval) * projSort.dir;
     });
-  });
+    var tbody = document.querySelector('#projTable tbody');
+    rows.forEach(function (row) { tbody.appendChild(row); });
+
+    document.querySelectorAll('.sort-caret').forEach(function (c) {
+      if (c.getAttribute('data-col') === col) {
+        c.textContent = projSort.dir === 1 ? '↑' : '↓';
+      } else {
+        c.textContent = '';
+      }
+    });
+  }
 </script>
 {% endblock %}
 {% endblock %}

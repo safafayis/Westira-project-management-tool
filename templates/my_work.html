@@ -9,59 +9,44 @@
       <h1 class="text-[22px] font-bold text-[var(--wf-text)]">My Work</h1>
       <p class="text-[13.5px] text-[var(--wf-text-secondary)] mt-1">Personalized task management across your projects.</p>
     </div>
-    <button class="wf-btn wf-btn-primary wf-btn-sm" onclick="Wexira.openCreateIssue('ECOM')"><i data-lucide="plus" style="width:14px;height:14px"></i> New Task</button>
   </div>
 
   <div class="wf-tabs wf-card rounded-t-lg mb-5">
     <button class="wf-tab is-active" data-wf-tab="assigned">Assigned to Me <span class="wf-badge wf-badge-soft-blue">5</span></button>
     <button class="wf-tab" data-wf-tab="created">Created by Me</button>
-    <button class="wf-tab" data-wf-tab="recent">Recently Viewed</button>
     <button class="wf-tab" data-wf-tab="completed">Completed</button>
   </div>
 
   {# ------------- Assigned ------------- #}
   <div class="wf-tab-panel" data-wf-panel="assigned">
-    {% for group, title in [('today','Today'),('week','This Week'),('upcoming','Upcoming')] %}
-    <div class="mb-5">
-      <div class="flex items-center gap-2 mb-3">
-        <span class="text-[13px] font-bold text-[var(--wf-text)]">{{ title }}</span>
-        <span class="wf-badge wf-badge-soft-gray">{{ my_tasks|length if group == 'week' else 2 if group == 'today' else 2 }}</span>
-        <span class="flex-1 h-px bg-[var(--wf-border-soft)]"></span>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-        {% set tasks = my_tasks %}
-        {% for t in (tasks[:2] if group == 'today' else tasks[2:5] if group == 'week' else tasks[5:]) %}
-        <a href="/issue/{{ t.id }}" class="wf-card p-4 hover:shadow-md hover:border-[#d1d5db] transition-shadow cursor-pointer block">
-          <div class="flex items-center justify-between mb-2">
-            <span class="issue-id">{{ t.project.key }}-{{ t.number }}</span>
-            <span class="wf-badge {{ 'wf-prio-' ~ t.priority|lower }}" style="font-size:10.5px;padding:1px 8px">{{ t.priority }}</span>
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+      {% for t in my_tasks %}
+      <a href="/issue/{{ t.id }}" class="wf-card p-4 hover:shadow-md hover:border-[#d1d5db] transition-shadow cursor-pointer block">
+        <div class="flex items-center justify-between mb-2">
+          <span class="issue-id">{{ t.number }}</span>
+          <span class="wf-badge {{ 'wf-prio-' ~ t.priority|lower }}" style="font-size:10.5px;padding:1px 8px">{{ t.priority }}</span>
+        </div>
+        <div class="text-[13.5px] font-semibold text-[var(--wf-text)] mb-3 leading-snug">{{ t.title }}</div>
+        <div class="flex items-center justify-between">
+          <span class="text-[11.5px] text-[var(--wf-text-tertiary)]">{{ t.project.name[:18] }}</span>
+          <div class="flex items-center gap-2">
+            <span class="issue-points">{{ t.points }} pts</span>
+            {% if t.status == 'in_progress' %}<span class="wf-status wf-status-progress" style="padding:1px 8px"><span class="dot"></span>In Prog</span>
+            {% elif t.status == 'in_review' %}<span class="wf-status wf-status-review" style="padding:1px 8px"><span class="dot"></span>Review</span>
+            {% else %}<span class="wf-status wf-status-todo" style="padding:1px 8px"><span class="dot"></span>To Do</span>{% endif %}
           </div>
-          <div class="text-[13.5px] font-semibold text-[var(--wf-text)] mb-3 leading-snug">{{ t.title }}</div>
-          <div class="flex items-center justify-between">
-            <span class="text-[11.5px] text-[var(--wf-text-tertiary)]">{{ t.project.name[:18] }}</span>
-            <div class="flex items-center gap-2">
-              <span class="issue-points">{{ t.points }} pts</span>
-              {% if t.status == 'in_progress' %}<span class="wf-status wf-status-progress" style="padding:1px 8px"><span class="dot"></span>In Prog</span>
-              {% elif t.status == 'in_review' %}<span class="wf-status wf-status-review" style="padding:1px 8px"><span class="dot"></span>Review</span>
-              {% else %}<span class="wf-status wf-status-todo" style="padding:1px 8px"><span class="dot"></span>To Do</span>{% endif %}
-            </div>
-          </div>
-          <div class="flex items-center justify-between mt-3 pt-3 border-t border-[var(--wf-border-soft)]">
-            <span class="text-[11.5px] font-semibold {{ 'text-[var(--wf-error)]' if t.due_date == 'Sep 07' else 'text-[var(--wf-text-tertiary)]' }}">
-              <i data-lucide="calendar" style="width:11px;height:11px;display:inline;vertical-align:-1px"></i> {{ t.due_date or 'No date' }}
-            </span>
-            <span class="wf-avatar wf-avatar-sm" style="background:var(--wf-primary)">{{ current_user.initials }}</span>
-          </div>
-        </a>
-        {% else %}
-        <div class="col-span-full wf-empty text-[var(--wf-text-tertiary)]"><i data-lucide="inbox" style="width:30px;height:30px"></i><div>No tasks here.</div></div>
-        {% endfor %}
-        <a href="/my-work" class="wf-card p-4 border-dashed border-2 hover:border-[var(--wf-primary)] hover:bg-[var(--wf-primary-50)] transition-colors flex items-center justify-center rounded-lg">
-          <span class="text-[12.5px] font-semibold text-[var(--wf-primary)]"><i data-lucide="plus" style="width:13px;height:13px;display:inline;vertical-align:-2px"></i> New task</span>
-        </a>
-      </div>
+        </div>
+        <div class="flex items-center justify-between mt-3 pt-3 border-t border-[var(--wf-border-soft)]">
+          <span class="text-[11.5px] font-semibold {{ 'text-[var(--wf-error)]' if t.due_date == 'Sep 07' else 'text-[var(--wf-text-tertiary)]' }}">
+            <i data-lucide="calendar" style="width:11px;height:11px;display:inline;vertical-align:-1px"></i> {{ t.due_date or 'No date' }}
+          </span>
+          <span class="wf-avatar wf-avatar-sm" style="background:var(--wf-primary)">{{ current_user.initials }}</span>
+        </div>
+      </a>
+      {% else %}
+      <div class="col-span-full wf-empty text-[var(--wf-text-tertiary)]"><i data-lucide="inbox" style="width:30px;height:30px"></i><div>No tasks here.</div></div>
+      {% endfor %}
     </div>
-    {% endfor %}
   </div>
 
   {# ------------- Created by Me ------------- #}
@@ -89,59 +74,38 @@
     </div>
   </div>
 
-  {# ------------- Recently Viewed ------------- #}
-  <div class="wf-tab-panel hidden" data-wf-panel="recent">
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-      {% for t in (my_tasks[:3] if my_tasks|length >= 3 else my_tasks) %}
-      {% set pct = (17 * loop.index) %}
-      <a href="/issue/{{ t.id }}" class="wf-card p-4 hover:shadow-md transition-shadow block">
-        <div class="flex items-center justify-between mb-2">
-          <span class="issue-id">{{ t.project.key }}-{{ t.number }}</span>
-          <span class="text-[11px] text-[var(--wf-text-tertiary)]">{{ loop.index }}h ago</span>
-        </div>
-        <div class="text-[13.5px] font-semibold text-[var(--wf-text)] mb-1">{{ t.title }}</div>
-        <div class="text-[11.5px] text-[var(--wf-text-tertiary)] mb-3">{{ t.project.name }}</div>
-        <div class="flex items-center gap-2">
-          <div class="wf-progress-track" style="height:5px"><div class="wf-progress-bar" style="width:{{ 60 + loop.index * 12 }}%;background:var(--wf-primary)"></div></div>
-          <span class="text-[11px] font-semibold text-[var(--wf-primary)]">{{ 50 + loop.index * 15 }}%</span>
-        </div>
-      </a>
-      {% else %}
-      <div class="col-span-full wf-empty text-[var(--wf-text-tertiary)]"><i data-lucide="history" style="width:30px;height:30px"></i><div>No recently viewed items.</div></div>
-      {% endfor %}
-    </div>
-  </div>
-
   {# ------------- Completed ------------- #}
   <div class="wf-tab-panel hidden" data-wf-panel="completed">
+    {% if completed_tasks %}
     <div class="wf-card">
       <div class="flex items-center gap-3 p-5">
         <span class="w-11 h-11 rounded-full grid place-items-center" style="background:#ecfdf5;color:var(--wf-success)"><i data-lucide="party-popper" style="width:20px;height:20px"></i></span>
         <div>
-          <div class="text-[14px] font-bold text-[var(--wf-text)]">You completed 3 tasks in the last 7 days</div>
+          <div class="text-[14px] font-bold text-[var(--wf-text)]">You completed {{ completed_tasks|length }} task{{ '' if completed_tasks|length == 1 else 's' }}</div>
           <div class="text-[12px] text-[var(--wf-text-secondary)]">Great momentum this sprint — keep it up!</div>
         </div>
       </div>
-      <div class="overflow-x-auto border-t border-[var(--wf-border-soft)]"><table class="wf-table">
-        <thead><tr><th>Issue</th><th>Project</th><th>Points</th><th>Completed</th></tr></thead>
-        <tbody>
-          {% for t in issues if t.status == 'done' %}
-          <tr class="cursor-pointer" onclick="location='/issue/{{ t.id }}'">
-            <td>
-              <div class="flex items-center gap-2">
-                <span class="text-[var(--wf-success)]"><i data-lucide="check-circle-2" style="width:15px;height:15px"></i></span>
-                <span class="text-[12px] font-bold text-[var(--wf-text-tertiary)]">{{ t.project.key }}-{{ t.number }}</span>
-                <span class="font-medium text-[var(--wf-text)]">{{ t.title }}</span>
-              </div>
-            </td>
-            <td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">{{ t.project.name[:16] }}</span></td>
-            <td><span class="issue-points">{{ t.points }}</span></td>
-            <td><span class="text-[12px] text-[var(--wf-success)] font-semibold">{{ t.sprint.name if t.sprint else 'Sprint 11' }} ✓</span></td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table></div>
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 p-5 border-t border-[var(--wf-border-soft)]">
+        {% for t in completed_tasks %}
+        <a href="/issue/{{ t.id }}" class="wf-card p-4 hover:shadow-md hover:border-[#d1d5db] transition-shadow cursor-pointer block">
+          <div class="flex items-center justify-between mb-2">
+            <span class="issue-id">{{ t.number }}</span>
+            <span class="wf-status wf-status-done" style="padding:1px 8px"><span class="dot"></span>Done</span>
+          </div>
+          <div class="text-[13.5px] font-semibold text-[var(--wf-text)] mb-3 leading-snug">{{ t.title }}</div>
+          <div class="flex items-center justify-between">
+            <span class="text-[11.5px] text-[var(--wf-text-tertiary)]">{{ t.project.name[:18] }}</span>
+            <span class="issue-points">{{ t.points }} pts</span>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
     </div>
+    {% else %}
+    <div class="wf-card">
+      <div class="wf-empty text-[var(--wf-text-tertiary)]"><i data-lucide="check-circle-2" style="width:30px;height:30px"></i><div>No completed tasks yet.</div></div>
+    </div>
+    {% endif %}
   </div>
 </div>
 

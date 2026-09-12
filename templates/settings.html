@@ -31,22 +31,22 @@
         <div class="wf-card-header"><h2 class="text-[15px] font-bold text-[var(--wf-text)]">General Settings</h2></div>
         <div class="p-6 max-w-2xl">
           <div class="flex items-center gap-4 mb-6">
-            <span class="w-16 h-16 rounded-2xl grid place-items-center text-white text-[20px] font-bold" style="background:linear-gradient(135deg,#4f46e5,#7c3aed)">W</span>
+            <span class="w-16 h-16 rounded-2xl grid place-items-center text-white text-[20px] font-bold" style="background:linear-gradient(135deg,#4f46e5,#7c3aed)">A</span>
             <div>
-              <div class="text-[14px] font-semibold text-[var(--wf-text)]">Wexira Workspace</div>
+              <div class="text-[14px] font-semibold text-[var(--wf-text)]">ABC Workspace</div>
               <button class="text-[12px] font-semibold text-[var(--wf-primary)] hover:underline mt-0.5">Change logo</button>
             </div>
           </div>
           <div class="wf-field">
             <label class="wf-label">Workspace name</label>
-            <input class="wf-input" value="Wexira Workspace">
+            <input class="wf-input" value="ABC Workspace">
             <p class="wf-help">Shown in the sidebar and on reports.</p>
           </div>
           <div class="wf-field">
             <label class="wf-label">Workspace URL</label>
             <div class="flex items-center rounded-lg border border-[var(--wf-border)] overflow-hidden focus-within:border-[var(--wf-primary)] focus-within:shadow-[0_0_0_3px_rgba(79,70,229,.15)]">
-              <span class="px-3 text-[13px] text-[var(--wf-text-tertiary)] bg-[#fafafb] py-2.5 border-r border-[var(--wf-border)]">wexira.io/</span>
-              <input class="flex-1 px-3 py-2.5 text-[13px] outline-none" value="wexira-workspace">
+              <span class="px-3 text-[13px] text-[var(--wf-text-tertiary)] bg-[#fafafb] py-2.5 border-r border-[var(--wf-border)]">abc.io/</span>
+              <input class="flex-1 px-3 py-2.5 text-[13px] outline-none" value="abc-workspace">
             </div>
           </div>
           <button class="wf-btn wf-btn-primary mt-2" onclick="Wexira.showToast('Settings saved.','success','Saved')">Save changes</button>
@@ -135,7 +135,7 @@
             ('Assignments','When you are assigned to an issue',True),
             ('Sprint updates','Sprint start, end, and deadline alerts',True),
             ('Daily digest','A morning summary of what changed',False),
-            ('Product tips','Tips and announcements from Wexira',False),
+            ('Product tips','Tips and announcements from ABC',False),
           ] %}
           {% for name, desc, on in prefs %}
           <div class="flex items-center justify-between py-3 border-b border-[var(--wf-border-soft)] last:border-0">

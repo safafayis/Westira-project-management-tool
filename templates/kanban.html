@@ -13,57 +13,61 @@
         <i data-lucide="chevron-right" style="width:12px;height:12px"></i>
         <span class="text-[var(--wf-text)] font-medium">Board</span>
       </nav>
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-3 flex-wrap">
         <h1 class="text-[20px] font-bold text-[var(--wf-text)]">{{ project.name }}</h1>
-        <span class="flex items-center gap-1.5 wf-badge wf-badge-soft-blue">
-          <i data-lucide="timer" style="width:12px;height:12px"></i> Sprint 12
-        </span>
-        <span class="wf-status wf-status-progress"><span class="dot"></span>In Progress</span>
+        <div class="wf-project-selector" id="kanbanProjectSelector">
+          <button type="button" class="wf-project-selector-trigger" id="kanbanProjectTrigger" aria-haspopup="listbox" aria-expanded="false">
+            <span class="wf-project-selector-name" id="kanbanProjectName">{{ project.name }}</span>
+            <svg class="wf-project-selector-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="wf-project-selector-dropdown" id="kanbanProjectDropdown" role="listbox" aria-label="Select project">
+            {% for p in projects_list %}
+            <div class="wf-project-selector-option {{ 'is-selected' if p.id == project.id }}" role="option" data-key="{{ p.key }}" data-name="{{ p.name }}" aria-selected="{{ 'true' if p.id == project.id else 'false' }}">
+              <span class="wf-project-selector-option-name">{{ p.name }}</span>
+              <svg class="wf-project-selector-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
       </div>
-    </div>
-    <div class="flex items-center gap-2">
-      <button class="wf-btn wf-btn-secondary wf-btn-sm"><i data-lucide="layers" style="width:14px;height:14px"></i> Backlog</button>
-      <div class="relative">
-        <button class="wf-btn wf-btn-secondary wf-btn-sm"><i data-lucide="chevron-down" style="width:13px;height:13px" data-toggle></i> Sprint 12</button>
-      </div>
-      <button class="wf-btn wf-btn-primary wf-btn-sm" onclick="Wexira.openCreateIssue('ECOM')"><i data-lucide="plus" style="width:14px;height:14px"></i> Create Issue</button>
     </div>
   </div>
 
-  <div class="flex flex-wrap items-center gap-2 mb-4">
+  <div class="flex flex-wrap items-center gap-2 mb-3">
     <div class="wf-search" style="max-width:220px;flex:1;min-width:140px">
       <i data-lucide="search" style="width:14px;height:14px"></i>
-      <input type="text" id="boardSearch" placeholder="Search issues…">
+      <input type="text" id="boardSearch" placeholder="Search issues...">
     </div>
-    <button class="wf-btn wf-btn-sm wf-btn-secondary" data-filter-popover><i data-lucide="filter" style="width:13px;height:13px"></i> Filter <span id="filterCount" class="hidden w-4 h-4 rounded-full bg-[var(--wf-primary)] text-white text-[10px] grid place-items-center font-bold">0</span></button>
-    <button class="wf-btn wf-btn-sm wf-btn-secondary"><i data-lucide="user" style="width:13px;height:13px"></i> Assignee</button>
-    <button class="wf-btn wf-btn-sm wf-btn-secondary"><i data-lucide="flag" style="width:13px;height:13px"></i> Priority</button>
-    <button class="wf-btn wf-btn-sm wf-btn-secondary"><i data-lucide="tag" style="width:13px;height:13px"></i> Labels</button>
-    <div class="wf-btn wf-btn-sm wf-btn-ghost ml-auto items-center gap-1.5 hidden md:flex">Group by <i data-lucide="chevron-down" style="width:13px;height:13px"></i></div>
+    <button class="wf-btn wf-btn-sm wf-btn-secondary" id="filterBtn"><i data-lucide="filter" style="width:13px;height:13px"></i> Filter<span id="filterBadge" class="hidden ml-1 w-4 h-4 rounded-full bg-[var(--wf-primary)] text-white text-[10px] grid place-items-center font-bold">0</span></button>
+    <button class="wf-btn wf-btn-sm wf-btn-secondary" id="assigneeBtn"><i data-lucide="user" style="width:13px;height:13px"></i> Assignee<span id="assigneeBadge" class="hidden ml-1 w-4 h-4 rounded-full bg-[var(--wf-primary)] text-white text-[10px] grid place-items-center font-bold">0</span></button>
+    <button class="wf-btn wf-btn-sm wf-btn-secondary" id="priorityBtn"><i data-lucide="flag" style="width:13px;height:13px"></i> Priority<span id="priorityBadge" class="hidden ml-1 w-4 h-4 rounded-full bg-[var(--wf-primary)] text-white text-[10px] grid place-items-center font-bold">0</span></button>
+    <button class="wf-btn wf-btn-sm wf-btn-secondary" id="sprintBtn"><i data-lucide="layers" style="width:13px;height:13px"></i> Sprint<span id="sprintBadge" class="hidden ml-1 w-4 h-4 rounded-full bg-[var(--wf-primary)] text-white text-[10px] grid place-items-center font-bold">0</span></button>
+    <button class="wf-btn wf-btn-primary wf-btn-sm" onclick="Wexira.openCreateIssue('{{ project.key }}', BOARD_BOUNDS)"><i data-lucide="plus" style="width:14px;height:14px"></i> Create Issue</button>
   </div>
+
+  <div id="activeFilters" class="flex flex-wrap items-center gap-1.5 mb-3" style="display:none"></div>
 
   <div class="wf-board" id="board">
     {% set columns = [
-      ('backlog', 'BACKLOG', '#6b7280', 99),
-      ('todo', 'TODO', '#4f46e5', 15),
-      ('in_progress', 'IN PROGRESS', '#0891b2', 10),
-      ('in_review', 'IN REVIEW', '#7c3aed', 8),
-      ('done', 'DONE', '#059669', 99),
+      ('backlog', 'BACKLOG', '#6b7280'),
+      ('todo', 'TODO', '#4f46e5'),
+      ('in_progress', 'IN PROGRESS', '#0891b2'),
+      ('in_review', 'IN REVIEW', '#7c3aed'),
+      ('done', 'DONE', '#059669'),
     ] %}
-    {% for col_key, col_name, col_color, wip in columns %}
+    {% for col_key, col_name, col_color in columns %}
     <div class="wf-column" data-column="{{ col_key }}">
       <div class="wf-column-header">
         <span class="w-2.5 h-2.5 rounded-sm" style="background:{{ col_color }}"></span>
         <span class="text-[12px] font-bold text-[var(--wf-text)] tracking-wide">{{ col_name }}</span>
         <span class="wf-column-count" data-count>{{ issues|selectattr('status','equalto',col_key)|list|length }}</span>
-        <span class="wf-column-wip">WIP {{ wip if wip != 99 else '∞' }}</span>
       </div>
       <div class="wf-column-body" data-column-body>
         {% set col_issues = issues|selectattr('status','equalto',col_key)|list %}
         {% for i in col_issues %}
-        <div class="wf-issue-card" data-issue-id="{{ i.id }}" data-key="{{ i.project.key }}-{{ i.number }}" data-title="{{ i.title|lower }}" data-priority="{{ i.priority|lower }}" data-assignee="{{ i.assignee_initials|lower or '' }}" data-labels="{{ i.labels|join(',')|lower }}" onclick="selectCard(event, this)">
+        <div class="wf-issue-card" data-issue-id="{{ i.id }}" data-key="{{ i.project.key }}-{{ i.number }}" data-title="{{ i.title|lower }}" data-priority="{{ i.priority|lower }}" data-assignee="{{ i.all_assignee_initials }}" data-labels="{{ i.labels|join(',')|lower }}" data-type="{{ i.issue_type|lower }}" data-due="{{ i.due_date|lower or '' }}" data-sprint="{{ i.sprint.number if i.sprint else '' }}" data-description="{{ (i.description or '')|lower }}" onclick="selectCard(event, this)">
           <div class="issue-card-top">
-            <span class="issue-id">{{ i.project.key }}-{{ i.number }}</span>
+            <span class="issue-id">{{ i.number }}</span>
             <div class="flex items-center gap-2">
               <span class="wf-badge wf-badge-soft-gray" style="padding:1px 7px;font-size:11px">{{ i.issue_type }}</span>
               <span class="issue-prio-dot" title="{{ i.priority }}" style="background:{{ i.priority_color }}"></span>
@@ -82,7 +86,12 @@
               <i data-lucide="calendar" style="width:11px;height:11px"></i>{{ i.due_date }}
             </span>
             {% endif %}
-            <span class="wf-avatar wf-avatar-sm" style="background:{{ i.assignee_color }}" title="{{ i.assignee }}">{{ i.assignee or '?' }}</span>
+            <span class="issue-sprint-badge {{ '' if i.sprint else 'is-none' }}" data-sprint-badge title="{{ 'Sprint ' ~ i.sprint.number if i.sprint else 'No Sprint' }}">{{ 'Sprint ' ~ i.sprint.number if i.sprint else 'No Sprint' }}</span>
+            {% for av in i.assignee_avatars %}
+            <span class="wf-avatar wf-avatar-sm" style="background:{{ av.color }}" title="{{ av.name or av.initials }}">{{ av.initials }}</span>
+            {% else %}
+            <span class="wf-avatar wf-avatar-sm" style="background:#9ca3af">?</span>
+            {% endfor %}
           </div>
         </div>
         {% else %}
@@ -92,17 +101,20 @@
         </div>
         {% endfor %}
       </div>
-      <div class="px-3 pb-3">
-        <button class="w-full flex items-center gap-2 justify-center py-1.5 rounded-md text-[12px] font-medium text-[var(--wf-text-tertiary)] hover:text-[var(--wf-primary)] hover:bg-white transition-colors cursor-pointer" style="background:none;border:none" onclick="Wexira.openCreateIssue('{{ project.key }}')">
-          <i data-lucide="plus" style="width:13px;height:13px"></i> Add issue
-        </button>
-      </div>
     </div>
     {% endfor %}
+  </div>
+  <div id="kanbanNoResults" class="wf-empty wf-fade-up" style="display:none">
+    <i data-lucide="inbox" style="width:28px;height:28px;margin:0 auto 8px"></i>
+    <div>No issues found</div>
   </div>
 </div>
 
 <script>
+  var BOARD_BOUNDS = { start: {{ project.start_date|tojson }}, target: {{ project.due_date|tojson }} };
+  var BOARD_PROJECT_KEY = {{ project.key|tojson }};
+  var BOARD_SPRINTS = {{ sprints|map(attribute='number')|list|tojson }};
+
   function selectCard(e, el) {
     if (el.classList.contains('is-dragging')) return;
     document.querySelectorAll('.wf-issue-card.is-selected').forEach(c => c.classList.remove('is-selected'));
@@ -111,159 +123,676 @@
   }
 </script>
 
+<script>
+(function () {
+  var selector = document.getElementById('kanbanProjectSelector');
+  if (!selector) return;
+  var trigger = document.getElementById('kanbanProjectTrigger');
+  var dropdown = document.getElementById('kanbanProjectDropdown');
+
+  function closeDropdown() {
+    dropdown.classList.remove('is-open');
+    trigger.setAttribute('aria-expanded', 'false');
+  }
+
+  function openDropdown() {
+    dropdown.classList.add('is-open');
+    trigger.setAttribute('aria-expanded', 'true');
+  }
+
+  trigger.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (dropdown.classList.contains('is-open')) closeDropdown();
+    else openDropdown();
+  });
+
+  dropdown.querySelectorAll('.wf-project-selector-option').forEach(function (opt) {
+    opt.addEventListener('click', function () {
+      var key = opt.getAttribute('data-key');
+      closeDropdown();
+      if (key && key !== BOARD_PROJECT_KEY) {
+        window.location.href = '/kanban/' + encodeURIComponent(key);
+      }
+    });
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!selector.contains(e.target)) closeDropdown();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeDropdown();
+  });
+
+  trigger.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (!dropdown.classList.contains('is-open')) openDropdown();
+    }
+  });
+})();
+</script>
+
 {% block scripts %}
 <script>
-/* ============================================================
-   Wexira — Kanban board (drag & drop + filters)
-   ============================================================ */
-
 (function () {
   'use strict';
 
-  const board = document.getElementById('board');
+  var board = document.getElementById('board');
   if (!board) return;
 
-  const groupName = 'kanban-board-cards';
-  const sortables = [];
+  var groupName = 'kanban-board-cards';
+  var sortables = [];
 
-  document.querySelectorAll('.wf-column-body').forEach(body => {
-    const col = body.closest('.wf-column');
-    const s = Sortable.create(body, {
+  document.querySelectorAll('.wf-column-body').forEach(function (body) {
+    var col = body.closest('.wf-column');
+    var s = Sortable.create(body, {
       group: groupName,
       animation: 160,
       ghostClass: 'is-dragging',
       chosenClass: 'is-dragging',
       dragClass: 'is-dragging',
       filter: '.wf-column-empty',
-      onStart(evt) {
+      onStart: function (evt) {
         evt.item.classList.add('is-dragging');
         updateDropZones(true);
       },
-      onEnd(evt) {
+      onEnd: function (evt) {
         evt.item.classList.remove('is-dragging');
         updateDropZones(false);
-        document.querySelectorAll('.wf-issue-card').forEach(c => c.classList.remove('is-selected'));
-        const status = col.dataset.column;
-        const issueId = evt.item.dataset.issueId;
+        document.querySelectorAll('.wf-issue-card').forEach(function (c) { c.classList.remove('is-selected'); });
+        var status = col.dataset.column;
+        var issueId = evt.item.dataset.issueId;
         persistMove(issueId, status, evt.newIndex);
       },
     });
     sortables.push(s);
 
-    body.addEventListener('dragover', () => col.classList.add('is-dragover'));
-    body.addEventListener('dragleave', () => col.classList.remove('is-dragover'));
-    body.addEventListener('drop', () => col.classList.remove('is-dragover'));
+    body.addEventListener('dragover', function () { col.classList.add('is-dragover'); });
+    body.addEventListener('dragleave', function () { col.classList.remove('is-dragover'); });
+    body.addEventListener('drop', function () { col.classList.remove('is-dragover'); });
   });
 
   function updateDropZones(active) {
-    document.querySelectorAll('.wf-column').forEach(c => {
+    document.querySelectorAll('.wf-column').forEach(function (c) {
       if (!active) { c.classList.remove('is-dragover'); return; }
     });
   }
 
   function persistMove(issueId, status, position) {
-    fetch(`/api/issues/${issueId}/move`, {
+    fetch('/api/issues/' + issueId + '/move', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status, position: position || 0 }),
+      body: JSON.stringify({ status: status, position: position || 0 }),
     })
-      .then(r => r.json())
-      .then(() => {
-        updateCounts();
-        const card = document.querySelector(`[data-issue-id="${issueId}"] .issue-id`);
-        if (card) Wexira.showToast(`${card.textContent} moved to ${status.replace('_', ' ')}`, 'success');
+      .then(function (r) { return r.json(); })
+      .then(function () {
+        applyFilters();
+        var card = document.querySelector('[data-issue-id="' + issueId + '"] .issue-id');
+        if (card) Wexira.showToast(card.textContent + ' moved to ' + status.replace('_', ' '), 'success');
       })
-      .catch(() => Wexira.showToast('Could not update the issue status.', 'error'));
+      .catch(function () { Wexira.showToast('Could not update the issue status.', 'error'); });
   }
 
   function updateCounts() {
-    document.querySelectorAll('.wf-column').forEach(col => {
-      const key = col.dataset.column;
-      const cards = col.querySelectorAll('.wf-issue-card').length;
-      const counter = col.querySelector('[data-count]');
-      if (counter) counter.textContent = cards;
-      const empty = col.querySelector('[data-empty]');
-      if (empty) empty.style.display = cards > 0 ? 'none' : '';
+    document.querySelectorAll('.wf-column').forEach(function (col) {
+      var body = col.querySelector('.wf-column-body');
+      var visible = body ? body.querySelectorAll('.wf-issue-card:not([style*="display: none"])').length : 0;
+      var counter = col.querySelector('[data-count]');
+      if (counter) counter.textContent = visible;
+      var empty = col.querySelector('[data-empty]');
+      if (empty) empty.style.display = visible > 0 ? 'none' : '';
     });
   }
 
-  /* ------------------------------------------------------------------
-     Board filtering (search, priority, assignee)
-     ------------------------------------------------------------------ */
-  let filters = { search: '', priority: '', assignee: '' };
+  function updateNoResults() {
+    var note = document.getElementById('kanbanNoResults');
+    if (!note) return;
+    var total = document.querySelectorAll('.wf-issue-card').length;
+    var visible = document.querySelectorAll('.wf-issue-card:not([style*="display: none"])').length;
+    var filtering = hasActiveFilters() || filters.search !== '';
+    note.style.display = (total > 0 && visible === 0 && filtering) ? 'flex' : 'none';
+  }
 
+  /* ================================================================
+     Collect unique filter values from actual issue cards
+     ================================================================ */
+  var allCards = document.querySelectorAll('.wf-issue-card');
+  var seen = { assignees: {}, labels: {}, types: {} };
+
+  allCards.forEach(function (card) {
+    var a = card.dataset.assignee;
+    if (a) a.split(',').forEach(function (x) { if (x) seen.assignees[x] = true; });
+    var lbls = card.dataset.labels;
+    if (lbls) lbls.split(',').forEach(function (l) { var t = l.trim(); if (t) seen.labels[t] = true; });
+    var tp = card.dataset.type;
+    if (tp) seen.types[tp] = true;
+  });
+
+  var assigneeList = Object.keys(seen.assignees).sort();
+  var labelList = Object.keys(seen.labels).sort();
+  var typeList = Object.keys(seen.types).sort();
+
+  /* ================================================================
+     Filter state
+     ================================================================ */
+  var filters = { search: '', assignee: [], priority: [], type: [], label: [], dueDate: [], sprint: [] };
+  var openMenu = null;
+  var searchTimeout = null;
+
+  function hasActiveFilters() {
+    return filters.assignee.length > 0 || filters.priority.length > 0 ||
+           filters.type.length > 0 || filters.label.length > 0 || filters.dueDate.length > 0 ||
+           filters.sprint.length > 0;
+  }
+
+  /* ================================================================
+     Apply filters to all cards
+     ================================================================ */
   function applyFilters() {
-    document.querySelectorAll('.wf-issue-card').forEach(card => {
-      const show =
-        (!filters.search || card.dataset.title.includes(filters.search)) &&
-        (!filters.priority || card.dataset.priority === filters.priority) &&
-        (!filters.assignee || card.dataset.assignee.includes(filters.assignee));
+    var cards = document.querySelectorAll('.wf-issue-card');
+    var search = filters.search.toLowerCase().trim();
+
+    cards.forEach(function (card) {
+      var show = true;
+
+      if (search) {
+        var inKey = (card.dataset.key || '').toLowerCase().indexOf(search) !== -1;
+        var inTitle = (card.dataset.title || '').indexOf(search) !== -1;
+        var inDesc = (card.dataset.description || '').indexOf(search) !== -1;
+        var inLabels = (card.dataset.labels || '').indexOf(search) !== -1;
+        if (!inKey && !inTitle && !inDesc && !inLabels) show = false;
+      }
+
+      if (show && filters.assignee.length > 0) {
+        var cardAssignees = (card.dataset.assignee || '').split(',').filter(function (s) { return s; });
+        var matched = false;
+        for (var a = 0; a < filters.assignee.length; a++) {
+          var fa = filters.assignee[a];
+          if (fa === '__unassigned' && cardAssignees.length === 0) { matched = true; break; }
+          if (fa !== '__unassigned' && cardAssignees.indexOf(fa) !== -1) { matched = true; break; }
+        }
+        if (!matched) show = false;
+      }
+
+      if (show && filters.priority.length > 0) {
+        var cardPriority = priorityLevel(card.dataset.priority || '');
+        if (filters.priority.indexOf(cardPriority) === -1) show = false;
+      }
+
+      if (show && filters.type.length > 0) {
+        var cardType = card.dataset.type || '';
+        if (filters.type.indexOf(cardType) === -1) show = false;
+      }
+
+      if (show && filters.label.length > 0) {
+        var cardLabels = (card.dataset.labels || '').split(',').map(function (s) { return s.trim(); });
+        var hasLabel = false;
+        for (var lb = 0; lb < filters.label.length; lb++) {
+          if (cardLabels.indexOf(filters.label[lb]) !== -1) { hasLabel = true; break; }
+        }
+        if (!hasLabel) show = false;
+      }
+
+      if (show && filters.dueDate.length > 0) {
+        var cardDue = card.dataset.due || '';
+        var dueMatch = false;
+        for (var dd = 0; dd < filters.dueDate.length; dd++) {
+          var d = filters.dueDate[dd];
+          if (d === 'none' && cardDue === '') { dueMatch = true; break; }
+          if (d === 'today' && cardDue.toLowerCase() === 'today') { dueMatch = true; break; }
+          if (d === 'overdue' && cardDue && cardDue.toLowerCase() !== 'today' && card.querySelector('.issue-due.urgent')) { dueMatch = true; break; }
+          if (d === 'week' && cardDue && cardDue.toLowerCase() !== '') { dueMatch = true; break; }
+        }
+        if (!dueMatch) show = false;
+      }
+
+      if (show && filters.sprint.length > 0) {
+        var cardSprint = card.dataset.sprint || '';
+        var sprintMatched = false;
+        for (var sp = 0; sp < filters.sprint.length; sp++) {
+          var fsp = filters.sprint[sp];
+          if (fsp === '__none' && cardSprint === '') { sprintMatched = true; break; }
+          if (fsp !== '__none' && cardSprint === fsp) { sprintMatched = true; break; }
+        }
+        if (!sprintMatched) show = false;
+      }
+
       card.style.display = show ? '' : 'none';
     });
-    document.querySelectorAll('.wf-column').forEach(col => {
-      const cards = col.querySelectorAll('.wf-column-body > .wf-issue-card');
-      const visible = [...cards].filter(c => c.style.display !== 'none');
-      const counter = col.querySelector('[data-count]');
-      if (counter) counter.textContent = visible.length;
-      const empty = col.querySelector('[data-empty]');
-      if (empty) empty.style.display = visible.length > 0 ? 'none' : '';
+
+    updateCounts();
+    updateNoResults();
+    updateBadges();
+    updateActiveFiltersBar();
+  }
+
+  /* ================================================================
+     Badge updates
+     ================================================================ */
+  function updateBadges() {
+    var ab = document.getElementById('assigneeBadge');
+    var pb = document.getElementById('priorityBadge');
+    var fb = document.getElementById('filterBadge');
+    var sb = document.getElementById('sprintBadge');
+    if (ab) { ab.textContent = filters.assignee.length; ab.classList.toggle('hidden', filters.assignee.length === 0); }
+    if (pb) { pb.textContent = filters.priority.length; pb.classList.toggle('hidden', filters.priority.length === 0); }
+    if (sb) { sb.textContent = filters.sprint.length; sb.classList.toggle('hidden', filters.sprint.length === 0); }
+    var adv = filters.type.length + filters.label.length + filters.dueDate.length;
+    if (fb) { fb.textContent = adv; fb.classList.toggle('hidden', adv === 0); }
+  }
+
+  /* ================================================================
+     Active filters bar with removable chips
+     ================================================================ */
+  function updateActiveFiltersBar() {
+    var bar = document.getElementById('activeFilters');
+    if (!bar) return;
+    bar.innerHTML = '';
+    if (!hasActiveFilters()) { bar.style.display = 'none'; return; }
+    bar.style.display = 'flex';
+
+    filters.assignee.forEach(function (v) {
+      var label = v === '__unassigned' ? 'Unassigned' : v.toUpperCase();
+      bar.appendChild(makeChip('Assignee', label, function () {
+        filters.assignee = filters.assignee.filter(function (x) { return x !== v; });
+        applyFilters();
+        renderMenus();
+      }));
     });
-    const count = document.querySelectorAll('.wf-issue-card').length;
-    const hidden = document.querySelectorAll('.wf-issue-card').length - document.querySelectorAll('.wf-issue-card:not([style*="display: none"])').length;
-    const badge = document.getElementById('filterCount');
-    if (badge) {
-      badge.classList.toggle('hidden', hidden === 0);
-      badge.textContent = hidden;
+    filters.priority.forEach(function (v) {
+      bar.appendChild(makeChip('Priority', v.charAt(0).toUpperCase() + v.slice(1), function () {
+        filters.priority = filters.priority.filter(function (x) { return x !== v; });
+        applyFilters();
+        renderMenus();
+      }));
+    });
+    filters.type.forEach(function (v) {
+      bar.appendChild(makeChip('Type', v.charAt(0).toUpperCase() + v.slice(1), function () {
+        filters.type = filters.type.filter(function (x) { return x !== v; });
+        applyFilters();
+        renderMenus();
+      }));
+    });
+    filters.label.forEach(function (v) {
+      bar.appendChild(makeChip('Label', v, function () {
+        filters.label = filters.label.filter(function (x) { return x !== v; });
+        applyFilters();
+        renderMenus();
+      }));
+    });
+    filters.dueDate.forEach(function (v) {
+      var dueLabels = { overdue: 'Overdue', today: 'Due Today', week: 'Due This Week', none: 'No Due Date' };
+      bar.appendChild(makeChip('Due', dueLabels[v] || v, function () {
+        filters.dueDate = filters.dueDate.filter(function (x) { return x !== v; });
+        applyFilters();
+        renderMenus();
+      }));
+    });
+    filters.sprint.forEach(function (v) {
+      var sprintLabel = v === '__none' ? 'No Sprint' : 'Sprint ' + v;
+      bar.appendChild(makeChip('Sprint', sprintLabel, function () {
+        filters.sprint = filters.sprint.filter(function (x) { return x !== v; });
+        applyFilters();
+        renderMenus();
+      }));
+    });
+
+    var clearBtn = document.createElement('button');
+    clearBtn.className = 'text-[11px] font-semibold text-[var(--wf-error)] hover:text-[#b91c1c] ml-1 cursor-pointer';
+    clearBtn.style.cssText = 'background:none;border:none;padding:4px 6px';
+    clearBtn.textContent = 'Clear all';
+    clearBtn.addEventListener('click', clearAll);
+    bar.appendChild(clearBtn);
+  }
+
+  function makeChip(cat, label, onRemove) {
+    var chip = document.createElement('span');
+    chip.className = 'wf-chip';
+    chip.innerHTML = '<span class="text-[var(--wf-text-tertiary)]">' + escapeHtml(cat) + ':</span> ' + escapeHtml(label) + ' <button style="background:none;border:none;cursor:pointer;padding:0;margin-left:2px;color:var(--wf-text-tertiary);font-size:14px;line-height:1" title="Remove">&times;</button>';
+    chip.querySelector('button').addEventListener('click', onRemove);
+    return chip;
+  }
+
+  function clearAll() {
+    filters = { search: '', assignee: [], priority: [], type: [], label: [], dueDate: [], sprint: [] };
+    var searchEl = document.getElementById('boardSearch');
+    if (searchEl) searchEl.value = '';
+    applyFilters();
+    renderMenus();
+  }
+
+  /* ================================================================
+     Re-render open menus to reflect current selection state
+     ================================================================ */
+  function renderMenus() {
+    if (!openMenu) return;
+    var id = openMenu.id;
+    if (id === 'assigneeMenu' && assigneeBtn) assigneeBtn.click();
+    else if (id === 'priorityMenu' && priorityBtn) priorityBtn.click();
+    else if (id === 'sprintMenu' && sprintBtn) sprintBtn.click();
+    else if (id === 'filterMenu' && filterBtn) filterBtn.click();
+  }
+
+  /* ================================================================
+     Search with debounce
+     ================================================================ */
+  var searchEl = document.getElementById('boardSearch');
+  if (searchEl) {
+    searchEl.addEventListener('input', function () {
+      clearTimeout(searchTimeout);
+      var val = searchEl.value;
+      searchTimeout = setTimeout(function () {
+        filters.search = val;
+        applyFilters();
+      }, 200);
+    });
+  }
+
+  /* ================================================================
+     Menu positioning helper
+     ================================================================ */
+  function positionMenu(menu, anchor) {
+    var rect = anchor.getBoundingClientRect();
+    var top = rect.bottom + window.scrollY + 6;
+    var left = rect.left + window.scrollX;
+    menu.style.top = top + 'px';
+    menu.style.left = left + 'px';
+    document.body.appendChild(menu);
+    var menuRect = menu.getBoundingClientRect();
+    if (menuRect.right > window.innerWidth - 16) {
+      menu.style.left = Math.max(16, window.innerWidth - menuRect.width - 16) + 'px';
+    }
+    if (menuRect.bottom > window.innerHeight - 16) {
+      menu.style.top = (rect.top + window.scrollY - menuRect.height - 6) + 'px';
     }
   }
 
-  const searchEl = document.getElementById('boardSearch');
-  if (searchEl) searchEl.addEventListener('input', e => {
-    filters.search = e.target.value.trim().toLowerCase();
-    applyFilters();
+  /* ================================================================
+     Close menus on outside click
+     ================================================================ */
+  document.addEventListener('click', function (e) {
+    if (openMenu && !openMenu.contains(e.target)) {
+      var isToolbar = e.target.closest('#assigneeBtn') || e.target.closest('#priorityBtn') || e.target.closest('#filterBtn');
+      if (!isToolbar) {
+        openMenu.remove();
+        openMenu = null;
+      }
+    }
   });
 
-  [['Priority', 'priority'], ['Assignee', 'assignee']].forEach(([label, key]) => {
-    document.querySelectorAll(`.wf-btn-secondar[y i]`).forEach(() => {});
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && openMenu) {
+      openMenu.remove();
+      openMenu = null;
+    }
   });
 
-  const filterBtns = document.querySelectorAll('[data-filter-popover]');
-  filterBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const pop = document.getElementById('filterPopover');
-      if (pop) pop.remove();
-      const menu = document.createElement('div');
-      menu.id = 'filterPopover';
+  function closeMenu() {
+    if (openMenu) { openMenu.remove(); openMenu = null; }
+  }
+
+  /* ================================================================
+     Menu builder helpers
+     ================================================================ */
+  function addSection(menu, title) {
+    var div = document.createElement('div');
+    div.className = 'px-3 py-1 mt-1 text-[11px] font-bold uppercase tracking-wide text-[var(--wf-text-tertiary)]';
+    div.textContent = title;
+    menu.appendChild(div);
+  }
+
+  function addCheckboxItem(menu, label, checked, onChange) {
+    var btn = document.createElement('button');
+    btn.className = 'wf-menu-item';
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = checked;
+    cb.style.cssText = 'accent-color:var(--wf-primary);cursor:pointer;margin-right:4px';
+    btn.appendChild(cb);
+    btn.appendChild(document.createTextNode(' ' + label));
+
+    function handle() {
+      var next = !cb.checked;
+      cb.checked = next;
+      onChange(next);
+    }
+
+    cb.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      handle();
+    });
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      handle();
+    });
+    menu.appendChild(btn);
+    return btn;
+  }
+
+  function addClearBtn(menu, onClick) {
+    var btn = document.createElement('button');
+    btn.className = 'wf-menu-item danger mt-1';
+    btn.innerHTML = '<i data-lucide="x" style="width:13px;height:13px"></i> Clear selections';
+    btn.addEventListener('click', function (e) { e.stopPropagation(); onClick(); });
+    menu.appendChild(btn);
+    return btn;
+  }
+
+  function toggle(arr, val) {
+    var idx = arr.indexOf(val);
+    if (idx === -1) arr.push(val); else arr.splice(idx, 1);
+  }
+
+  /* ================================================================
+     ASSIGNEE multi-select dropdown
+     ================================================================ */
+  var assigneeBtn = document.getElementById('assigneeBtn');
+  if (assigneeBtn) {
+    assigneeBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (openMenu && openMenu.id === 'assigneeMenu') { closeMenu(); return; }
+      closeMenu();
+
+      var menu = document.createElement('div');
+      menu.id = 'assigneeMenu';
       menu.className = 'wf-menu';
-      menu.style.top = btn.offsetTop + btn.offsetHeight + 6 + 'px';
-      menu.style.left = btn.offsetLeft + 'px';
-      menu.innerHTML = `
-        <div class="px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-[var(--wf-text-tertiary)]">Priority</div>
-        ${['','low','medium','high','critical'].map(p =>
-          `<button class="wf-menu-item" data-set="${p}" data-key="priority">${p || 'All priorities'}</button>`).join('')}
-        <div class="px-3 py-1 mt-1 text-[11px] font-bold uppercase tracking-wide text-[var(--wf-text-tertiary)]">Assignee</div>
-        ${['','sc','mj','ps','dk','ob','jw'].map(a =>
-          `<button class="wf-menu-item" data-set="${a}" data-key="assignee">${a ? '&nbsp;' + a.toUpperCase() : 'Everyone'}</button>`).join('')}
-        <button class="wf-menu-item danger mt-1" data-clear>Clear filters</button>`;
-      document.body.appendChild(menu);
-      menu.querySelectorAll('[data-set]').forEach(item => {
-        item.addEventListener('click', () => {
-          filters[item.dataset.key] = item.dataset.set;
-          applyFilters();
-          menu.remove();
+      positionMenu(menu, assigneeBtn);
+
+      addSection(menu, 'Assignee');
+
+      addCheckboxItem(menu, 'All', filters.assignee.length === 0, function () {
+        filters.assignee = [];
+        applyFilters(); renderMenus();
+      });
+
+      assigneeList.forEach(function (a) {
+        addCheckboxItem(menu, a.toUpperCase(), filters.assignee.indexOf(a) !== -1, function () {
+          toggle(filters.assignee, a);
+          applyFilters(); renderMenus();
         });
       });
-      menu.querySelector('[data-clear]').addEventListener('click', () => {
-        filters = { search: '', priority: '', assignee: '' };
-        if (searchEl) searchEl.value = '';
-        applyFilters();
-        menu.remove();
+
+      addCheckboxItem(menu, 'Unassigned', filters.assignee.indexOf('__unassigned') !== -1, function () {
+        toggle(filters.assignee, '__unassigned');
+        applyFilters(); renderMenus();
       });
-      window.addEventListener('click', e => {
-        if (menu && !menu.contains(e.target) && !btn.contains(e.target)) menu.remove();
-      }, { once: true });
+
+      addClearBtn(menu, function () {
+        filters.assignee = [];
+        applyFilters(); renderMenus();
+      });
+
+      openMenu = menu;
+      lucide.createIcons({ nodes: [menu] });
     });
-  });
+  }
+
+  /* ================================================================
+     PRIORITY multi-select dropdown
+     ================================================================ */
+  var priorityBtn = document.getElementById('priorityBtn');
+  var PRIORITY_LEVELS = [
+    ['highest', 'Highest'],
+    ['high', 'High'],
+    ['medium', 'Medium'],
+    ['low', 'Low'],
+    ['lowest', 'Lowest'],
+  ];
+  var PRIORITY_TO_LEVEL = { critical: 'highest', high: 'high', medium: 'medium', low: 'low', lowest: 'lowest' };
+
+  function priorityLevel(v) {
+    return PRIORITY_TO_LEVEL[v] || v;
+  }
+
+  if (priorityBtn) {
+    priorityBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (openMenu && openMenu.id === 'priorityMenu') { closeMenu(); return; }
+      closeMenu();
+
+      var menu = document.createElement('div');
+      menu.id = 'priorityMenu';
+      menu.className = 'wf-menu';
+      positionMenu(menu, priorityBtn);
+
+      addSection(menu, 'Priority');
+
+      addCheckboxItem(menu, 'All', filters.priority.length === 0, function () {
+        filters.priority = [];
+        applyFilters(); renderMenus();
+      });
+
+      PRIORITY_LEVELS.forEach(function (p) {
+        addCheckboxItem(menu, p[1], filters.priority.indexOf(p[0]) !== -1, function () {
+          toggle(filters.priority, p[0]);
+          applyFilters(); renderMenus();
+        });
+      });
+
+      addClearBtn(menu, function () {
+        filters.priority = [];
+        applyFilters(); renderMenus();
+      });
+
+      openMenu = menu;
+      lucide.createIcons({ nodes: [menu] });
+    });
+  }
+
+  /* ================================================================
+     SPRINT multi-select dropdown
+     ================================================================ */
+  var sprintBtn = document.getElementById('sprintBtn');
+  if (sprintBtn) {
+    sprintBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (openMenu && openMenu.id === 'sprintMenu') { closeMenu(); return; }
+      closeMenu();
+
+      var menu = document.createElement('div');
+      menu.id = 'sprintMenu';
+      menu.className = 'wf-menu';
+      positionMenu(menu, sprintBtn);
+
+      addSection(menu, 'Sprint');
+
+      addCheckboxItem(menu, 'All Sprints', filters.sprint.length === 0, function () {
+        filters.sprint = [];
+        applyFilters(); renderMenus();
+      });
+
+      addCheckboxItem(menu, 'No Sprint', filters.sprint.indexOf('__none') !== -1, function () {
+        toggle(filters.sprint, '__none');
+        applyFilters(); renderMenus();
+      });
+
+      BOARD_SPRINTS.forEach(function (num) {
+        addCheckboxItem(menu, 'Sprint ' + num, filters.sprint.indexOf(String(num)) !== -1, function () {
+          toggle(filters.sprint, String(num));
+          applyFilters(); renderMenus();
+        });
+      });
+
+      if (BOARD_SPRINTS.length === 0) {
+        var hint = document.createElement('div');
+        hint.className = 'px-3 py-1 text-[11.5px] text-[var(--wf-text-tertiary)]';
+        hint.textContent = 'No sprints for this project.';
+        menu.appendChild(hint);
+      }
+
+      addClearBtn(menu, function () {
+        filters.sprint = [];
+        applyFilters(); renderMenus();
+      });
+
+      openMenu = menu;
+      lucide.createIcons({ nodes: [menu] });
+    });
+  }
+
+  /* ================================================================
+     FILTER (advanced) dropdown
+     ================================================================ */
+  var filterBtn = document.getElementById('filterBtn');
+  if (filterBtn) {
+    filterBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (openMenu && openMenu.id === 'filterMenu') { closeMenu(); return; }
+      closeMenu();
+
+      var menu = document.createElement('div');
+      menu.id = 'filterMenu';
+      menu.className = 'wf-menu';
+      menu.style.minWidth = '260px';
+      positionMenu(menu, filterBtn);
+
+      /* Issue Type */
+      addSection(menu, 'Issue Type');
+      typeList.forEach(function (tp) {
+        var label = tp.charAt(0).toUpperCase() + tp.slice(1);
+        addCheckboxItem(menu, label, filters.type.indexOf(tp) !== -1, function () {
+          toggle(filters.type, tp);
+          applyFilters(); renderMenus();
+        });
+      });
+
+      /* Labels */
+      addSection(menu, 'Labels');
+      labelList.forEach(function (lb) {
+        addCheckboxItem(menu, lb, filters.label.indexOf(lb) !== -1, function () {
+          toggle(filters.label, lb);
+          applyFilters(); renderMenus();
+        });
+      });
+
+      /* Due Date */
+      addSection(menu, 'Due Date');
+      var dueOptions = [
+        ['overdue', 'Overdue'],
+        ['today', 'Due Today'],
+        ['week', 'Due This Week'],
+        ['none', 'No Due Date'],
+      ];
+      dueOptions.forEach(function (d) {
+        addCheckboxItem(menu, d[1], filters.dueDate.indexOf(d[0]) !== -1, function () {
+          toggle(filters.dueDate, d[0]);
+          applyFilters(); renderMenus();
+        });
+      });
+
+      addClearBtn(menu, function () {
+        filters.type = [];
+        filters.label = [];
+        filters.dueDate = [];
+        applyFilters(); renderMenus();
+      });
+
+      openMenu = menu;
+      lucide.createIcons({ nodes: [menu] });
+    });
+  }
 
 })();
 </script>
@@ -274,5 +803,17 @@
     .wf-board { overflow-x: auto; }
     .wf-column { min-width: 300px; }
   }
+
+  .issue-sprint-badge {
+    background: #eef2ff;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #4f46e5;
+    flex: none;
+    white-space: nowrap;
+  }
+  .issue-sprint-badge.is-none { background: #f3f4f6; color: #6b7280; }
 </style>
 {% endblock %}

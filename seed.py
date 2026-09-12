@@ -83,7 +83,7 @@ def seed():
             ('SUPT', 'Customer Support Portal', 'SC', '#059669', 'In Progress', 'Nov 10, 2025', 'Aug 31, 2026', 81,
              'On Track', 'On Track', 'On Track', 'Good',
              'Unified customer support portal with ticketing, knowledge base, and live chat.'),
-            ('AIPL', 'AI Analytics Platform', 'MJ', '#7c3aed', 'Planning', 'May 15, 2026', 'Feb 28, 2027', 25,
+            ('AIPL', 'AI Analytics Platform', 'MJ', '#7c3aed', 'Not Started', 'May 15, 2026', 'Feb 28, 2027', 25,
              'At Risk', 'On Track', 'On Track', 'Limited',
              'Analytics platform powered by machine learning for predictive insights and anomaly detection.'),
             ('HRMS', 'Internal HR System', 'OB', '#d97706', 'Completed', 'Sep 01, 2025', 'May 15, 2026', 95,

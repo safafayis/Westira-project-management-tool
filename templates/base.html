@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Wexira{% endblock %} — Wexira</title>
+  <title>{% block title %}ABC{% endblock %} - ABC</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -161,13 +161,12 @@ a { text-decoration: none; color: inherit; }
   width: 32px;
   height: 32px;
   border-radius: 9px;
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  background: #e5e7eb;
+  border: 2px solid var(--wf-border);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
   flex: none;
-  box-shadow: 0 4px 10px rgba(79, 70, 229, .35);
 }
 
 .wf-logo-text {
@@ -469,6 +468,8 @@ a { text-decoration: none; color: inherit; }
 .wf-prio-medium   { background: #ecfeff; color: #0891b2; }
 .wf-prio-high     { background: #fffbeb; color: #d97706; }
 .wf-prio-critical { background: #fef2f2; color: #dc2626; }
+.wf-prio-highest  { background: #fef2f2; color: #dc2626; }
+.wf-prio-lowest   { background: #f3f4f6; color: #6b7280; }
 
 .wf-badge-soft-blue   { background: #eef2ff; color: #4338ca; }
 .wf-badge-soft-grape  { background: #f5f3ff; color: #6d28d9; }
@@ -727,6 +728,91 @@ a { text-decoration: none; color: inherit; }
 .wf-input.is-invalid { border-color: var(--wf-error); }
 .wf-help { font-size: 12px; color: var(--wf-text-secondary); margin-top: 5px; }
 .wf-field { margin-bottom: 16px; }
+
+/* --------------------------------------------------------------------
+   Multi-select team members (Create Project)
+   -------------------------------------------------------------------- */
+.wf-ms-wrap { position: relative; }
+.wf-ms-trigger {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+  min-height: 38px; padding: 4px 8px;
+  background: var(--wf-card); border: 1px solid var(--wf-border);
+  border-radius: 8px; cursor: pointer; font-size: 13px;
+}
+.wf-ms-trigger:focus-within { border-color: var(--wf-primary); box-shadow: 0 0 0 2px rgba(79,70,229,.12); }
+.wf-ms-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 7px 2px 8px; border-radius: 6px;
+  font-size: 12px; font-weight: 600; color: #fff; line-height: 1.6;
+}
+.wf-ms-tag-x {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border-radius: 50%; cursor: pointer;
+  font-size: 10px; line-height: 1; background: rgba(255,255,255,.25);
+  transition: background .15s;
+}
+.wf-ms-tag-x:hover { background: rgba(255,255,255,.45); }
+.wf-ms-input {
+  flex: 1 1 60px; border: none; outline: none; background: transparent;
+  font-size: 13px; color: var(--wf-text); min-width: 60px;
+}
+.wf-ms-input::placeholder { color: var(--wf-text-tertiary); }
+.wf-ms-list {
+  position: absolute; left: 0; right: 0; top: 100%; margin-top: 4px;
+  background: var(--wf-card); border: 1px solid var(--wf-border);
+  border-radius: 8px; box-shadow: var(--wf-shadow-md);
+  max-height: 200px; overflow-y: auto; z-index: 50; display: none;
+}
+.wf-ms-list.is-open { display: block; }
+.wf-ms-opt {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; cursor: pointer; font-size: 13px;
+}
+.wf-ms-opt:hover { background: var(--wf-bg); }
+.wf-ms-opt.is-selected { background: rgba(79,70,229,.08); }
+.wf-ms-opt-check { width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--wf-border); display: grid; place-items: center; flex-shrink: 0; }
+.wf-ms-opt.is-selected .wf-ms-opt-check { background: var(--wf-primary); border-color: var(--wf-primary); }
+.wf-ms-opt.is-selected .wf-ms-opt-check::after { content: ''; width: 8px; height: 5px; border-left: 2px solid #fff; border-bottom: 2px solid #fff; transform: rotate(-45deg) translateY(-1px); }
+
+/* ------------------------------------------------------------------
+   Single-select assignee dropdown (Create Project)
+   ------------------------------------------------------------------ */
+.wf-ss-wrap { position: relative; }
+.wf-ss-trigger {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 38px; padding: 6px 10px;
+  background: var(--wf-card); border: 1px solid var(--wf-border);
+  border-radius: 8px; cursor: pointer; font-size: 13px;
+}
+.wf-ss-trigger:hover { border-color: var(--wf-primary); }
+.wf-ss-trigger:focus-within { border-color: var(--wf-primary); box-shadow: 0 0 0 2px rgba(79,70,229,.12); }
+.wf-ss-placeholder { color: var(--wf-text-tertiary); }
+.wf-ss-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.wf-ss-list {
+  position: absolute; left: 0; right: 0; top: 100%; margin-top: 4px;
+  background: var(--wf-card); border: 1px solid var(--wf-border);
+  border-radius: 8px; box-shadow: var(--wf-shadow-md);
+  max-height: 200px; overflow-y: auto; z-index: 50; display: none;
+}
+.wf-ss-list.is-open { display: block; }
+.wf-ss-opt {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; cursor: pointer; font-size: 13px;
+}
+.wf-ss-opt:hover { background: var(--wf-bg); }
+.wf-ss-opt.is-selected { background: rgba(79,70,229,.08); }
+.wf-ss-opt-radio {
+  width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--wf-border);
+  display: grid; place-items: center; flex-shrink: 0;
+}
+.wf-ss-opt.is-selected .wf-ss-opt-radio {
+  border-color: var(--wf-primary);
+}
+.wf-ss-opt.is-selected .wf-ss-opt-radio::after {
+  content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--wf-primary);
+}
 
 .wf-checkbox {
   width: 16px; height: 16px;
@@ -1056,6 +1142,104 @@ body:not(.is-dashboard) .wf-navbar {
   .wf-content { padding-bottom: 120px; }
   .wf-tab { font-size: 12.5px; padding: 10px; }
 }
+
+/* --------------------------------------------------------------------
+   Project Selector (Dashboard)
+   -------------------------------------------------------------------- */
+.wf-project-selector {
+  position: relative;
+  flex-shrink: 0;
+}
+.wf-project-selector-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid var(--wf-border);
+  border-radius: var(--wf-radius);
+  background: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--wf-text);
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 280px;
+  transition: border-color .12s, box-shadow .12s;
+  outline: none;
+}
+.wf-project-selector-trigger:hover {
+  border-color: #d1d5db;
+}
+.wf-project-selector-trigger:focus-visible,
+.wf-project-selector-trigger[aria-expanded="true"] {
+  border-color: var(--wf-primary);
+  box-shadow: 0 0 0 3px rgba(79,70,229,.12);
+}
+.wf-project-selector-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-project-selector-chevron {
+  flex-shrink: 0;
+  color: var(--wf-text-secondary);
+  transition: transform .15s;
+}
+.wf-project-selector-trigger[aria-expanded="true"] .wf-project-selector-chevron {
+  transform: rotate(180deg);
+}
+.wf-project-selector-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 240px;
+  max-width: 320px;
+  background: #fff;
+  border: 1px solid var(--wf-border);
+  border-radius: var(--wf-radius);
+  box-shadow: var(--wf-shadow-lg);
+  z-index: 200;
+  padding: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.wf-project-selector-dropdown.is-open {
+  display: block;
+}
+.wf-project-selector-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--wf-text);
+  cursor: pointer;
+  transition: background .1s;
+}
+.wf-project-selector-option:hover {
+  background: var(--wf-primary-50);
+}
+.wf-project-selector-option.is-selected {
+  color: var(--wf-primary);
+  font-weight: 600;
+}
+.wf-project-selector-option-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-project-selector-check {
+  flex-shrink: 0;
+  opacity: 0;
+  color: var(--wf-primary);
+}
+.wf-project-selector-option.is-selected .wf-project-selector-check {
+  opacity: 1;
+}
   </style>
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
@@ -1069,15 +1253,14 @@ body:not(.is-dashboard) .wf-navbar {
   <aside class="wf-sidebar" id="appSidebar">
     <a href="/dashboard" class="wf-logo">
       <div class="wf-logo-mark">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-9"/><path d="M3 21h18"/><path d="M15 8h6v6"/></svg>
+        <!-- TODO: Replace this placeholder square with the real logo -->
       </div>
-      <span class="wf-logo-text">We<span>xira</span></span>
+      <span class="wf-logo-text">ABC</span>
     </a>
 
     <div style="padding: 12px 12px 0;">
       <button id="sidebarCollapseBtn" type="button">
         <i data-lucide="panel-left-close" style="width:18px;height:18px"></i>
-        <span class="wf-nav-label">Collapse</span>
       </button>
     </div>
 
@@ -1127,10 +1310,6 @@ body:not(.is-dashboard) .wf-navbar {
     </nav>
 
     <div class="wf-sidebar-bottom">
-      <a href="/ai-assistant" class="wf-nav-item">
-        <i data-lucide="circle-help" style="width:18px;height:18px"></i>
-        <span class="wf-nav-label">Help Center</span>
-      </a>
       <div class="wf-profile-card">
         {% set cu = current_user %}
         <div class="wf-avatar wf-avatar-lg" style="background:{{ cu.color }}">{{ cu.initials }}</div>
@@ -1154,7 +1333,7 @@ body:not(.is-dashboard) .wf-navbar {
     <header class="wf-navbar">
       <div class="ml-auto flex items-center gap-2">
         {% if current_user and current_user.plan == 'pro' %}
-        <a href="/people-hub" class="wf-btn wf-btn-sm wf-btn-secondary" style="white-space:nowrap">
+        <a href="/people-hub" class="wf-btn wf-btn-sm" style="white-space:nowrap;background:#2563eb;border-color:#2563eb;color:#ffffff">
           <i data-lucide="users" style="width:14px;height:14px"></i> People Hub
         </a>
         {% endif %}
@@ -1421,6 +1600,11 @@ body:not(.is-dashboard) .wf-navbar {
    Wexira — Global application logic
    ============================================================ */
 
+/* ============================================================
+   Brand — Change APP_NAME here to update the app name globally.
+   ============================================================ */
+const APP_NAME = 'ABC';
+
 const SIDEBAR_KEY = 'wexira.sidebar.collapsed';
 
 function formatAiText(text) {
@@ -1513,94 +1697,114 @@ if (searchInput) {
 }
 
 /* ------------------------------------------------------------------
-   Create issue modal
+   Create Issue modal
    ------------------------------------------------------------------ */
-function openCreateIssue(project = 'ECOM') {
-  fetch(`/api/issues?project=${project}`)
-    .then(r => r.json())
-    .then(() => {})
-    .catch(() => {});
+function openCreateModal(opts) {
+  const project = opts.project || 'ECOM';
+  const title = opts.title || 'Create Issue';
+  const subtitle = opts.subtitle || 'Create an issue for your project';
+  const submitLabel = opts.submitLabel || 'Create';
+  const projectBounds = opts.projectBounds || null;
+  const boundsProject = opts.boundsProject || null;
 
   const modalRoot = document.getElementById('modalRoot');
-  const closes = [];
 
   function esc(v) { return escapeHtml(v || ''); }
+
+  const projectOptions = [
+    ['ECOM', 'E-Commerce Platform'],
+    ['BANK', 'Mobile Banking App'],
+    ['SUPT', 'Customer Support Portal'],
+    ['AIPL', 'AI Analytics Platform'],
+  ].map(([k, label]) => `<option value="${k}"${k === project ? ' selected' : ''}>${label} (${k})</option>`).join('');
+  const selectedProjectKeys = ['ECOM', 'BANK', 'SUPT', 'AIPL'];
+  if (project && selectedProjectKeys.indexOf(project) === -1) {
+    projectOptions.unshift(`<option value="${project}" selected>${project} (${project})</option>`);
+  }
 
   modalRoot.innerHTML = `
     <div class="wf-modal-backdrop" id="ciBackdrop">
       <div class="wf-modal" style="max-width:720px">
         <div class="flex items-center justify-between px-6 py-4 border-b border-[var(--wf-border-soft)]">
           <div>
-            <h2 class="text-[16px] font-bold text-[var(--wf-text)]">Create issue</h2>
-            <p class="text-[12px] text-[var(--wf-text-secondary)]">Track a task, bug, or story for your team</p>
+            <h2 class="text-[16px] font-bold text-[var(--wf-text)]">${title}</h2>
+            <p class="text-[12px] text-[var(--wf-text-secondary)]">${subtitle}</p>
           </div>
           <button type="button" class="wf-icon-btn" data-close><i data-lucide="x" style="width:16px;height:16px"></i></button>
         </div>
         <div class="px-6 py-5">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
-            <div class="wf-field md:col-span-2">
+            <div class="wf-field">
+              <label class="wf-label">Project <span class="req">*</span></label>
+              <select class="wf-select" id="ci-project">${projectOptions}</select>
+            </div>
+            <div class="wf-field">
               <label class="wf-label">Issue Type <span class="req">*</span></label>
               <select class="wf-select" id="ci-type">
-                <option>Story</option><option>Task</option><option>Bug</option><option>Epic</option>
-              </select>
-            </div>
-            <div class="wf-field md:col-span-2">
-              <label class="wf-label">Summary <span class="req">*</span></label>
-              <input class="wf-input" id="ci-summary" placeholder="What needs to be done?" value="">
-            </div>
-            <div class="wf-field md:col-span-2">
-              <label class="wf-label">Description</label>
-              <textarea class="wf-textarea" id="ci-desc" rows="3" placeholder="Describe the work in detail…"></textarea>
-            </div>
-            <div class="wf-field">
-              <label class="wf-label">Project</label>
-              <select class="wf-select" id="ci-project">
-                <option value="ECOM" selected>E-Commerce Platform (ECOM)</option>
-                <option value="BANK">Mobile Banking App (BANK)</option>
-                <option value="SUPT">Customer Support Portal (SUPT)</option>
-                <option value="AIPL">AI Analytics Platform (AIPL)</option>
+                <option value="Story" selected>Story</option>
+                <option value="Task">Task</option>
+                <option value="Bug">Bug</option>
+                <option value="Epic">Epic</option>
               </select>
             </div>
             <div class="wf-field">
-              <label class="wf-label">Priority</label>
+              <label class="wf-label">Priority <span class="req">*</span></label>
               <select class="wf-select" id="ci-priority">
-                <option>Low</option><option selected>Medium</option><option>High</option><option>Critical</option>
+                <option>Highest</option><option>High</option><option selected>Medium</option>
+                <option>Low</option><option>Lowest</option>
               </select>
+            </div>
+            <div class="wf-field">
+              <label class="wf-label">Summary <span class="req">*</span></label>
+              <input class="wf-input" id="ci-summary" placeholder="What needs to be done?" value="" maxlength="240">
             </div>
             <div class="wf-field">
               <label class="wf-label">Assignee</label>
               <select class="wf-select" id="ci-assignee">
                 <option value="">Unassigned</option>
-                <option>SC</option><option>MJ</option><option>PS</option>
-                <option>DK</option><option>JW</option><option>OB</option><option>ER</option>
               </select>
             </div>
             <div class="wf-field">
-              <label class="wf-label">Story points</label>
-              <input class="wf-input" id="ci-points" type="number" min="0" max="20" value="3">
+              <label class="wf-label">Story Points</label>
+              <input class="wf-input" id="ci-points" type="number" min="0" step="1" placeholder="0">
             </div>
             <div class="wf-field">
               <label class="wf-label">Sprint</label>
               <select class="wf-select" id="ci-sprint">
-                <option value="">No sprint</option>
-                <option value="13">Sprint 13</option>
-                <option value="14">Sprint 14</option>
-                <option value="15">Sprint 15</option>
+                <option value="">No Sprint</option>
               </select>
             </div>
             <div class="wf-field">
-              <label class="wf-label">Due date</label>
-              <input class="wf-input" id="ci-due" type="date">
+              <label class="wf-label">Status <span class="req">*</span></label>
+              <select class="wf-select" id="ci-status">
+                <option value="backlog" selected>Backlog</option>
+                <option value="todo">To Do</option>
+                <option value="in_progress">In Progress</option>
+                <option value="in_review">In Review</option>
+                <option value="done">Done</option>
+              </select>
+            </div>
+            <div class="wf-field">
+              <label class="wf-label">Start Date</label>
+              <input class="wf-input" id="ci-start" type="date">
+            </div>
+            <div class="wf-field">
+              <label class="wf-label">Target Date</label>
+              <input class="wf-input" id="ci-target" type="date">
             </div>
             <div class="wf-field md:col-span-2">
               <label class="wf-label">Labels</label>
-              <input class="wf-input" id="ci-labels" placeholder="backend, frontend, bug, ui…">
+              <input class="wf-input" id="ci-labels" placeholder="e.g. frontend, urgent (comma separated)">
+            </div>
+            <div class="wf-field md:col-span-2">
+              <label class="wf-label">Acceptance Criteria</label>
+              <textarea class="wf-textarea" id="ci-acceptance" rows="3" placeholder="Describe the acceptance criteria..."></textarea>
             </div>
           </div>
         </div>
         <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--wf-border-soft)] bg-[#fafafb]">
           <button class="wf-btn wf-btn-secondary" data-close>Cancel</button>
-          <button class="wf-btn wf-btn-primary" id="ci-submit"><i data-lucide="plus" style="width:15px;height:15px"></i> Create Issue</button>
+          <button class="wf-btn wf-btn-primary" id="ci-submit">${submitLabel}</button>
         </div>
       </div>
     </div>`;
@@ -1617,36 +1821,175 @@ function openCreateIssue(project = 'ECOM') {
     document.body.style.overflow = '';
   }
 
+  initAssigneeSelect();
+
   document.getElementById('ci-submit').addEventListener('click', () => {
-    const summary = document.getElementById('ci-summary').value.trim();
+    const summaryEl = document.getElementById('ci-summary');
+    const summary = summaryEl.value.trim();
     if (!summary) {
-      showToast('Please enter a summary for the issue.', 'error');
+      showToast('Summary is required.', 'error');
+      summaryEl.focus();
       return;
     }
-    const labels = document.getElementById('ci-labels').value.split(',').map(s => s.trim()).filter(Boolean);
+    if (summary.length > 240) {
+      showToast('Summary must be 240 characters or fewer.', 'error');
+      summaryEl.focus();
+      return;
+    }
+    const target = document.getElementById('ci-target').value;
+    if (target) {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(target);
+      if (!m) {
+        showToast('Invalid target date.', 'error');
+        return;
+      }
+      const td = new Date(+m[1], +m[2] - 1, +m[3]);
+      if (projectBounds && boundsProject === document.getElementById('ci-project').value) {
+        const s = projectBounds.start ? new Date(projectBounds.start) : null;
+        const e = projectBounds.target ? new Date(projectBounds.target) : null;
+        if (s && !isNaN(s.getTime()) && td < s) {
+          showToast('Target Date cannot be earlier than the project start date.', 'error');
+          return;
+        }
+        if (e && !isNaN(e.getTime()) && td > e) {
+          showToast('Target Date cannot be later than the project target date.', 'error');
+          return;
+        }
+      }
+    }
+
+    const startDate = document.getElementById('ci-start').value;
+    if (startDate) {
+      const sm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(startDate);
+      if (!sm) {
+        showToast('Invalid start date.', 'error');
+        return;
+      }
+      const sd = new Date(+sm[1], +sm[2] - 1, +sm[3]);
+      if (target) {
+        const tm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(target);
+        const targetDate = tm ? new Date(+tm[1], +tm[2] - 1, +tm[3]) : null;
+        if (targetDate && sd > targetDate) {
+          showToast('Start Date cannot be later than the Target Date.', 'error');
+          return;
+        }
+      }
+    }
+
+    const issueStatus = document.getElementById('ci-status').value;
+    if (!issueStatus) {
+      showToast('Status is required.', 'error');
+      return;
+    }
+
+    const pointsVal = document.getElementById('ci-points').value.trim();
+    let points = 0;
+    if (pointsVal !== '') {
+      if (!/^\d+$/.test(pointsVal)) {
+        showToast('Story points must be a number.', 'error');
+        return;
+      }
+      points = parseInt(pointsVal, 10);
+      if (points < 0) {
+        showToast('Story points cannot be negative.', 'error');
+        return;
+      }
+    }
+
+    const sprintNumber = document.getElementById('ci-sprint').value;
+
+    const labels = Array.from(new Set(
+      document.getElementById('ci-labels').value.split(',').map(s => s.trim()).filter(Boolean)
+    ));
+
+    const assigneeId = parseInt(document.getElementById('ci-assignee').value, 10);
+
+    var payload = {
+      issue_type: document.getElementById('ci-type').value,
+      summary: summary,
+      project: document.getElementById('ci-project').value,
+      priority: document.getElementById('ci-priority').value,
+      points: points,
+      status: issueStatus,
+      sprint: sprintNumber,
+      start_date: startDate,
+      target_date: target,
+      labels: labels,
+      acceptance_criteria: document.getElementById('ci-acceptance').value.trim(),
+    };
+    payload.assignees = assigneeId ? [assigneeId] : [];
+
     fetch('/api/issues', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        issue_type: document.getElementById('ci-type').value,
-        summary,
-        description: document.getElementById('ci-desc').value,
-        project: document.getElementById('ci-project').value,
-        priority: document.getElementById('ci-priority').value,
-        assignee: document.getElementById('ci-assignee').value,
-        points: document.getElementById('ci-points').value,
-        sprint: document.getElementById('ci-sprint').value,
-        due_date: document.getElementById('ci-due').value,
-        labels,
-      }),
+      body: JSON.stringify(payload),
     })
-      .then(r => r.json())
-      .then(issue => {
+      .then(r => r.json().then(d => ({ ok: r.ok, d })))
+      .then(({ ok, d }) => {
+        if (!ok) {
+          showToast(d.error || 'Could not create the entry.', 'error');
+          return;
+        }
         close();
-        showToast(`${issue.key} created successfully.`, 'success', 'Issue created');
-        setTimeout(() => { if (window.location.pathname.startsWith('/kanban') || window.location.pathname.startsWith('/backlog')) location.reload(); }, 500);
+        showToast(`Issue ${d.number} created successfully.`, 'success', opts.toastTitle || 'Created');
+        const path = window.location.pathname;
+        if (path.startsWith('/kanban') || path.startsWith('/backlog') || path.startsWith('/project') || path.startsWith('/projects')) location.reload();
       })
-      .catch(() => showToast('Could not create the issue.', 'error'));
+      .catch(() => showToast('Could not create the entry.', 'error'));
+  });
+
+  function initAssigneeSelect() {
+    var sel = document.getElementById('ci-assignee');
+    if (!sel) return;
+    fetch('/api/users')
+      .then(function (r) { return r.json(); })
+      .then(function (users) {
+        users.forEach(function (u) {
+          if (u.status && String(u.status).toLowerCase() !== 'active') return;
+          var opt = document.createElement('option');
+          opt.value = u.id;
+          opt.textContent = u.name + ' (' + u.initials + ')';
+          sel.appendChild(opt);
+        });
+      })
+      .catch(function () {});
+  }
+
+  function loadSprints(projectKey, select) {
+    if (!select) return;
+    select.innerHTML = '<option value="">No Sprint</option>';
+    fetch('/api/sprints?project=' + encodeURIComponent(projectKey))
+      .then(function (r) { return r.json(); })
+      .then(function (list) {
+        list.forEach(function (s) {
+          var opt = document.createElement('option');
+          opt.value = s.number;
+          opt.textContent = 'Sprint ' + s.number + (s.name ? ' — ' + s.name : '') + (String(s.status || '').toLowerCase() === 'completed' ? ' (Completed)' : '');
+          select.appendChild(opt);
+        });
+      })
+      .catch(function () {});
+  }
+
+  var ciProjectSel = document.getElementById('ci-project');
+  var ciSprintSel = document.getElementById('ci-sprint');
+  if (ciProjectSel && ciSprintSel) {
+    loadSprints(ciProjectSel.value, ciSprintSel);
+    ciProjectSel.addEventListener('change', function () {
+      loadSprints(ciProjectSel.value, ciSprintSel);
+    });
+  }
+}
+
+function openCreateIssue(project = 'ECOM', bounds) {
+  openCreateModal({
+    project,
+    title: 'Create Issue',
+    subtitle: 'Create an issue for your project',
+    submitLabel: 'Create',
+    toastTitle: 'Issue created',
+    projectBounds: bounds || null,
+    boundsProject: project,
   });
 }
 
@@ -1750,7 +2093,371 @@ function deleteUser(userId, userEmail, userName) {
   });
 }
 
-window.Wexira = { showToast, openCreateIssue, formatAiText, escapeHtml, deleteUser };
+/* ------------------------------------------------------------------
+   Create Project
+   ------------------------------------------------------------------ */
+function openCreateProject() {
+  const modalRoot = document.getElementById('modalRoot');
+  window._cpSelectedTeam = [];
+  modalRoot.innerHTML = `
+    <div class="wf-modal-backdrop" id="cpBackdrop">
+      <div class="wf-modal" style="max-width:560px">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-[var(--wf-border-soft)]">
+          <div>
+            <h2 class="text-[16px] font-bold text-[var(--wf-text)]">Create Project</h2>
+            <p class="text-[12px] text-[var(--wf-text-secondary)]">Start a new project for your team</p>
+          </div>
+          <button type="button" class="wf-icon-btn" data-close><i data-lucide="x" style="width:16px;height:16px"></i></button>
+        </div>
+        <div class="px-6 py-5">
+          <div class="wf-field">
+            <label class="wf-label">Project <span class="req">*</span></label>
+            <input class="wf-input" id="cp-name" placeholder="e.g. E-Commerce Platform">
+          </div>
+          <div class="wf-field">
+            <label class="wf-label">Description</label>
+            <textarea class="wf-textarea" id="cp-desc" rows="3" placeholder="Describe the project..."></textarea>
+          </div>
+          <div class="wf-field">
+            <label class="wf-label">Assignee <span class="req">*</span></label>
+            <div class="wf-ss-wrap" id="cp-assignee-wrap">
+              <div class="wf-ss-trigger" id="cp-assignee-trigger">
+                <span class="wf-ss-placeholder" id="cp-assignee-display">Select assignee...</span>
+              </div>
+              <div class="wf-ss-list" id="cp-assignee-list"></div>
+              <input type="hidden" id="cp-assignee" value="">
+            </div>
+          </div>
+          <div class="wf-field">
+            <label class="wf-label">Team Members</label>
+            <div class="wf-ms-wrap" id="cp-ms-wrap">
+              <div class="wf-ms-trigger" id="cp-ms-trigger">
+                <input class="wf-ms-input" id="cp-ms-input" placeholder="Select team members..." autocomplete="off">
+              </div>
+              <div class="wf-ms-list" id="cp-ms-list"></div>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+            <div class="wf-field">
+              <label class="wf-label">Start Date <span class="req">*</span></label>
+              <input class="wf-input" id="cp-start" type="date">
+            </div>
+            <div class="wf-field">
+              <label class="wf-label">Target Date <span class="req">*</span></label>
+              <input class="wf-input" id="cp-target" type="date">
+            </div>
+          </div>
+          <p class="text-[12.5px] text-[var(--wf-text-secondary)]" id="cp-error" style="color:var(--wf-error);display:none"></p>
+        </div>
+        <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--wf-border-soft)] bg-[#fafafb]">
+          <button class="wf-btn wf-btn-secondary" data-close>Cancel</button>
+          <button class="wf-btn wf-btn-primary" id="cp-submit">Create</button>
+        </div>
+      </div>
+    </div>`;
+
+  lucide.createIcons({ nodes: [modalRoot] });
+
+  function close() {
+    modalRoot.innerHTML = '';
+    document.body.style.overflow = '';
+  }
+  modalRoot.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', close));
+  document.getElementById('cpBackdrop').addEventListener('click', e => {
+    if (e.target.id === 'cpBackdrop') close();
+  });
+
+  function setError(msg) {
+    const el = document.getElementById('cp-error');
+    el.textContent = msg || '';
+    el.style.display = msg ? 'block' : 'none';
+  }
+
+  function loadUsers() {
+    return fetch('/api/users')
+      .then(r => r.json())
+      .catch(() => []);
+  }
+
+  loadUsers().then(allUsers => {
+    initAssigneeSelect(allUsers);
+    initTeamMultiSelect(allUsers);
+
+    document.getElementById('cp-submit').addEventListener('click', () => {
+      const name = document.getElementById('cp-name').value.trim();
+      if (!name) { setError('Project name is required.'); return; }
+      if (name.length > 160) { setError('Project name is too long.'); return; }
+      const manager = document.getElementById('cp-assignee').value;
+      if (!manager) { setError('Assignee is required.'); return; }
+      const start = document.getElementById('cp-start').value;
+      const target = document.getElementById('cp-target').value;
+      if (!start) { setError('Start date is required.'); return; }
+      if (!target) { setError('Target date is required.'); return; }
+      const sd = new Date(start);
+      const td = new Date(target);
+      if (!isNaN(sd) && !isNaN(td) && td < sd) {
+        setError('Project target date cannot be earlier than the project start date.');
+        return;
+      }
+      const submitBtn = document.getElementById('cp-submit');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Creating...';
+      fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          description: document.getElementById('cp-desc').value,
+          manager: parseInt(manager, 10),
+          assignees: (window._cpSelectedTeam || []).map(id => parseInt(id, 10)),
+          start_date: start,
+          target_date: target,
+        }),
+      })
+        .then(r => r.json().then(d => ({ ok: r.ok, d })))
+        .then(({ ok, d }) => {
+          if (!ok) { setError(d.error || 'Could not create the project.'); submitBtn.disabled = false; submitBtn.textContent = 'Create'; return; }
+          close();
+          showToast(`${d.name} created successfully.`, 'success', 'Project created');
+          setTimeout(() => location.reload(), 500);
+        })
+        .catch(() => { setError('Could not create the project.'); submitBtn.disabled = false; submitBtn.textContent = 'Create'; });
+    });
+  });
+
+  function initAssigneeSelect(allUsers) {
+    var wrap = document.getElementById('cp-assignee-wrap');
+    var trigger = document.getElementById('cp-assignee-trigger');
+    var display = document.getElementById('cp-assignee-display');
+    var list = document.getElementById('cp-assignee-list');
+    var hidden = document.getElementById('cp-assignee');
+    var selectedId = null;
+
+    function renderDisplay() {
+      display.innerHTML = '';
+      if (selectedId) {
+        var user = allUsers.find(function (u) { return u.id === selectedId; });
+        if (user) {
+          var tag = document.createElement('span');
+          tag.className = 'wf-ss-tag';
+          tag.innerHTML = '<span class="w-6 h-6 rounded-full grid place-items-center text-white text-[10px] font-bold flex-none" style="background:' + (user.color || '#4f46e5') + '">' + escapeHtml(user.initials) + '</span><span>' + escapeHtml(user.name) + '</span>';
+          display.appendChild(tag);
+        }
+      } else {
+        display.className = 'wf-ss-placeholder';
+        display.textContent = 'Select assignee...';
+      }
+    }
+
+    function renderList(filter) {
+      var q = (filter || '').toLowerCase();
+      list.innerHTML = '';
+      allUsers.forEach(function (u) {
+        if (q && u.name.toLowerCase().indexOf(q) === -1 && u.initials.toLowerCase().indexOf(q) === -1 && (u.email || '').toLowerCase().indexOf(q) === -1) return;
+        var isSel = selectedId === u.id;
+        var opt = document.createElement('div');
+        opt.className = 'wf-ss-opt' + (isSel ? ' is-selected' : '');
+        opt.innerHTML = '<span class="wf-ss-opt-radio"></span><span class="w-6 h-6 rounded-full grid place-items-center text-white text-[10px] font-bold flex-none" style="background:' + (u.color || '#4f46e5') + '">' + escapeHtml(u.initials) + '</span><span style="flex:1">' + escapeHtml(u.name) + '</span>';
+        opt.addEventListener('click', function () {
+          selectedId = u.id;
+          hidden.value = u.id;
+          display.className = '';
+          renderDisplay();
+          renderList('');
+          list.classList.remove('is-open');
+          setError('');
+        });
+        list.appendChild(opt);
+      });
+    }
+
+    trigger.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var isOpen = list.classList.contains('is-open');
+      if (isOpen) {
+        list.classList.remove('is-open');
+      } else {
+        renderList('');
+        list.classList.add('is-open');
+      }
+    });
+
+    document.addEventListener('mousedown', function (e) {
+      if (!wrap.contains(e.target)) {
+        list.classList.remove('is-open');
+      }
+    });
+
+    renderDisplay();
+  }
+
+  function initTeamMultiSelect(allUsers) {
+    var wrap = document.getElementById('cp-ms-wrap');
+    var trigger = document.getElementById('cp-ms-trigger');
+    var input = document.getElementById('cp-ms-input');
+    var list = document.getElementById('cp-ms-list');
+    var selected = window._cpSelectedTeam;
+
+    function renderTags() {
+      trigger.querySelectorAll('.wf-ms-tag').forEach(function (t) { t.remove(); });
+      for (var i = selected.length - 1; i >= 0; i--) {
+        var uid = selected[i];
+        var user = allUsers.find(function (u) { return u.id === uid; });
+        if (!user) continue;
+        var tag = document.createElement('span');
+        tag.className = 'wf-ms-tag';
+        tag.style.background = user.color || '#4f46e5';
+        tag.innerHTML = escapeHtml(user.name) + ' <span class="wf-ms-tag-x" data-uid="' + user.id + '">\u00d7</span>';
+        trigger.insertBefore(tag, input);
+      }
+      trigger.querySelectorAll('.wf-ms-tag-x').forEach(function (x) {
+        x.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var uid = parseInt(x.getAttribute('data-uid'));
+          var idx = selected.indexOf(uid);
+          if (idx !== -1) selected.splice(idx, 1);
+          renderTags();
+          renderList(input.value);
+          input.focus();
+        });
+      });
+    }
+
+    function renderList(filter) {
+      var q = (filter || '').toLowerCase();
+      list.innerHTML = '';
+      allUsers.forEach(function (u) {
+        if (q && q !== '' && u.name.toLowerCase().indexOf(q) === -1 && u.initials.toLowerCase().indexOf(q) === -1 && (u.email || '').toLowerCase().indexOf(q) === -1) return;
+        var isSel = selected.indexOf(u.id) !== -1;
+        var opt = document.createElement('div');
+        opt.className = 'wf-ms-opt' + (isSel ? ' is-selected' : '');
+        opt.innerHTML = '<span class="wf-ms-opt-check"></span><span class="w-6 h-6 rounded-full grid place-items-center text-white text-[10px] font-bold flex-none" style="background:' + (u.color || '#4f46e5') + '">' + escapeHtml(u.initials) + '</span><span style="flex:1">' + escapeHtml(u.name) + '</span>';
+        opt.addEventListener('click', (function (userId) {
+          return function () {
+            var idx = selected.indexOf(userId);
+            if (idx === -1) {
+              selected.push(userId);
+            } else {
+              selected.splice(idx, 1);
+            }
+            renderTags();
+            renderList(input.value);
+            input.focus();
+          };
+        })(u.id));
+        list.appendChild(opt);
+      });
+    }
+
+    function openList() {
+      list.classList.add('is-open');
+      renderList(input.value);
+    }
+
+    function closeList() {
+      list.classList.remove('is-open');
+    }
+
+    // Clicking inside the dropdown must not steal focus from the input,
+    // otherwise the list closes (via blur) after the first selection and
+    // only one team member can be picked. Preventing the default mousedown
+    // keeps the input focused so multiple members can be selected.
+    list.addEventListener('mousedown', function (e) {
+      e.preventDefault();
+    });
+
+    input.addEventListener('focus', function () {
+      openList();
+    });
+    input.addEventListener('input', function () {
+      renderList(input.value);
+    });
+    trigger.addEventListener('mousedown', function (e) {
+      if (e.target === input) return;
+      if (e.target.classList && e.target.classList.contains('wf-ms-tag-x')) {
+        e.preventDefault();
+        return;
+      }
+      e.preventDefault();
+      if (list.classList.contains('is-open')) {
+        closeList();
+        input.blur();
+      } else {
+        input.focus();
+      }
+    });
+    document.addEventListener('mousedown', function (e) {
+      if (!wrap.contains(e.target)) {
+        closeList();
+      }
+    });
+    input.addEventListener('blur', function () {
+      setTimeout(function () { closeList(); }, 150);
+    });
+  }
+}
+
+window.Wexira = { showToast, openCreateIssue, openCreateProject, formatAiText, escapeHtml, deleteUser };
+
+/* ------------------------------------------------------------------
+   Project Selector (Dashboard)
+   ------------------------------------------------------------------ */
+(function () {
+  const selector = document.getElementById('wfProjectSelector');
+  if (!selector) return;
+  const trigger = document.getElementById('wfProjectTrigger');
+  const nameEl = document.getElementById('wfProjectName');
+  const dropdown = document.getElementById('wfProjectDropdown');
+  const options = dropdown ? dropdown.querySelectorAll('.wf-project-selector-option') : [];
+
+  function closeDropdown() {
+    dropdown.classList.remove('is-open');
+    trigger.setAttribute('aria-expanded', 'false');
+  }
+
+  trigger.addEventListener('click', function (e) {
+    e.stopPropagation();
+    const isOpen = dropdown.classList.contains('is-open');
+    if (isOpen) { closeDropdown(); } else { dropdown.classList.add('is-open'); trigger.setAttribute('aria-expanded', 'true'); }
+  });
+
+  options.forEach(function (opt) {
+    opt.addEventListener('click', function () {
+      options.forEach(function (o) { o.classList.remove('is-selected'); o.setAttribute('aria-selected', 'false'); });
+      opt.classList.add('is-selected');
+      opt.setAttribute('aria-selected', 'true');
+      nameEl.textContent = opt.getAttribute('data-name');
+      closeDropdown();
+    });
+    opt.addEventListener('mouseenter', function () { opt.style.background = ''; });
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!selector.contains(e.target)) closeDropdown();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeDropdown();
+  });
+
+  trigger.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (!dropdown.classList.contains('is-open')) { dropdown.classList.add('is-open'); trigger.setAttribute('aria-expanded', 'true'); }
+      if (options.length) options[0].focus();
+    }
+  });
+
+  options.forEach(function (opt, i) {
+    opt.setAttribute('tabindex', '-1');
+    opt.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); if (options[i + 1]) options[i + 1].focus(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); if (i > 0) options[i - 1].focus(); else { trigger.focus(); closeDropdown(); } }
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); opt.click(); trigger.focus(); }
+      else if (e.key === 'Escape') { closeDropdown(); trigger.focus(); }
+    });
+  });
+})();
 
 setTimeout(() => lucide.createIcons(), 300);
   </script>

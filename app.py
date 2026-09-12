@@ -11,8 +11,10 @@ from models import (
     Activity,
     Comment,
     Issue,
+    IssueAssignees,
     Notification,
     Project,
+    ProjectMembers,
     Sprint,
     User,
     db,
@@ -68,13 +70,21 @@ def project_dict(p):
 
 
 def issue_dict(i):
+    assignee_records = IssueAssignees.query.filter_by(issue_id=i.id).all()
+    assignee_users = [User.query.get(r.user_id) for r in assignee_records if User.query.get(r.user_id)]
+    all_initials = []
+    if i.assignee_initials and i.assignee_initials not in [u.initials for u in assignee_users]:
+        all_initials.append(i.assignee_initials)
+    all_initials += [u.initials for u in assignee_users]
     return {
         'id': i.id, 'project': i.project.key if i.project else 'ECOM',
         'number': i.number, 'key': f'{i.project.key}-{i.number}' if i.project else f'ECOM-{i.number}',
         'title': i.title, 'type': i.issue_type, 'type_color': i.type_color,
         'priority': i.priority, 'priority_color': i.priority_color, 'points': i.points,
         'assignee_id': i.assignee_id, 'assignee': i.assignee_initials,
-        'assignee_color': i.assignee_color, 'due': i.due_date, 'labels': i.labels or [],
+        'assignee_color': i.assignee_color, 'assignee_initials_list': all_initials,
+        'due': i.due_date, 'start': i.start_date,
+        'labels': i.labels or [],
         'status': i.status, 'sprint': i.sprint.number if i.sprint else None,
         'description': i.description, 'acceptance_criteria': i.acceptance_criteria,
         'reporter': i.reporter_id, 'created': i.created_at,
@@ -89,8 +99,103 @@ def context_sprints(project):
     return Sprint.query.filter_by(project_id=project.id).order_by(Sprint.number).all()
 
 
+def sprint_stats_dict(sprint, issues):
+    """Build a sprint display dict with task/point stats computed from the
+    project's actual issues that belong to this sprint."""
+    sp_issues = [i for i in issues if i.sprint_id == sprint.id]
+    story_points_total = sum(i.points or 0 for i in sp_issues)
+    story_points_done = sum((i.points or 0) for i in sp_issues if i.status == 'done')
+    backlog = sum(1 for i in sp_issues if i.status == 'backlog')
+    to_do = sum(1 for i in sp_issues if i.status == 'todo')
+    in_progress = sum(1 for i in sp_issues if i.status == 'in_progress')
+    in_review = sum(1 for i in sp_issues if i.status == 'in_review')
+    done = sum(1 for i in sp_issues if i.status == 'done')
+    total = backlog + to_do + in_progress + in_review + done
+    return {
+        'id': sprint.id,
+        'number': sprint.number,
+        'name': sprint.name,
+        'project_id': sprint.project_id,
+        'start_date': format_date(sprint.start_date),
+        'end_date': format_date(sprint.end_date),
+        'goal': sprint.goal,
+        'description': sprint.description or '',
+        'status': sprint.status,
+        'to_do': to_do,
+        'in_progress': in_progress,
+        'in_review': in_review,
+        'done': done,
+        'backlog': backlog,
+        'total': total,
+        'remaining': total - done,
+        'progress': round(done / total * 100) if total else 0,
+        'story_points_total': story_points_total,
+        'story_points_done': story_points_done,
+    }
+
+
+def context_sprint_stats(project):
+    return [sprint_stats_dict(sp, context_issues(project)) for sp in context_sprints(project)]
+
+
 def context_issues(project):
     return Issue.query.filter_by(project_id=project.id).order_by(Issue.position).all()
+
+
+def parse_date(value):
+    if not value:
+        return None
+    for fmt in ('%b %d, %Y', '%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y'):
+        try:
+            return datetime.strptime(str(value).strip(), fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def format_date(value):
+    d = parse_date(value)
+    return d.strftime('%b %d, %Y') if d else (value or '')
+
+
+PRIORITY_COLORS = {
+    'Highest': '#dc2626', 'High': '#d97706', 'Medium': '#0891b2', 'Low': '#4f46e5', 'Lowest': '#6b7280',
+    'Critical': '#dc2626',
+}
+ISSUE_TYPE_COLORS = {'Story': '#059669', 'Bug': '#dc2626', 'Task': '#4f46e5', 'Epic': '#7c3aed'}
+KANBAN_STATUSES = ['backlog', 'todo', 'in_progress', 'in_review', 'done']
+
+
+def validate_task_dates(project, start_date, end_date):
+    """Validate a task's dates fall within the project date range.
+
+    Returns (ok, error_message).
+    """
+    p_start = parse_date(project.start_date)
+    p_end = parse_date(project.due_date)
+    t_start = parse_date(start_date)
+    t_end = parse_date(end_date)
+
+    if t_start and t_end and t_end < t_start:
+        return False, "Task target date cannot be earlier than the task start date."
+    if p_start and t_start and t_start < p_start:
+        return False, "Task start date cannot be earlier than the project start date."
+    if p_end and t_start and t_start > p_end:
+        return False, "Task start date cannot be later than the project target date."
+    if p_start and t_end and t_end < p_start:
+        return False, "Target Date cannot be earlier than the project start date."
+    if p_end and t_end and t_end > p_end:
+        return False, "Target Date cannot be later than the project target date."
+    return True, None
+
+
+def validate_project_dates(start_date, end_date):
+    """Project target date must not be earlier than project start date."""
+    s = parse_date(start_date)
+    e = parse_date(end_date)
+    if s and e and e < s:
+        return False, "Project target date cannot be earlier than the project start date."
+    return True, None
 
 
 # ============================================================
@@ -157,7 +262,7 @@ def register():
         db.session.add(u)
         db.session.commit()
         login_user(u)
-        flash('Account created. Welcome to Wexira!', 'success')
+        flash('Account created. Welcome to ABC!', 'success')
         return redirect(url_for('dashboard'))
     return render_template('register.html', active_page='register')
 
@@ -178,15 +283,12 @@ def dashboard():
     active_sprint = Sprint.query.filter_by(status='Active').first()
     users_all = User.query.all()
 
-    active_projects = sum(1 for p in projects_all if p.status != 'Completed')
     open_issues = sum(1 for i in issues_all if i.status != 'done')
     tasks_due = sum(1 for i in issues_all if i.due_date and i.status != 'done')
     sprint_pct = round((active_sprint.story_points_done or 0) / (active_sprint.story_points_total or 1) * 100) if active_sprint else 0
     my_tasks = [i for i in issues_all if i.assignee_initials == me.initials][:6]
 
     kpis = [
-        {'value': active_projects, 'label': 'Active Projects', 'trend': '+2', 'up': True,
-         'icon': 'folder-kanban', 'color': '#4f46e5', 'bg': '#eef2ff'},
         {'value': open_issues, 'label': 'Open Issues', 'trend': '-4', 'up': False,
          'icon': 'alert-circle', 'color': '#0891b2', 'bg': '#ecfeff'},
         {'value': tasks_due, 'label': 'Tasks Due This Week', 'trend': '2 soon', 'up': True,
@@ -197,12 +299,15 @@ def dashboard():
          'icon': 'users', 'color': '#059669', 'bg': '#ecfdf5'},
     ]
 
+    selected_project = projects_all[0] if projects_all else None
+
     context = {
         'active_page': 'dashboard', 'kpis': kpis,
         'projects': projects_all, 'issues': issues_all,
         'active_sprint': active_sprint, 'my_tasks': my_tasks,
         'notifications': Notification.query.order_by(Notification.id.desc()).limit(4).all(),
         'activity': Activity.query.order_by(Activity.id.desc()).limit(8).all(),
+        'user_projects': projects_all, 'selected_project': selected_project,
     }
 
     if me.plan == 'pro':
@@ -222,8 +327,14 @@ def people_hub():
 @app.route('/projects')
 @login_required
 def projects():
+    member_rows = db.session.query(ProjectMembers, User).join(User, User.id == ProjectMembers.user_id).all()
+    members_per_project = {}
+    for pm, u in member_rows:
+        members_per_project.setdefault(pm.project_id, []).append(u)
     return render_template('projects.html', active_page='projects',
-                           projects=Project.query.all())
+                           projects=Project.query.all(),
+                           members_per_project=members_per_project,
+                           users=User.query.all())
 
 
 @app.route('/project/<key>')
@@ -259,16 +370,18 @@ def backlog(key='ECOM'):
     project = context_project(key)
     return render_template('backlog.html', active_page='backlog',
                            project=project, sprints=context_sprints(project),
-                           issues=context_issues(project), all_issues=Issue.query.all())
+                           issues=context_issues(project))
 
 
+@app.route('/sprints/<key>')
 @app.route('/sprints')
 @login_required
 def sprints(key='ECOM'):
     project = context_project(key)
     return render_template('sprints.html', active_page='sprints',
-                           project=project, sprints=context_sprints(project),
-                           issues=context_issues(project))
+                           project=project, sprints=context_sprint_stats(project),
+                           issues=context_issues(project),
+                           project_tasks=[issue_dict(i) for i in context_issues(project)])
 
 
 @app.route('/issue/<int:issue_id>')
@@ -292,10 +405,13 @@ def issue_default():
 @login_required
 def my_work():
     me = login_current_user
-    my_tasks = [i for i in Issue.query.all() if i.assignee_initials == me.initials][:8]
+    all_issues = Issue.query.all()
+    my_tasks = [i for i in all_issues if i.assignee_initials == me.initials][:8]
+    completed_tasks = [i for i in all_issues if i.status == 'done' and i.assignee_initials == me.initials]
     return render_template('my_work.html', active_page='my_work',
-                           users=User.query.all(), all_issues=Issue.query.all(),
-                           me=me, my_tasks=my_tasks)
+                           users=User.query.all(), all_issues=all_issues,
+                           me=me, my_tasks=my_tasks,
+                           completed_tasks=completed_tasks)
 
 
 @app.route('/ai-assistant')
@@ -352,14 +468,37 @@ def api_issues():
     status = request.args.get('status')
     assignee = request.args.get('assignee')
     sprint = request.args.get('sprint')
+    search = request.args.get('q')
     if project:
         q = q.join(Project).filter(Project.key == project.upper())
     if status:
         q = q.filter(Issue.status == status)
     if assignee:
-        q = q.filter(Issue.assignee_initials == assignee.upper())
+        users = [u for u in User.query.all() if u.initials == assignee.upper()]
+        if not users:
+            q = q.filter(False)
+        else:
+            user_ids = [u.id for u in users]
+            q = q.outerjoin(IssueAssignees, IssueAssignees.issue_id == Issue.id).filter(
+                db.or_(Issue.assignee_id.in_(user_ids), IssueAssignees.user_id.in_(user_ids))
+            ).distinct()
     if sprint:
-        q = q.join(Sprint).filter(Sprint.number == int(sprint))
+        try:
+            sprint_num = int(sprint)
+        except (TypeError, ValueError):
+            return jsonify([])
+        sp = Sprint.query.filter_by(number=sprint_num).first()
+        if not sp:
+            return jsonify([])
+        q = q.filter(Issue.sprint_id == sp.id)
+    if search:
+        term = f'%{search.strip().lower()}%'
+        q = q.filter(db.or_(
+            db.func.lower(Issue.title).like(term),
+            db.cast(Issue.number, db.String).like(term),
+            db.func.lower(db.func.coalesce(Issue.description, '')).like(term),
+            db.func.lower(db.func.coalesce(db.cast(Issue.labels, db.Text), '')).like(term),
+        ))
     return jsonify([issue_dict(i) for i in q.order_by(Issue.position).all()])
 
 
@@ -372,29 +511,107 @@ def api_issue(issue_id):
 @app.route('/api/issues', methods=['POST'])
 def api_create_issue():
     data = request.get_json(silent=True) or {}
-    project = Project.query.filter_by(key=(data.get('project') or 'ECOM').upper()).first() or Project.query.first()
+
+    summary = (data.get('summary') or data.get('title') or '').strip()
+    if not summary:
+        return jsonify({'ok': False, 'error': 'Summary is required.'}), 400
+    if len(summary) > 240:
+        return jsonify({'ok': False, 'error': 'Summary must be 240 characters or fewer.'}), 400
+
+    project = Project.query.filter_by(key=(data.get('project') or 'ECOM').upper()).first()
+    if not project:
+        return jsonify({'ok': False, 'error': 'Invalid project.'}), 400
+
+    issue_type = data.get('issue_type') or 'Story'
+    if issue_type not in ISSUE_TYPE_COLORS:
+        return jsonify({'ok': False, 'error': 'Invalid issue type.'}), 400
+
+    priority = data.get('priority') or 'Medium'
+    if priority not in PRIORITY_COLORS:
+        return jsonify({'ok': False, 'error': 'Invalid priority.'}), 400
+
+    status = str(data.get('status') or 'backlog').strip().lower()
+    if status not in KANBAN_STATUSES:
+        return jsonify({'ok': False, 'error': 'Invalid status.'}), 400
+
+    start_date = data.get('start_date')
+    end_date = data.get('due_date') or data.get('end_date') or data.get('target_date')
+    ok, err = validate_task_dates(project, start_date, end_date)
+    if not ok:
+        return jsonify({'ok': False, 'error': err}), 400
+
+    assignees_data = data.get('assignees')
+    single_assignee = data.get('assignee')
+
+    primary_user = None
+    all_assignee_users = []
+
+    if assignees_data and isinstance(assignees_data, list) and len(assignees_data) > 0:
+        seen_ids = set()
+        for uid in assignees_data:
+            try:
+                uid_int = int(uid)
+            except (TypeError, ValueError):
+                continue
+            if uid_int in seen_ids:
+                continue
+            seen_ids.add(uid_int)
+            user = User.query.get(uid_int)
+            if not user:
+                return jsonify({'ok': False, 'error': f'Assignee user ID {uid_int} does not exist.'}), 400
+            if user.status and user.status.lower() != 'active':
+                return jsonify({'ok': False, 'error': f'Assignee {user.name} must be an active user.'}), 400
+            all_assignee_users.append(user)
+        if all_assignee_users:
+            primary_user = all_assignee_users[0]
+    elif single_assignee:
+        assignee = User.query.filter_by(initials=str(single_assignee).strip().upper()).first()
+        if assignee:
+            primary_user = assignee
+            all_assignee_users = [assignee]
+
+    points = data.get('points')
+    if points is not None and points != '':
+        try:
+            points = int(points)
+        except (TypeError, ValueError):
+            return jsonify({'ok': False, 'error': 'Story points must be a number.'}), 400
+        if points < 0:
+            return jsonify({'ok': False, 'error': 'Story points cannot be negative.'}), 400
+    else:
+        points = 0
+
     last = db.session.query(db.func.max(Issue.number)).filter(Issue.project_id == project.id).scalar() or 999
     sprint = None
     if data.get('sprint'):
         sprint = Sprint.query.filter_by(number=int(data['sprint']), project_id=project.id).first()
     issue = Issue(
-        project_id=project.id, number=last + 1, title=data.get('summary') or data.get('title') or 'Untitled',
-        issue_type=data.get('issue_type') or 'Story',
-        type_color={'Story': '#059669', 'Bug': '#dc2626', 'Task': '#4f46e5', 'Epic': '#7c3aed'}
-                    .get(data.get('issue_type') or 'Story', '#059669'),
-        priority=data.get('priority') or 'Medium',
-        priority_color={'Low': '#4f46e5', 'Medium': '#0891b2', 'High': '#d97706', 'Critical': '#dc2626'}
-                        .get(data.get('priority') or 'Medium', '#0891b2'),
-        points=data.get('points') or 0,
-        assignee_initials=data.get('assignee'),
-        assignee_color='#9ca3af',
-        due_date=data.get('due_date'),
-        labels=data.get('labels') or [],
-        status=data.get('status') or 'backlog',
+        project_id=project.id, number=last + 1, title=summary,
+        issue_type=issue_type,
+        type_color=ISSUE_TYPE_COLORS[issue_type],
+        priority=priority,
+        priority_color=PRIORITY_COLORS[priority],
+        points=points,
+        assignee_id=primary_user.id if primary_user else None,
+        assignee_initials=primary_user.initials if primary_user else None,
+        assignee_color=primary_user.color if primary_user else '#9ca3af',
+        due_date=end_date,
+        start_date=start_date,
+        labels=list(dict.fromkeys(data.get('labels') or [])),
+        status=status,
         description=data.get('description') or '',
-        reporter_id=1, sprint_id=sprint.id if sprint else None,
+        acceptance_criteria=data.get('acceptance_criteria') or '',
+        reporter_id=login_current_user.id if login_current_user.is_authenticated else 1,
+        sprint_id=sprint.id if sprint else None,
     )
     db.session.add(issue)
+    db.session.flush()
+
+    for user in all_assignee_users:
+        existing = IssueAssignees.query.filter_by(issue_id=issue.id, user_id=user.id).first()
+        if not existing:
+            db.session.add(IssueAssignees(issue_id=issue.id, user_id=user.id))
+
     db.session.commit()
     return jsonify(issue_dict(issue)), 201
 
@@ -404,21 +621,48 @@ def api_update_issue(issue_id):
     issue = Issue.query.get_or_404(issue_id)
     data = request.get_json(silent=True) or {}
     if 'assignee' in data:
-        u = User.query.filter_by(initials=data['assignee'].upper()).first()
+        u = User.query.filter_by(initials=data['assignee'].upper()).first() if data.get('assignee') else None
         issue.assignee_id = u.id if u else None
         issue.assignee_initials = u.initials if u else None
         issue.assignee_color = u.color if u else '#9ca3af'
+        IssueAssignees.query.filter_by(issue_id=issue.id).delete()
+        if u:
+            db.session.add(IssueAssignees(issue_id=issue.id, user_id=u.id))
     if 'priority' in data:
+        if data['priority'] not in PRIORITY_COLORS:
+            return jsonify({'ok': False, 'error': 'Invalid priority.'}), 400
         issue.priority = data['priority']
-        issue.priority_color = {'Low': '#4f46e5', 'Medium': '#0891b2', 'High': '#d97706', 'Critical': '#dc2626'}[data['priority']]
+        issue.priority_color = PRIORITY_COLORS[data['priority']]
     if 'title' in data:
         issue.title = data['title']
+    if 'labels' in data:
+        labels = data.get('labels') or []
+        if isinstance(labels, str):
+            labels = [x.strip() for x in labels.split(',') if x.strip()]
+        issue.labels = [str(x) for x in labels]
     if 'status' in data:
         issue.status = data['status']
+    if 'sprint_id' in data:
+        new_sprint_id = data.get('sprint_id')
+        if new_sprint_id is None or str(new_sprint_id).strip() in ('', '0', 'null'):
+            issue.sprint_id = None
+        else:
+            try:
+                sp_id = int(new_sprint_id)
+            except (TypeError, ValueError):
+                return jsonify({'ok': False, 'error': 'Invalid sprint.'}), 400
+            sp = Sprint.query.filter(Sprint.id == sp_id,
+                                     Sprint.project_id == issue.project_id).first()
+            if not sp:
+                return jsonify({'ok': False,
+                                'error': 'Cannot assign an issue to a sprint from another project.'}), 400
+            issue.sprint_id = sp.id
     if 'points' in data:
         issue.points = int(data.get('points') or 0)
     if 'due_date' in data:
         issue.due_date = data['due_date']
+    if 'acceptance_criteria' in data:
+        issue.acceptance_criteria = data['acceptance_criteria'] or ''
     db.session.commit()
     return jsonify(issue_dict(issue))
 
@@ -431,8 +675,11 @@ def api_move_issue(issue_id):
         issue.status = data['status']
     if 'position' in data or 'sprint' in data:
         issue.position = int(data.get('position', issue.position))
-        if data.get('sprint'):
-            sp = Sprint.query.filter_by(number=int(data['sprint'])).first()
+        if 'sprint' in data and data.get('sprint'):
+            sp = Sprint.query.filter(
+                Sprint.number == int(data['sprint']),
+                Sprint.project_id == issue.project_id,
+            ).first()
             issue.sprint_id = sp.id if sp else issue.sprint_id
     db.session.commit()
     return jsonify({"ok": True, "issue": issue_dict(issue)})
@@ -492,6 +739,7 @@ def api_delete_user(user_id):
 
     from models import ProjectMembers
     ProjectMembers.query.filter_by(user_id=target.id).delete()
+    IssueAssignees.query.filter_by(user_id=target.id).delete()
     Comment.query.filter_by(author_id=target.id).delete()
 
     assigned = [i for i in Issue.query.filter_by(assignee_id=target.id).all()]
@@ -628,6 +876,392 @@ def api_users():
     return jsonify([user_dict(u) for u in all_users])
 
 
+@app.route('/api/projects', methods=['POST'])
+@login_required
+def api_create_project():
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'Project name is required.'}), 400
+    if len(name) > 160:
+        return jsonify({'ok': False, 'error': 'Project name is too long.'}), 400
+    start_date = data.get('start_date')
+    end_date = data.get('target_date') or data.get('due_date')
+    if not start_date:
+        return jsonify({'ok': False, 'error': 'Start date is required.'}), 400
+    if not end_date:
+        return jsonify({'ok': False, 'error': 'Target date is required.'}), 400
+    ok, err = validate_project_dates(start_date, end_date)
+    if not ok:
+        return jsonify({'ok': False, 'error': err}), 400
+
+    manager = data.get('manager') or data.get('manager_id')
+    if isinstance(manager, str):
+        manager = manager.strip()
+    manager_user = None
+    if isinstance(manager, int) or (isinstance(manager, str) and manager.isdigit()):
+        manager_user = User.query.get(int(manager))
+    elif manager:
+        manager_user = User.query.filter_by(initials=str(manager).upper()).first()
+    if not manager_user:
+        return jsonify({'ok': False, 'error': 'Assignee is required and must be a valid user.'}), 400
+    if manager_user.status and manager_user.status.lower() != 'active':
+        return jsonify({'ok': False, 'error': 'Assignee must be an active user.'}), 400
+
+    assignee_ids = data.get('assignees') or data.get('team_members') or []
+    if not isinstance(assignee_ids, list):
+        return jsonify({'ok': False, 'error': 'Team members must be a list.'}), 400
+    seen_ids = set()
+    validated_users = []
+    for uid in assignee_ids:
+        try:
+            uid_int = int(uid)
+        except (TypeError, ValueError):
+            return jsonify({'ok': False, 'error': 'Invalid team member ID.'}), 400
+        if uid_int in seen_ids:
+            return jsonify({'ok': False, 'error': 'Duplicate team member IDs are not allowed.'}), 400
+        seen_ids.add(uid_int)
+        user = User.query.get(uid_int)
+        if not user:
+            return jsonify({'ok': False, 'error': f'Team member user ID {uid_int} does not exist.'}), 400
+        validated_users.append(user)
+
+    keys = [p.key for p in Project.query.all()]
+    prefix = ''.join(ch for ch in name if ch.isalnum())[:3].upper() or 'PRJ'
+    key = prefix
+    n = 1
+    while key in keys:
+        n += 1
+        key = f'{prefix}{n}'
+
+    color = '#4f46e5'
+    project = Project(
+        key=key, name=name,
+        description=(data.get('description') or ''),
+        lead_id=manager_user.id,
+        lead_initials=manager_user.initials,
+        color=color,
+        status='Not Started',
+        start_date=format_date(start_date),
+        due_date=format_date(end_date),
+        progress=0,
+    )
+    db.session.add(project)
+    db.session.flush()
+
+    if validated_users:
+        for user in validated_users:
+            existing = ProjectMembers.query.filter_by(project_id=project.id, user_id=user.id).first()
+            if not existing:
+                db.session.add(ProjectMembers(project_id=project.id, user_id=user.id))
+
+    db.session.commit()
+    return jsonify(project_dict(project)), 201
+
+
+@app.route('/api/sprints')
+@login_required
+def api_sprints():
+    project = context_project(request.args.get('project'))
+    return jsonify([sprint_api_dict(sp, context_issues(project)) for sp in context_sprints(project)])
+
+
+def sprint_api_dict(sprint, issues):
+    stats = sprint_stats_dict(sprint, issues)
+    sp_issues = [i for i in issues if i.sprint_id == sprint.id]
+    return {
+        'id': sprint.id,
+        'number': sprint.number,
+        'name': sprint.name,
+        'project': sprint.project.key if sprint.project else None,
+        'project_id': sprint.project_id,
+        'status': sprint.status,
+        'start_date': format_date(sprint.start_date),
+        'end_date': format_date(sprint.end_date),
+        'goal': sprint.goal,
+        'description': sprint.description or '',
+        'to_do': stats['to_do'],
+        'in_progress': stats['in_progress'],
+        'in_review': stats['in_review'],
+        'done': stats['done'],
+        'backlog': stats['backlog'],
+        'total': stats['total'],
+        'remaining': stats['remaining'],
+        'progress': stats['progress'],
+        'story_points_total': stats['story_points_total'],
+        'story_points_done': stats['story_points_done'],
+        'tasks': [issue_dict(i) for i in sp_issues],
+    }
+
+
+@app.route('/api/sprints', methods=['POST'])
+@login_required
+def api_create_sprint():
+    data = request.get_json(silent=True) or {}
+
+    project_key = str(data.get('project') or '').strip().upper()
+    project = Project.query.filter_by(key=project_key).first()
+    if not project:
+        return jsonify({'ok': False, 'error': 'Project is required.',
+                        'field': 'project'}), 400
+
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'Sprint name is required.',
+                        'field': 'name'}), 400
+    if len(name) > 80:
+        return jsonify({'ok': False, 'error': 'Sprint name must be 80 characters or fewer.',
+                        'field': 'name'}), 400
+    existing = Sprint.query.filter(Sprint.project_id == project.id,
+                                   db.func.lower(Sprint.name) == name.lower()).first()
+    if existing:
+        return jsonify({'ok': False,
+                        'error': 'A sprint with this name already exists in this project.',
+                        'field': 'name'}), 409
+
+    start_date = data.get('start_date')
+    end_date = data.get('end_date') or data.get('target_date')
+    if not start_date:
+        return jsonify({'ok': False, 'error': 'Start date is required.',
+                        'field': 'start_date'}), 400
+    if not end_date:
+        return jsonify({'ok': False, 'error': 'End date is required.',
+                        'field': 'end_date'}), 400
+    if not validate_sprint_dates(start_date, end_date):
+        return jsonify({'ok': False, 'error': 'End date must be after the start date.',
+                        'field': 'end_date'}), 400
+
+    requested_task_ids = data.get('task_ids') or data.get('tasks') or []
+    if not isinstance(requested_task_ids, list):
+        return jsonify({'ok': False, 'error': 'Tasks must be a list.',
+                        'field': 'tasks'}), 400
+    assigned_issues = []
+    seen_task_ids = set()
+    for tid in requested_task_ids:
+        try:
+            tid_int = int(tid)
+        except (TypeError, ValueError):
+            return jsonify({'ok': False, 'error': f'Invalid task ID {tid}.',
+                            'field': 'tasks'}), 400
+        if tid_int in seen_task_ids:
+            continue
+        seen_task_ids.add(tid_int)
+        issue = Issue.query.get(tid_int)
+        if not issue:
+            return jsonify({'ok': False, 'error': f'Task {tid_int} does not exist.',
+                            'field': 'tasks'}), 400
+        if issue.project_id != project.id:
+            project_label = issue.project.key if issue.project else '?'
+            return jsonify({'ok': False,
+                            'error': f'Task {project_label}-{issue.number} does not belong to this project.',
+                            'field': 'tasks'}), 400
+        assigned_issues.append(issue)
+
+    max_num = db.session.query(db.func.max(Sprint.number)).filter(Sprint.project_id == project.id).scalar() or 0
+    sprint = Sprint(
+        number=max_num + 1,
+        name=name,
+        project_id=project.id,
+        start_date=format_date(start_date),
+        end_date=format_date(end_date),
+        goal=(data.get('goal') or '').strip()[:160],
+        description=(data.get('description') or '').strip(),
+        status='Planned',
+        to_do=0,
+        in_progress=0,
+        in_review=0,
+        done=0,
+        story_points_total=0,
+        story_points_done=0,
+    )
+    db.session.add(sprint)
+    db.session.flush()
+
+    for issue in assigned_issues:
+        issue.sprint_id = sprint.id
+
+    db.session.commit()
+    return jsonify(sprint_api_dict(sprint, context_issues(project))), 201
+
+
+@app.route('/api/sprints/<int:sprint_id>', methods=['PATCH'])
+@login_required
+def api_update_sprint(sprint_id):
+    sprint = Sprint.query.get_or_404(sprint_id)
+    project = sprint.project
+    data = request.get_json(silent=True) or {}
+
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'Sprint name is required.',
+                        'field': 'name'}), 400
+    if len(name) > 80:
+        return jsonify({'ok': False, 'error': 'Sprint name must be 80 characters or fewer.',
+                        'field': 'name'}), 400
+    existing = Sprint.query.filter(Sprint.project_id == project.id,
+                                   Sprint.id != sprint.id,
+                                   db.func.lower(Sprint.name) == name.lower()).first()
+    if existing:
+        return jsonify({'ok': False,
+                        'error': 'A sprint with this name already exists in this project.',
+                        'field': 'name'}), 409
+
+    start_date = data.get('start_date')
+    end_date = data.get('end_date') or data.get('target_date')
+    if not start_date:
+        return jsonify({'ok': False, 'error': 'Start date is required.',
+                        'field': 'start_date'}), 400
+    if not end_date:
+        return jsonify({'ok': False, 'error': 'End date is required.',
+                        'field': 'end_date'}), 400
+    if not validate_sprint_dates(start_date, end_date):
+        return jsonify({'ok': False, 'error': 'End date must be after the start date.',
+                        'field': 'end_date'}), 400
+
+    requested_task_ids = data.get('task_ids') or data.get('tasks') or []
+    if not isinstance(requested_task_ids, list):
+        return jsonify({'ok': False, 'error': 'Tasks must be a list.',
+                        'field': 'tasks'}), 400
+    assigned_issues = []
+    seen_task_ids = set()
+    for tid in requested_task_ids:
+        try:
+            tid_int = int(tid)
+        except (TypeError, ValueError):
+            return jsonify({'ok': False, 'error': f'Invalid task ID {tid}.',
+                            'field': 'tasks'}), 400
+        if tid_int in seen_task_ids:
+            continue
+        seen_task_ids.add(tid_int)
+        issue = Issue.query.get(tid_int)
+        if not issue:
+            return jsonify({'ok': False, 'error': f'Task {tid_int} does not exist.',
+                            'field': 'tasks'}), 400
+        if issue.project_id != project.id:
+            project_label = issue.project.key if issue.project else '?'
+            return jsonify({'ok': False,
+                            'error': f'Task {project_label}-{issue.number} does not belong to this project.',
+                            'field': 'tasks'}), 400
+        assigned_issues.append(issue)
+
+    for issue in context_issues(project):
+        if issue.sprint_id == sprint.id and issue.id not in seen_task_ids:
+            issue.sprint_id = None
+    for issue in assigned_issues:
+        issue.sprint_id = sprint.id
+
+    sprint.name = name
+    sprint.start_date = format_date(start_date)
+    sprint.end_date = format_date(end_date)
+    sprint.goal = (data.get('goal') or '').strip()[:160]
+    sprint.description = (data.get('description') or '').strip()
+
+    db.session.commit()
+    return jsonify(sprint_api_dict(sprint, context_issues(project)))
+
+
+def validate_sprint_dates(start_date, end_date):
+    start = parse_date(start_date)
+    end = parse_date(end_date)
+    if start and end and end <= start:
+        return False
+    return True
+
+
+@app.route('/api/sprints/<int:sprint_id>/start', methods=['POST'])
+@login_required
+def api_start_sprint(sprint_id):
+    sprint = Sprint.query.get_or_404(sprint_id)
+    if sprint.status == 'Completed':
+        return jsonify({'ok': False, 'error': 'Completed sprints cannot be restarted.'}), 409
+    if sprint.status == 'Active':
+        return jsonify(sprint_api_dict(sprint, context_issues(sprint.project))), 200
+
+    active = Sprint.query.filter(Sprint.project_id == sprint.project_id,
+                                 Sprint.status == 'Active',
+                                 Sprint.id != sprint.id).first()
+    if active:
+        return jsonify({'ok': False,
+                        'error': 'Another sprint is already active for this project. Complete the current sprint before starting a new one.',
+                        'active_sprint': active.name}), 409
+
+    sprint.status = 'Active'
+    db.session.commit()
+    return jsonify(sprint_api_dict(sprint, context_issues(sprint.project)))
+
+
+@app.route('/api/sprints/<int:sprint_id>/complete', methods=['POST'])
+@login_required
+def api_complete_sprint(sprint_id):
+    sprint = Sprint.query.get_or_404(sprint_id)
+    if sprint.status == 'Completed':
+        return jsonify({'ok': False, 'error': 'This sprint is already completed.'}), 409
+    if sprint.status != 'Active':
+        return jsonify({'ok': False, 'error': 'Sprint must be started before it can be completed.'}), 409
+
+    project = sprint.project
+    issues = [i for i in context_issues(project) if i.sprint_id == sprint.id]
+    incomplete = [i for i in issues if i.status != 'done']
+
+    incomplete_action = ((request.get_json(silent=True) or {}).get('incomplete_action') or '').lower()
+
+    if incomplete and incomplete_action not in ('backlog', 'next', 'keep'):
+        return jsonify({
+            'ok': False,
+            'error': f'{len(incomplete)} issue(s) are still incomplete in this sprint.',
+            'requires_decision': True,
+            'incomplete_count': len(incomplete),
+            'incomplete_action': 'Choose how to handle incomplete issues before completing the sprint.',
+        }), 409
+
+    if incomplete_action == 'backlog':
+        for i in incomplete:
+            i.sprint_id = None
+            i.status = 'backlog'
+    elif incomplete_action == 'next':
+        next_sprint = Sprint.query.filter(Sprint.project_id == sprint.project_id,
+                                          Sprint.status != 'Completed',
+                                          Sprint.id != sprint.id).order_by(Sprint.number).first()
+        if not next_sprint:
+            return jsonify({'ok': False, 'error': 'No next sprint is available to move incomplete issues to.',
+                            'requires_decision': True}), 409
+        for i in incomplete:
+            i.sprint_id = next_sprint.id
+
+    sprint.status = 'Completed'
+    db.session.commit()
+    return jsonify(sprint_api_dict(sprint, context_issues(project)))
+
+
+@app.route('/api/projects/<int:project_id>', methods=['PATCH'])
+@login_required
+def api_update_project(project_id):
+    project = Project.query.get_or_404(project_id)
+    data = request.get_json(silent=True) or {}
+    if 'name' in data:
+        name = (data['name'] or '').strip()
+        if not name:
+            return jsonify({'ok': False, 'error': 'Project name is required.'}), 400
+        project.name = name
+    if 'description' in data:
+        project.description = data.get('description') or ''
+    if 'priority' in data:
+        project.health_scope = (data.get('priority') or '')
+    start_date = data.get('start_date', project.start_date)
+    end_date = data.get('target_date', data.get('due_date', project.due_date))
+    ok, err = validate_project_dates(start_date, end_date)
+    if not ok:
+        return jsonify({'ok': False, 'error': err}), 400
+    if 'start_date' in data:
+        project.start_date = data['start_date']
+    if 'target_date' in data or 'due_date' in data:
+        project.due_date = data.get('target_date', data.get('due_date'))
+    if 'status' in data:
+        project.status = data['status']
+    db.session.commit()
+    return jsonify(project_dict(project))
+
+
 @app.route('/api/ai', methods=['POST'])
 @login_required
 def api_ai():
@@ -702,7 +1336,7 @@ def api_ai():
 
     return jsonify({
         'type': 'text',
-        'response': "I'm your Wexira assistant. I can answer questions about **project status**, **sprint progress**, **team workload**, **overdue tasks**, and **high-priority issues**. Try asking:\n\n- \"What's the status of Sprint 12?\"\n- \"Which issues are overdue?\"\n- \"Who is overloaded this week?\"\n- \"Show high-priority bugs\""})
+        'response': "I'm your ABC assistant. I can answer questions about **project status**, **sprint progress**, **team workload**, **overdue tasks**, and **high-priority issues**. Try asking:\n\n- \"What's the status of Sprint 12?\"\n- \"Which issues are overdue?\"\n- \"Who is overloaded this week?\"\n- \"Show high-priority bugs\""})
 
 
 @app.context_processor
@@ -731,6 +1365,14 @@ if __name__ == '__main__':
                 db.session.commit()
             if 'updated_at' not in columns:
                 db.session.execute(sa_text('ALTER TABLE users ADD COLUMN updated_at TIMESTAMP'))
+                db.session.commit()
+            issue_cols = [col['name'] for col in inspector.get_columns('issues')]
+            if 'start_date' not in issue_cols:
+                db.session.execute(sa_text("ALTER TABLE issues ADD COLUMN start_date VARCHAR(40)"))
+                db.session.commit()
+            sprint_cols = [col['name'] for col in inspector.get_columns('sprints')]
+            if 'description' not in sprint_cols:
+                db.session.execute(sa_text("ALTER TABLE sprints ADD COLUMN description TEXT"))
                 db.session.commit()
         except Exception:
             pass

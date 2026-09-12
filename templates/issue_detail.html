@@ -1,8 +1,9 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ issue.key }} — {{ issue.title }}{% endblock %}
+{% block title %}{{ issue.number }} — {{ issue.title }}{% endblock %}
 
 {% block content %}
+{% set reporter = users|selectattr('id','equalto',issue.reporter_id)|first %}
 <div class="wf-fade-up">
   <div class="flex items-center justify-between gap-3 mb-4">
     <nav class="flex items-center gap-1.5 text-[12px] text-[var(--wf-text-tertiary)]">
@@ -10,18 +11,13 @@
       <i data-lucide="chevron-right" style="width:12px;height:12px"></i>
       <a href="/kanban" class="hover:text-[var(--wf-primary)]">{{ project.name }}</a>
       <i data-lucide="chevron-right" style="width:12px;height:12px"></i>
-      <span class="text-[var(--wf-text)] font-medium">{{ project.key }}-{{ issue.number }}</span>
+      <span class="text-[var(--wf-text)] font-medium">{{ issue.number }}</span>
     </nav>
-    <div class="flex items-center gap-1.5">
-      <button class="wf-icon-btn" title="Edit" onclick="Wexira.showToast('Inline editing enabled — click fields to edit.','info')"><i data-lucide="pencil" style="width:15px;height:15px"></i></button>
-      <button class="wf-icon-btn" title="Delete" onclick="deleteIssue('{{ issue.id }}')"><i data-lucide="trash-2" style="width:15px;height:15px;color:var(--wf-error)"></i></button>
-      <button class="wf-icon-btn" title="More"><i data-lucide="more-horizontal" style="width:15px;height:15px"></i></button>
-    </div>
   </div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+  <div class="grid grid-cols-1 gap-4">
     {# ---------------- MAIN ---------------- #}
-    <div class="lg:col-span-2 flex flex-col gap-4">
+    <div class="flex flex-col gap-4">
       <div class="wf-card">
         <div class="flex flex-wrap items-center gap-2 p-5 pb-0">
           <span class="wf-badge {{ 'wf-badge-soft-red' if issue.issue_type == 'Bug' else 'wf-badge-soft-green' if issue.issue_type == 'Story' else 'wf-badge-soft-purple' if issue.issue_type == 'Epic' else 'wf-badge-soft-gray' }}" style="padding:4px 10px">
@@ -33,14 +29,13 @@
           {% elif issue.status == 'todo' %}<span class="wf-status wf-status-todo"><span class="dot"></span>To Do</span>
           {% else %}<span class="wf-status wf-status-todo"><span class="dot"></span>Backlog</span>{% endif %}
           <span class="{{ 'wf-prio-' ~ issue.priority|lower }} wf-badge" style="padding:3px 10px">{{ issue.priority }}</span>
-          {% if issue.sprint %}<span class="wf-badge wf-badge-soft-blue" style="padding:3px 10px"><i data-lucide="timer" style="width:11px;height:11px"></i> {{ issue.sprint.name }}</span>{% endif %}
         </div>
         <div class="p-5">
           <h1 class="text-[22px] font-bold text-[var(--wf-text)] leading-snug">{{ issue.title }}</h1>
           <div class="flex items-center gap-3 mt-2 text-[12px] text-[var(--wf-text-tertiary)]">
-            <span><strong class="text-[var(--wf-text-secondary)]">{{ project.key }}-{{ issue.number }}</strong> · {{ issue.project.key }}</span>
+            <span><strong class="text-[var(--wf-text-secondary)]">{{ issue.number }}</strong> · {{ issue.project.key }}</span>
             <span>·</span>
-            <span>Reporter: <strong class="text-[var(--wf-text-secondary)]">Alex Morgan</strong></span>
+            <span>Reporter: <strong class="text-[var(--wf-text-secondary)]">{{ reporter.name if reporter else '—' }}</strong></span>
           </div>
         </div>
       </div>
@@ -57,33 +52,9 @@
         <div class="wf-card-header">
           <h2 class="text-[15px] font-bold text-[var(--wf-text)] flex items-center gap-2"><i data-lucide="check-square" style="width:14px;height:14px;color:var(--wf-text-tertiary)"></i> Acceptance Criteria</h2>
         </div>
-        <div class="p-5">
-          {% for c in issue.acceptance_criteria.split('\n') %}
-          <label class="flex items-start gap-2.5 py-1.5 cursor-pointer group">
-            <input type="checkbox" class="wf-checkbox mt-0.5">
-            <span class="text-[13px] text-[var(--wf-text-secondary)] group-hover:text-[var(--wf-text)]">{{ c }}</span>
-          </label>
-          {% endfor %}
-        </div>
+        <div class="p-5 text-[13.5px] text-[var(--wf-text-secondary)] leading-relaxed whitespace-pre-line">{{ issue.acceptance_criteria }}</div>
       </div>
       {% endif %}
-
-      <div class="wf-card">
-        <div class="wf-card-header">
-          <h2 class="text-[15px] font-bold text-[var(--wf-text)] flex items-center gap-2"><i data-lucide="paperclip" style="width:14px;height:14px;color:var(--wf-text-tertiary)"></i> Attachments <span class="wf-badge wf-badge-soft-gray">2</span></h2>
-          <button class="wf-btn wf-btn-sm wf-btn-secondary"><i data-lucide="upload" style="width:13px;height:13px"></i> Upload</button>
-        </div>
-        <div class="p-5 flex flex-wrap gap-2">
-          <div class="flex items-center gap-2 rounded-lg border border-[var(--wf-border)] px-3 py-2 text-[12.5px]">
-            <span class="w-8 h-8 rounded-md grid place-items-center" style="background:#eef2ff;color:var(--wf-primary)"><i data-lucide="file-text" style="width:15px;height:15px"></i></span>
-            <div><div class="font-semibold text-[var(--wf-text)]">checkout-api.spec.yaml</div><div class="text-[11px] text-[var(--wf-text-tertiary)]">12.4 KB</div></div>
-          </div>
-          <div class="flex items-center gap-2 rounded-lg border border-[var(--wf-border)] px-3 py-2 text-[12.5px]">
-            <span class="w-8 h-8 rounded-md grid place-items-center" style="background:#fef2f2;color:var(--wf-error)"><i data-lucide="image" style="width:15px;height:15px"></i></span>
-            <div><div class="font-semibold text-[var(--wf-text)]">flow-mockup.png</div><div class="text-[11px] text-[var(--wf-text-tertiary)]">2.1 MB</div></div>
-          </div>
-        </div>
-      </div>
 
       <div class="wf-card">
         <div class="wf-card-header">
@@ -116,64 +87,6 @@
         </div>
       </div>
     </div>
-
-    {# ---------------- SIDEBAR ---------------- #}
-    <div class="wf-card h-fit">
-      <div class="wf-card-header"><h2 class="text-[14px] font-bold text-[var(--wf-text)]">Details</h2></div>
-      <div class="p-5 flex flex-col gap-4">
-        <div class="flex items-center justify-between">
-          <span class="text-[12.5px] font-medium text-[var(--wf-text-secondary)]">Assignee</span>
-          <button class="flex items-center gap-2 text-[13px] font-semibold text-[var(--wf-text)] hover:text-[var(--wf-primary)]" onclick="assignIssue()">
-            {% if issue.assignee %}
-            <span class="wf-avatar wf-avatar-sm" style="background:{{ issue.assignee_color }}">{{ issue.assignee }}</span>
-            <span id="assigneeName">{{ issue.assignee.name if issue.assignee else issue.assignee }}</span>
-            {% else %}
-            <span class="wf-avatar wf-avatar-sm" style="background:#e5e7eb;color:#9ca3af">?</span>
-            <span>Unassigned</span>
-            {% endif %}
-          </button>
-        </div>
-        <div class="h-px bg-[var(--wf-border-soft)]"></div>
-        <div class="flex items-center justify-between">
-          <span class="text-[12.5px] font-medium text-[var(--wf-text-secondary)]">Reporter</span>
-          <span class="flex items-center gap-2 text-[13px] font-semibold text-[var(--wf-text)]"><span class="wf-avatar wf-avatar-sm" style="background:var(--wf-primary)">AM</span> Alex Morgan</span>
-        </div>
-        <div class="h-px bg-[var(--wf-border-soft)]"></div>
-        <div class="flex items-center justify-between">
-          <span class="text-[12.5px] font-medium text-[var(--wf-text-secondary)]">Labels</span>
-          <div class="flex gap-1.5">
-            {% for l in issue.labels or [] %}
-            <span class="wf-badge wf-badge-soft-gray" style="font-size:10.5px;padding:1px 8px">{{ l }}</span>
-            {% endfor %}
-          </div>
-        </div>
-        <div class="h-px bg-[var(--wf-border-soft)]"></div>
-        <div class="flex items-center justify-between">
-          <span class="text-[12.5px] font-medium text-[var(--wf-text-secondary)]">Due date</span>
-          <span class="text-[13px] font-semibold text-[var(--wf-text)]">{{ issue.due_date or '—' }}</span>
-        </div>
-        <div class="h-px bg-[var(--wf-border-soft)]"></div>
-        <div class="flex items-center justify-between">
-          <span class="text-[12.5px] font-medium text-[var(--wf-text-secondary)]">Sprint</span>
-          <span class="text-[13px] font-semibold text-[var(--wf-text)]">{{ issue.sprint.name if issue.sprint else '—' }}</span>
-        </div>
-        <div class="h-px bg-[var(--wf-border-soft)]"></div>
-        <div class="flex items-center justify-between">
-          <span class="text-[12.5px] font-medium text-[var(--wf-text-secondary)]">Story points</span>
-          <span class="text-[13px] font-semibold text-[var(--wf-text)]">{{ issue.points }} pts</span>
-        </div>
-        <div class="h-px bg-[var(--wf-border-soft)]"></div>
-        <div class="flex items-center justify-between">
-          <span class="text-[12.5px] font-medium text-[var(--wf-text-secondary)]">Created</span>
-          <span class="text-[13px] font-semibold text-[var(--wf-text-secondary)]">{{ issue.created_at }}</span>
-        </div>
-      </div>
-
-      <div class="p-4 border-t border-[var(--wf-border-soft)] grid grid-cols-2 gap-2">
-        <button class="wf-btn wf-btn-secondary wf-btn-sm justify-center" onclick="Wexira.showToast('Issue linked to sprint.','success')"><i data-lucide="link-2" style="width:13px;height:13px"></i> Link</button>
-        <button class="wf-btn wf-btn-secondary wf-btn-sm justify-center" onclick="Wexira.showToast('Watchers added.','success')"><i data-lucide="eye" style="width:13px;height:13px"></i> Watch</button>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -189,36 +102,6 @@
       Wexira.showToast('Comment added.', 'success');
       setTimeout(() => location.reload(), 400);
     }).catch(() => Wexira.showToast('Could not add comment.', 'error'));
-  }
-
-  function assignIssue() {
-    const options = [
-      { label: 'Sarah Chen (SC)', v: 'SC' },
-      { label: 'Marcus Johnson (MJ)', v: 'MJ' },
-      { label: 'Priya Sharma (PS)', v: 'PS' },
-      { label: 'David Kim (DK)', v: 'DK' },
-      { label: 'James Wilson (JW)', v: 'JW' },
-      { label: 'Olivia Brown (OB)', v: 'OB' },
-    ];
-    const choice = prompt('Assign to (initials): SC, MJ, PS, DK, JW, OB');
-    if (!choice) return;
-    fetch('/api/issues/{{ issue.id }}', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assignee: choice.trim().toUpperCase() })
-    }).then(r => r.json()).then(() => {
-      Wexira.showToast('Issue assigned.', 'success');
-      setTimeout(() => location.reload(), 400);
-    }).catch(() => Wexira.showToast('Assignee not found.', 'error'));
-  }
-
-  function deleteIssue(id) {
-    if (!confirm('Delete this issue permanently?')) return;
-    fetch('/api/issues/' + id, { method: 'DELETE' })
-      .then(r => r.json()).then(() => {
-        Wexira.showToast('Issue deleted.', 'success');
-        setTimeout(() => window.location.href = '/kanban', 450);
-      });
   }
 </script>
 {% endblock %}
