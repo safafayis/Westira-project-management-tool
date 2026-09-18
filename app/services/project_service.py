@@ -11,7 +11,7 @@ from app.models import (
     User,
 )
 from app.services import notification_service
-from app.utils.helpers import format_date, project_dict, user_dict
+from app.utils.helpers import determine_classification, format_date, project_dict, user_dict
 from app.utils.validators import validate_project_dates
 
 
@@ -170,6 +170,7 @@ def create_project(data, actor):
         lead_initials=manager_user.initials,
         color=color,
         status='Not Started',
+        classification=determine_classification(start_date, end_date),
         start_date=format_date(start_date),
         due_date=format_date(end_date),
         progress=0,
@@ -216,9 +217,10 @@ def update_project(project_id, data, actor):
         project.due_date = data.get('target_date', data.get('due_date'))
     if 'status' in data:
         project.status = data['status']
+    project.classification = determine_classification(project.start_date, project.due_date)
     db.session.commit()
     try:
         notification_service.create_project_updated_notification(project, actor)
     except Exception:
         pass
-    return project_dict(project)
+    return project_dict(project), 200

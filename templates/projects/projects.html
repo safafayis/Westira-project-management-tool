@@ -32,7 +32,11 @@
               <div class="flex items-center gap-2.5 min-w-[200px]">
                 <span class="w-9 h-9 rounded-lg grid place-items-center text-white text-[11px] font-bold" style="background:{{ p.color }}">{{ p.key[:3] }}</span>
                 <div>
-                  <div class="font-semibold text-[var(--wf-text)]">{{ p.name }}</div>
+                  <div class="font-semibold text-[var(--wf-text)] flex items-center gap-2">
+                    {{ p.name }}
+                    {% set pclass = p.classification or 'PROJECT' %}
+                    <span class="wf-badge {{ 'wf-badge-soft-blue' if pclass == 'TO DO' else 'wf-badge-soft-gray' }}">{{ pclass }}</span>
+                  </div>
                   <div class="text-[11.5px] text-[var(--wf-text-tertiary)]">{{ p.description[:52] }}{{ '…' if p.description|length > 52 }}</div>
                 </div>
               </div>

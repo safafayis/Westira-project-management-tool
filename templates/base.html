@@ -2168,6 +2168,10 @@ function openCreateProject() {
               <input class="wf-input" id="cp-target" type="date">
             </div>
           </div>
+          <div class="flex items-center gap-2 mt-1" id="cp-class-row" style="display:none">
+            <span class="wf-badge wf-badge-soft-gray" id="cp-class">To Do</span>
+            <span class="text-[12px] text-[var(--wf-text-secondary)]">Duration-based classification: 4 days or fewer = To Do, more than 4 days = Project</span>
+          </div>
           <p class="text-[12.5px] text-[var(--wf-text-secondary)]" id="cp-error" style="color:var(--wf-error);display:none"></p>
         </div>
         <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--wf-border-soft)] bg-[#fafafb]">
@@ -2194,6 +2198,22 @@ function openCreateProject() {
     el.style.display = msg ? 'block' : 'none';
   }
 
+  function cpClassify() {
+    const start = document.getElementById('cp-start').value;
+    const target = document.getElementById('cp-target').value;
+    const row = document.getElementById('cp-class-row');
+    const badge = document.getElementById('cp-class');
+    if (!start || !target) { row.style.display = 'none'; return; }
+    const s = new Date(Date.UTC(+start.slice(0, 4), +start.slice(5, 7) - 1, +start.slice(8, 10)));
+    const t = new Date(Date.UTC(+target.slice(0, 4), +target.slice(5, 7) - 1, +target.slice(8, 10)));
+    const days = Math.round((t - s) / 86400000);
+    if (days < 0) { row.style.display = 'none'; return; }
+    const cls = days > 4 ? 'Project' : 'To Do';
+    badge.textContent = cls;
+    badge.className = 'wf-badge ' + (cls === 'To Do' ? 'wf-badge-soft-blue' : 'wf-badge-soft-gray');
+    row.style.display = 'flex';
+  }
+
   function loadUsers() {
     return fetch('/api/v1/users')
       .then(r => r.json())
@@ -2203,6 +2223,9 @@ function openCreateProject() {
   loadUsers().then(allUsers => {
     initAssigneeSelect(allUsers);
     initTeamMultiSelect(allUsers);
+
+    ['cp-start', 'cp-target'].forEach(id => document.getElementById(id).addEventListener('change', cpClassify));
+    cpClassify();
 
     document.getElementById('cp-submit').addEventListener('click', () => {
       const name = document.getElementById('cp-name').value.trim();

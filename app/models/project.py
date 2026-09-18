@@ -1,3 +1,5 @@
+from sqlalchemy import text
+
 from app.extensions import db
 
 
@@ -12,6 +14,7 @@ class Project(db.Model):
     lead_initials = db.Column(db.String(8))
     color = db.Column(db.String(20), default='#4f46e5')
     status = db.Column(db.String(40), default='In Progress')
+    classification = db.Column(db.String(10), server_default=text("'PROJECT'"))
     start_date = db.Column(db.String(40))
     due_date = db.Column(db.String(40))
     progress = db.Column(db.Integer, default=0)

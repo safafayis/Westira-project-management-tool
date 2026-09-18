@@ -40,6 +40,7 @@ def project_dict(p):
     return {
         'id': p.id, 'key': p.key, 'name': p.name, 'lead_id': p.lead_id,
         'lead_initials': p.lead_initials, 'color': p.color, 'status': p.status,
+        'classification': p.classification or 'PROJECT',
         'start_date': p.start_date, 'due_date': p.due_date, 'progress': p.progress,
         'description': p.description,
         'health': {'schedule': p.health_schedule, 'budget': p.health_budget,
@@ -416,6 +417,33 @@ def parse_date(value):
 def format_date(value):
     d = parse_date(value)
     return d.strftime('%b %d, %Y') if d else (value or '')
+
+
+def calculate_duration(start_date, end_date):
+    """Calendar-day difference between two dates (Target Date - Start Date).
+
+    Dates are normalized (parsed to midnight) and compared by calendar day,
+    so the result never varies with the time of day. Returns None when either
+    date cannot be parsed.
+    """
+    s = parse_date(start_date)
+    e = parse_date(end_date)
+    if s is None or e is None:
+        return None
+    return (e.date() - s.date()).days
+
+
+def determine_classification(start_date, end_date):
+    """Duration-based classification for a Project record.
+
+    More than 4 days        -> 'PROJECT'
+    4 days or fewer         -> 'TO DO'
+    Missing/unparseable date-> 'PROJECT' (safe default; Project entity)
+    """
+    days = calculate_duration(start_date, end_date)
+    if days is not None and days <= 4:
+        return 'TO DO'
+    return 'PROJECT'
 
 
 DATE_FORMATS = ('%b %d, %Y', '%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%b %d', '%d %b')
