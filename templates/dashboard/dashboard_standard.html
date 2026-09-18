@@ -72,7 +72,7 @@
       <div class="flex items-center justify-between mb-2">
         <div>
           <div class="text-[20px] font-bold text-[var(--wf-text)]">
-            {% set sp = active_sprint %} {{ (sp.story_points_done if sp else 0) }}<span class="text-[var(--wf-text-tertiary)] text-[14px] font-semibold"> / {{ (sp.story_points_total if sp else 0) }} pts</span>
+            {{ (sp.story_points_done if sp else 0) }}<span class="text-[var(--wf-text-tertiary)] text-[14px] font-semibold"> / {{ (sp.story_points_total if sp else 0) }} pts</span>
           </div>
           <div class="text-[12px] text-[var(--wf-text-secondary)]">Story points completed</div>
         </div>
