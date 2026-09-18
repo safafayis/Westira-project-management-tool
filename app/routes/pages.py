@@ -11,11 +11,18 @@ from app.extensions import db
 from app.models import Activity, Comment, Issue, Notification, Project, ProjectMembers, Sprint, User
 from app.services import auth_service
 from app.utils.helpers import (
+    active_project_sprint,
     context_issues,
     context_project,
     context_sprint_stats,
     context_sprints,
     issue_dict,
+    open_issue_count,
+    project_member_count,
+    recent_activity,
+    sprint_progress_pct,
+    sprint_stats_dict,
+    tasks_due_this_week,
     user_dict,
 )
 
@@ -96,34 +103,40 @@ def register_pages(app):
     def dashboard():
         me = current_user
         projects_all = Project.query.all()
-        issues_all = Issue.query.all()
-        active_sprint = Sprint.query.filter_by(status='Active').first()
-        users_all = User.query.all()
+        selected_key = (request.args.get('project') or '').strip().upper()
+        selected_project = next(
+            (p for p in projects_all if p.key == selected_key), None
+        ) if selected_key else None
+        if selected_project is None:
+            selected_project = projects_all[0] if projects_all else None
 
-        open_issues = sum(1 for i in issues_all if i.status != 'done')
-        tasks_due = sum(1 for i in issues_all if i.due_date and i.status != 'done')
-        sprint_pct = round((active_sprint.story_points_done or 0) / (active_sprint.story_points_total or 1) * 100) if active_sprint else 0
-        my_tasks = [i for i in issues_all if i.assignee_initials == me.initials][:6]
+        project_issues = context_issues(selected_project) if selected_project else []
+        active_sprint = active_project_sprint(selected_project)
+        sprint_stats = sprint_stats_dict(active_sprint, project_issues) if active_sprint else None
+
+        open_issues = open_issue_count(project_issues)
+        tasks_due = tasks_due_this_week(project_issues)
+        sprint_pct = sprint_progress_pct(sprint_stats)
+        member_count = project_member_count(selected_project)
+        my_tasks = [i for i in project_issues if i.assignee_initials == me.initials][:6]
 
         kpis = [
-            {'value': open_issues, 'label': 'Open Issues', 'trend': '-4', 'up': False,
+            {'value': open_issues, 'label': 'Open Issues', 'trend': '', 'up': True,
              'icon': 'alert-circle', 'color': '#0891b2', 'bg': '#ecfeff'},
-            {'value': tasks_due, 'label': 'Tasks Due This Week', 'trend': '2 soon', 'up': True,
+            {'value': tasks_due, 'label': 'Tasks Due This Week', 'trend': '', 'up': True,
              'icon': 'calendar-clock', 'color': '#d97706', 'bg': '#fffbeb'},
-            {'value': f'{sprint_pct}%', 'label': 'Sprint Progress', 'trend': '+12%', 'up': True,
+            {'value': f'{sprint_pct}%', 'label': 'Sprint Progress', 'trend': '', 'up': True,
              'icon': 'timer', 'color': '#7c3aed', 'bg': '#f5f3ff'},
-            {'value': len(users_all), 'label': 'Team Members', 'trend': '+1', 'up': True,
+            {'value': member_count, 'label': 'Team Members', 'trend': '', 'up': True,
              'icon': 'users', 'color': '#059669', 'bg': '#ecfdf5'},
         ]
 
-        selected_project = projects_all[0] if projects_all else None
-
         context = {
             'active_page': 'dashboard', 'kpis': kpis,
-            'projects': projects_all, 'issues': issues_all,
-            'active_sprint': active_sprint, 'my_tasks': my_tasks,
+            'projects': projects_all, 'issues': project_issues,
+            'active_sprint': sprint_stats, 'my_tasks': my_tasks,
             'notifications': Notification.query.order_by(Notification.id.desc()).limit(4).all(),
-            'activity': Activity.query.order_by(Activity.id.desc()).limit(8).all(),
+            'activity': recent_activity(selected_project, limit=8),
             'user_projects': projects_all, 'selected_project': selected_project,
         }
 

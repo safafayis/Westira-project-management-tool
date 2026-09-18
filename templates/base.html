@@ -2444,11 +2444,11 @@ window.Wexira = { showToast, openCreateIssue, openCreateProject, formatAiText, e
 
   options.forEach(function (opt) {
     opt.addEventListener('click', function () {
-      options.forEach(function (o) { o.classList.remove('is-selected'); o.setAttribute('aria-selected', 'false'); });
-      opt.classList.add('is-selected');
-      opt.setAttribute('aria-selected', 'true');
-      nameEl.textContent = opt.getAttribute('data-name');
+      var key = opt.getAttribute('data-key');
       closeDropdown();
+      if (key) {
+        window.location.href = '/dashboard?project=' + encodeURIComponent(key);
+      }
     });
     opt.addEventListener('mouseenter', function () { opt.style.background = ''; });
   });

@@ -7,9 +7,11 @@ from datetime import datetime, timedelta
 
 from app.extensions import db
 from app.models import (
+    Comment,
     Issue,
     IssueAssignees,
     Project,
+    ProjectMembers,
     Sprint,
     User,
     UserNotificationPreferences,
@@ -126,6 +128,168 @@ def sprint_api_dict(sprint, issues):
         'story_points_done': stats['story_points_done'],
         'tasks': [issue_dict(i) for i in sp_issues],
     }
+
+
+# ---------------------------------------------------------------------------
+# Dashboard helpers (all project-scoped, derived from real records)
+# ---------------------------------------------------------------------------
+
+def project_member_count(project):
+    """Count the actual members of a project from the membership table."""
+    if project is None:
+        return 0
+    return ProjectMembers.query.filter_by(project_id=project.id).count()
+
+
+def active_project_sprint(project):
+    """Return the active sprint for a project using the application's
+    established rule (sprint status == 'Active'), falling back to the first
+    active sprint if more than one exists."""
+    if project is None:
+        return None
+    return (Sprint.query
+            .filter_by(project_id=project.id, status='Active')
+            .order_by(Sprint.number)
+            .first())
+
+
+def open_issue_count(issues):
+    """Issues that are not completed (Done is the only closed status)."""
+    return sum(1 for i in issues if i.status != 'done')
+
+
+def this_week_bounds():
+    """Monday..Sunday of the current week, computed dynamically."""
+    today = datetime.utcnow().date()
+    start = today - timedelta(days=today.weekday())
+    return start, start + timedelta(days=6)
+
+
+def tasks_due_this_week(issues):
+    """Count not-done issues whose due date falls inside the current week.
+
+    Issues without a parseable due date (or without one at all) are skipped.
+    """
+    start, end = this_week_bounds()
+    count = 0
+    for i in issues:
+        if i.status == 'done':
+            continue
+        due = parse_any_date(i.due_date)
+        if due and start <= due.date() <= end:
+            count += 1
+    return count
+
+
+def sprint_progress_pct(stats):
+    """Story-point based progress for a sprint stats dict; 0 when no points."""
+    if not stats:
+        return 0
+    total = stats.get('story_points_total') or 0
+    if not total:
+        return 0
+    return round((stats.get('story_points_done') or 0) / total * 100)
+
+
+def _relative_time(dt, day_only=False):
+    """Human relative time, recomputed from the recorded timestamp.
+
+    ``day_only=True`` is used for records whose timestamp has day precision
+    only (created_at / comment created_at), so the label never implies a
+    false sub-day precision (e.g. a comment added just now is 'today',
+    not '6 hours ago').
+    """
+    if dt is None:
+        return ''
+    now = datetime.utcnow()
+    if dt.tzinfo is not None:
+        dt = dt.replace(tzinfo=None)
+    if day_only:
+        days = (now.date() - dt.date()).days
+        if days <= 0:
+            return 'today'
+        if days == 1:
+            return 'yesterday'
+        if days < 7:
+            return f'{days} days ago'
+        return dt.strftime('%b %d, %Y')
+    diff = now - dt
+    if diff < timedelta(minutes=1):
+        return 'just now'
+    if diff < timedelta(hours=1):
+        mins = max(int(diff.total_seconds() // 60), 1)
+        return f'{mins} min ago'
+    if diff < timedelta(days=1):
+        hours = int(diff.total_seconds() // 3600)
+        return '1 hour ago' if hours == 1 else f'{hours} hours ago'
+    if diff < timedelta(days=7):
+        days = diff.days
+        return '1 day ago' if days == 1 else f'{days} days ago'
+    return dt.strftime('%b %d, %Y')
+
+
+def recent_activity(project=None, limit=8):
+    """Build the Recent Activity feed from real records only, newest first.
+
+    Only events that are actually represented by the application's data are
+    included (no fabricated history):
+      - issue created  -> Issue.created_at + reporter
+      - issue completed -> Issue.completed_at
+      - comment created -> Comment.created_at + author
+
+    Every displayed name / issue key comes from a real row and every relative
+    timestamp is recomputed from the recorded timestamp at render time.
+    """
+    issues_q = Issue.query
+    if project is not None:
+        issues_q = issues_q.filter_by(project_id=project.id)
+    issues = issues_q.all()
+
+    comments_q = Comment.query.join(Issue, Issue.id == Comment.issue_id)
+    if project is not None:
+        comments_q = comments_q.filter(Issue.project_id == project.id)
+    comments = comments_q.all()
+
+    events = []
+    for i in issues:
+        created = parse_any_date(i.created_at)
+        if created:
+            reporter = User.query.get(i.reporter_id) if i.reporter_id else None
+            events.append({
+                'sort': created,
+                'icon': 'plus',
+                'color': '#4f46e5',
+                'text': f"{(reporter.name if reporter else 'Someone')} created {issue_ref(i)}",
+                'detail': i.title,
+                'time': _relative_time(created, day_only=True),
+            })
+        if i.completed_at:
+            events.append({
+                'sort': i.completed_at,
+                'icon': 'check',
+                'color': '#059669',
+                'text': f'{issue_ref(i)} moved to Done',
+                'detail': i.title,
+                'time': _relative_time(i.completed_at),
+            })
+    for c in comments:
+        created = parse_any_date(c.created_at)
+        issue = Issue.query.get(c.issue_id)
+        if created and issue:
+            author = User.query.get(c.author_id) if c.author_id else None
+            events.append({
+                'sort': created,
+                'icon': 'comment',
+                'color': '#059669',
+                'text': f"{(author.name if author else 'Someone')} commented on {issue_ref(issue)}",
+                'detail': comment_preview(c.body),
+                'time': _relative_time(created, day_only=True),
+            })
+
+    events.sort(key=lambda e: e['sort'], reverse=True)
+    for idx, ev in enumerate(events[:limit]):
+        ev['id'] = idx + 1
+    return events[:limit]
 
 
 # ---------------------------------------------------------------------------

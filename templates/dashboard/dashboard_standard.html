@@ -106,7 +106,7 @@
 
       <div class="flex items-center justify-between mt-5 pt-4 border-t border-[var(--wf-border-soft)]">
         <span class="text-[11.5px] text-[var(--wf-text-tertiary)]">Sprint ends {{ sp.end_date if sp and sp.end_date else '—' }}</span>
-        <a href="/kanban" class="wf-btn wf-btn-primary wf-btn-sm"><i data-lucide="columns-3" style="width:13px;height:13px"></i> Kanban Board</a>
+        <a href="/kanban/{{ selected_project.key if selected_project else 'ECOM' }}" class="wf-btn wf-btn-primary wf-btn-sm"><i data-lucide="columns-3" style="width:13px;height:13px"></i> Kanban Board</a>
       </div>
     </div>
   </div>
