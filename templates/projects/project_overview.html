@@ -27,6 +27,10 @@
               <i data-lucide="user" style="width:14px;height:14px;color:var(--wf-text-tertiary)"></i>
               <span class="font-semibold text-[var(--wf-text)]">{{ project.lead.name if project.lead else project.lead_initials }}</span> · Project Lead
             </span>
+            <span class="flex items-center gap-2 text-[var(--wf-text-secondary)]">
+              <i data-lucide="calendar-range" style="width:14px;height:14px;color:var(--wf-text-tertiary)"></i>
+              <span class="font-semibold text-[var(--wf-text)]">{{ project.start_date or '—' }} → {{ project.due_date or '—' }}</span> · Start → Target
+            </span>
           </div>
         </div>
       </div>
@@ -43,20 +47,22 @@
       <div>
         <div class="text-[11.5px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide">Team members</div>
         <div class="wf-avatar-group mt-1.5">
-          {% for m in members %}
+          {% for m in members[:5] %}
           <span class="wf-avatar wf-avatar-sm" style="background:{{ m.color }}">{{ m.initials }}</span>
           {% endfor %}
-          <span class="wf-avatar wf-avatar-sm" style="background:#9ca3af">+2</span>
+          {% if members|length > 5 %}
+          <span class="wf-avatar wf-avatar-sm" style="background:#9ca3af">+{{ members|length - 5 }}</span>
+          {% endif %}
         </div>
       </div>
     </div>
 
-    <div class="flex items-center gap-3 mt-5">
+<div class="flex items-center gap-3 mt-5">
       <div class="flex items-center gap-2 min-w-[200px] flex-1">
         <div class="wf-progress-track" style="height:9px">
-          <div class="wf-progress-bar" style="width:{{ project.progress }}%;background:{{ project.color }}"></div>
+          <div class="wf-progress-bar" style="width:{{ project_progress }}%;background:{{ project.color }}"></div>
         </div>
-        <span class="text-[13px] font-bold text-[var(--wf-text)]">{{ project.progress }}%</span>
+        <span class="text-[13px] font-bold text-[var(--wf-text)]">{{ project_progress }}%</span>
         <span class="text-[12px] text-[var(--wf-text-secondary)]">complete</span>
       </div>
     </div>
@@ -69,70 +75,88 @@
         <div>
           <h2 class="text-[15px] font-bold text-[var(--wf-text)]">Project Health</h2>
         </div>
-        <span class="wf-badge wf-badge-soft-green">Healthy</span>
+        {% if health_overall == 'Healthy' %}<span class="wf-badge wf-badge-soft-green">Healthy</span>
+        {% elif health_overall == 'Critical' %}<span class="wf-badge wf-badge-soft-red">Critical</span>
+        {% else %}<span class="wf-badge wf-badge-soft-amber">{{ health_overall }}</span>{% endif %}
       </div>
       <div class="p-5 grid grid-cols-2 md:grid-cols-4 gap-3">
         {% set health = [
-          ('Schedule','schedule','calendar-check','On Track','#059669',project.health_schedule),
-          ('Budget','budget','wallet','On Track','#059669',project.health_budget),
-          ('Scope','scope','target','At Risk','#d97706',project.health_scope),
-          ('Team Capacity','capacity','gauge','Good','#059669',project.health_capacity),
+          ('Schedule','schedule','calendar-check','#059669',health_schedule),
+          ('Budget','budget','wallet','#6b7280',health_budget),
+          ('Scope','scope','target','#d97706',health_scope),
+          ('Team Capacity','capacity','gauge','#059669',health_capacity),
         ] %}
-        {% for name,key,icon,hue,good,v in health %}
+        {% for name,key,icon,hue,v in health %}
         <div class="rounded-lg border border-[var(--wf-border)] p-3.5">
           <div class="flex items-center gap-2 mb-2">
-            <span class="w-7 h-7 rounded-lg grid place-items-center" style="background:{{ good }}1a;color:{{ good }}">
+            <span class="w-7 h-7 rounded-lg grid place-items-center" style="background:{{ hue }}1a;color:{{ hue }}">
               <i data-lucide="{{ icon }}" style="width:14px;height:14px"></i>
             </span>
             <span class="text-[11.5px] font-semibold text-[var(--wf-text-secondary)]">{{ name }}</span>
           </div>
           <div class="flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full" style="background:{{ 'var(--wf-success)' if v == 'On Track' or v == 'Good' else 'var(--wf-warning)' }}"></span>
+            {% if v == 'Not available' %}
+            <span class="w-2 h-2 rounded-full" style="background:var(--wf-text-tertiary)"></span>
+            <span class="text-[13px] font-bold text-[var(--wf-text-tertiary)]">{{ v }}</span>
+            {% else %}
+            <span class="w-2 h-2 rounded-full" style="background:{{ 'var(--wf-success)' if v == 'On Track' or v == 'Good' else 'var(--wf-error)' if v == 'Critical' else 'var(--wf-warning)' }}"></span>
             <span class="text-[13px] font-bold text-[var(--wf-text)]">{{ v }}</span>
+            {% endif %}
           </div>
         </div>
         {% endfor %}
       </div>
     </div>
 
-    {% if sprints %}
+    {% if active_sprint_stats %}
     <div class="wf-card">
-      {% set sp = sprints[1] if sprints|length > 1 else sprints[0] %}
       <div class="wf-card-header">
         <div>
-          <h2 class="text-[15px] font-bold text-[var(--wf-text)]">{{ sp.name }}</h2>
-          <p class="text-[12px] text-[var(--wf-text-secondary)]">{{ sp.start_date }} → {{ sp.end_date }}</p>
+          <h2 class="text-[15px] font-bold text-[var(--wf-text)]">{{ active_sprint_stats.name }}</h2>
+          <p class="text-[12px] text-[var(--wf-text-secondary)]">{{ active_sprint_stats.start_date }} → {{ active_sprint_stats.end_date }}</p>
         </div>
         <span class="wf-badge wf-badge-soft-green">Active</span>
       </div>
       <div class="p-5">
         <div class="flex items-center justify-between mb-2">
           <span class="text-[12.5px] text-[var(--wf-text-secondary)]">Complete</span>
-          <span class="text-[20px] font-bold text-[var(--wf-text)]">{{ (sp.story_points_done / (sp.story_points_total or 1) * 100)|int }}%</span>
+          <span class="text-[20px] font-bold text-[var(--wf-text)]">{{ sprint_pct }}%</span>
         </div>
         <div class="wf-progress-track mb-5" style="height:8px">
-          <div class="wf-progress-bar" style="width:{{ (sp.story_points_done / (sp.story_points_total or 1) * 100)|int }}%;background:var(--wf-primary)"></div>
+          <div class="wf-progress-bar" style="width:{{ sprint_pct }}%;background:var(--wf-primary)"></div>
         </div>
         <div class="grid grid-cols-2 gap-2 mb-4">
           <div class="rounded-lg p-2.5 flex items-center justify-between" style="background:#eef2ff">
             <span class="text-[11.5px] font-medium text-[#4338ca]">To Do</span>
-            <span class="text-[16px] font-bold text-[#4f46e5]">{{ sp.to_do }}</span>
+            <span class="text-[16px] font-bold text-[#4f46e5]">{{ active_sprint_stats.to_do }}</span>
           </div>
           <div class="rounded-lg p-2.5 flex items-center justify-between" style="background:#ecfeff">
             <span class="text-[11.5px] font-medium text-[#0e7490]">In Progress</span>
-            <span class="text-[16px] font-bold text-[#0891b2]">{{ sp.in_progress }}</span>
+            <span class="text-[16px] font-bold text-[#0891b2]">{{ active_sprint_stats.in_progress }}</span>
           </div>
           <div class="rounded-lg p-2.5 flex items-center justify-between" style="background:#f5f3ff">
             <span class="text-[11.5px] font-medium text-[#6d28d9]">In Review</span>
-            <span class="text-[16px] font-bold text-[#7c3aed]">{{ sp.in_review }}</span>
+            <span class="text-[16px] font-bold text-[#7c3aed]">{{ active_sprint_stats.in_review }}</span>
           </div>
           <div class="rounded-lg p-2.5 flex items-center justify-between" style="background:#ecfdf5">
             <span class="text-[11.5px] font-medium text-[#047857]">Done</span>
-            <span class="text-[16px] font-bold text-[#059669]">{{ sp.done }}</span>
+            <span class="text-[16px] font-bold text-[#059669]">{{ active_sprint_stats.done }}</span>
           </div>
         </div>
-        <div class="text-[11.5px] text-[var(--wf-text-tertiary)] mb-3"><i data-lucide="target" style="width:12px;height:12px;display:inline;vertical-align:-2px"></i> {{ sp.goal }}</div>
-        <a href="/kanban" class="wf-btn wf-btn-secondary wf-btn-sm w-full justify-center"><i data-lucide="columns-3" style="width:13px;height:13px"></i> Open Sprint Board</a>
+        <div class="text-[11.5px] text-[var(--wf-text-tertiary)] mb-3"><i data-lucide="target" style="width:12px;height:12px;display:inline;vertical-align:-2px"></i> {{ active_sprint_stats.goal }}</div>
+        <a href="/kanban/{{ project.key }}" class="wf-btn wf-btn-secondary wf-btn-sm w-full justify-center"><i data-lucide="columns-3" style="width:13px;height:13px"></i> Open Sprint Board</a>
+      </div>
+    </div>
+    {% else %}
+    <div class="wf-card">
+      <div class="wf-card-header">
+        <div>
+          <h2 class="text-[15px] font-bold text-[var(--wf-text)]">Current Sprint</h2>
+          <p class="text-[12px] text-[var(--wf-text-secondary)]">No active sprint</p>
+        </div>
+      </div>
+      <div class="p-5">
+        <div class="wf-empty"><i data-lucide="calendar-range" style="width:28px;height:28px"></i><div>No active sprint. Activate a sprint from Sprints to track it here.</div></div>
       </div>
     </div>
     {% endif %}
@@ -144,8 +168,7 @@
       <h2 class="text-[15px] font-bold text-[var(--wf-text)]">Upcoming Deadlines</h2>
     </div>
     <div class="p-4 flex flex-col gap-2">
-      {% set upcoming_all = issues|selectattr('due_date')|list %}
-      {% set upcoming = upcoming_all[:4] %}
+      {% set upcoming = deadlines[:4] %}
       {% if upcoming %}
       {% for i in upcoming %}
       <div class="flex items-center gap-3 p-2.5 rounded-lg hover:bg-[#fafafb] cursor-pointer transition-colors" onclick="location='/issue/{{ i.id }}'">
@@ -426,7 +449,7 @@
         if (!res.ok) { Wexira.showToast(res.d.error || 'Could not update the task.', 'error'); return; }
         closeEditModal();
         Wexira.showToast('Task updated.', 'success');
-        updateTaskRow(id, res.d);
+        setTimeout(() => location.reload(), 450);
       })
       .catch(function () { Wexira.showToast('Could not update the task.', 'error'); });
   }

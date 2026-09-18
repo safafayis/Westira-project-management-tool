@@ -4,12 +4,15 @@
 Login/register keep their GET+POST hybrid behavior for the form fallback; the
 JSON SPA frontends now post to /api/v1/auth/* instead.
 """
+from datetime import datetime
+
 from flask import flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 
 from app.extensions import db
 from app.models import Activity, Comment, Issue, Notification, Project, ProjectMembers, Sprint, User
 from app.services import auth_service
+from app.services.report_service import _project_health
 from app.utils.helpers import (
     active_project_sprint,
     context_issues,
@@ -18,6 +21,7 @@ from app.utils.helpers import (
     context_sprints,
     issue_dict,
     open_issue_count,
+    parse_any_date,
     project_member_count,
     recent_activity,
     sprint_progress_pct,
@@ -171,9 +175,67 @@ def register_pages(app):
         project = context_project(key)
         members = db.session.query(User).join(ProjectMembers, ProjectMembers.user_id == User.id) \
             .filter(ProjectMembers.project_id == project.id).all()
+        issues = context_issues(project)
+        sprints = context_sprints(project)
+
+        today = datetime.utcnow().date()
+
+        # Project progress uses the app's established issue-completion
+        # definition (done issues / total issues), matching the Reports page.
+        total = len(issues)
+        completed = sum(1 for i in issues if i.status == 'done')
+        project_progress = round(completed / total * 100) if total else 0
+
+        # Active sprint uses the established rule (status == 'Active'); its
+        # stats are computed from the sprint's real issues (same values as the
+        # Dashboard and /api/v1/dashboard for the same project).
+        active_sprint = active_project_sprint(project)
+        active_sprint_stats = sprint_stats_dict(active_sprint, issues) if active_sprint else None
+        sprint_pct = sprint_progress_pct(active_sprint_stats)
+
+        # Upcoming deadlines = non-done issues with a due date >= today,
+        # nearest due date first. Overdue issues are counted separately, as the
+        # existing reports/overdue logic already distinguishes them.
+        overdue_issues = 0
+        deadlines = []
+        for issue in issues:
+            if issue.status == 'done':
+                continue
+            due = parse_any_date(issue.due_date)
+            if due is None:
+                continue
+            if due.date() < today:
+                overdue_issues += 1
+            else:
+                deadlines.append(issue)
+        deadlines.sort(key=lambda i: parse_any_date(i.due_date))
+
+        # Project Health: the overall rating reuses the established reports
+        # rules; metric cards use real data where it exists and fall back to
+        # the existing 'Not available' state otherwise (no invented values).
+        due = parse_any_date(project.due_date)
+        if due is None:
+            health_schedule = 'Not available'
+        else:
+            health_schedule = 'At Risk' if (due.date() - today).days <= 30 else 'On Track'
+        health_budget = 'Not available'
+        health_scope = 'Not available'
+        member_count = len(members)
+        open_work = total - completed
+        if member_count == 0:
+            health_capacity = 'Not available'
+        else:
+            load = open_work / member_count
+            health_capacity = 'Good' if load <= 3 else ('At Risk' if load <= 6 else 'Critical')
+        health_overall = _project_health(project, total, completed, overdue_issues, sprint_pct or None)
+
         return render_template('projects/project_overview.html', active_page='project',
-                               project=project, sprints=context_sprints(project),
-                               issues=context_issues(project), members=members)
+                               project=project, sprints=sprints, issues=issues,
+                               members=members, active_sprint_stats=active_sprint_stats,
+                               sprint_pct=sprint_pct, project_progress=project_progress,
+                               deadlines=deadlines, health_overall=health_overall,
+                               health_schedule=health_schedule, health_budget=health_budget,
+                               health_scope=health_scope, health_capacity=health_capacity)
 
     @app.route('/kanban/<key>')
     @app.route('/kanban')
