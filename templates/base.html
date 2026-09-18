@@ -1242,6 +1242,7 @@ body:not(.is-dashboard) .wf-navbar {
 }
   </style>
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="{{ url_for('static', filename='js/api.js') }}"></script>
 </head>
 <body class="wf-shell {{ 'is-dashboard' if active_page == 'dashboard' else '' }}">
 
@@ -1255,7 +1256,7 @@ body:not(.is-dashboard) .wf-navbar {
       <div class="wf-logo-mark">
         <!-- TODO: Replace this placeholder square with the real logo -->
       </div>
-      <span class="wf-logo-text">ABC</span>
+      <span class="wf-logo-text">{{ workspace_name }}</span>
     </a>
 
     <div style="padding: 12px 12px 0;">
@@ -1299,7 +1300,6 @@ body:not(.is-dashboard) .wf-navbar {
       <div class="wf-nav-section">System</div>
       {% set nav_system = [
         ('notifications', 'Notifications', 'bell', '/notifications'),
-        ('settings', 'Settings', 'settings', '/settings'),
       ] %}
       {% for key, label, icon, href in nav_system %}
       <a href="{{ href }}" class="wf-nav-item {{ 'is-active' if active_page == key else '' }}">
@@ -1371,7 +1371,7 @@ body:not(.is-dashboard) .wf-navbar {
 (function () {
   'use strict';
 
-  const apiUrl = '/api/ai';
+  const apiUrl = '/api/v1/ai';
 
   function contextInfo() {
     const path = window.location.pathname;
@@ -1711,16 +1711,7 @@ function openCreateModal(opts) {
 
   function esc(v) { return escapeHtml(v || ''); }
 
-  const projectOptions = [
-    ['ECOM', 'E-Commerce Platform'],
-    ['BANK', 'Mobile Banking App'],
-    ['SUPT', 'Customer Support Portal'],
-    ['AIPL', 'AI Analytics Platform'],
-  ].map(([k, label]) => `<option value="${k}"${k === project ? ' selected' : ''}>${label} (${k})</option>`).join('');
-  const selectedProjectKeys = ['ECOM', 'BANK', 'SUPT', 'AIPL'];
-  if (project && selectedProjectKeys.indexOf(project) === -1) {
-    projectOptions.unshift(`<option value="${project}" selected>${project} (${project})</option>`);
-  }
+  const projectOptions = '<option value="" selected>Loading projects…</option>';
 
   modalRoot.innerHTML = `
     <div class="wf-modal-backdrop" id="ciBackdrop">
@@ -1919,7 +1910,7 @@ function openCreateModal(opts) {
     };
     payload.assignees = assigneeId ? [assigneeId] : [];
 
-    fetch('/api/issues', {
+    fetch('/api/v1/issues', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -1941,7 +1932,7 @@ function openCreateModal(opts) {
   function initAssigneeSelect() {
     var sel = document.getElementById('ci-assignee');
     if (!sel) return;
-    fetch('/api/users')
+    fetch('/api/v1/users')
       .then(function (r) { return r.json(); })
       .then(function (users) {
         users.forEach(function (u) {
@@ -1958,7 +1949,7 @@ function openCreateModal(opts) {
   function loadSprints(projectKey, select) {
     if (!select) return;
     select.innerHTML = '<option value="">No Sprint</option>';
-    fetch('/api/sprints?project=' + encodeURIComponent(projectKey))
+    fetch('/api/v1/sprints?project=' + encodeURIComponent(projectKey))
       .then(function (r) { return r.json(); })
       .then(function (list) {
         list.forEach(function (s) {
@@ -1973,11 +1964,41 @@ function openCreateModal(opts) {
 
   var ciProjectSel = document.getElementById('ci-project');
   var ciSprintSel = document.getElementById('ci-sprint');
-  if (ciProjectSel && ciSprintSel) {
-    loadSprints(ciProjectSel.value, ciSprintSel);
-    ciProjectSel.addEventListener('change', function () {
-      loadSprints(ciProjectSel.value, ciSprintSel);
-    });
+  function populateProjects() {
+    fetch('/api/v1/projects')
+      .then(function (r) {
+        if (!r.ok) throw new Error('bad status');
+        return r.json();
+      })
+      .then(function (projects) {
+        var defaultKey = project;
+        if (!defaultKey && projects.length) defaultKey = projects[0].key;
+        var found = false;
+        var opts = '';
+        projects.forEach(function (p) {
+          if (p.key === defaultKey) found = true;
+          opts += '<option value="' + esc(p.key) + '"' + (p.key === defaultKey ? ' selected' : '') + '>' + esc(p.name) + ' (' + esc(p.key) + ')</option>';
+        });
+        if (defaultKey && !found) {
+          opts = '<option value="' + esc(defaultKey) + '" selected>' + esc(defaultKey) + ' (' + esc(defaultKey) + ')</option>' + opts;
+        }
+        ciProjectSel.innerHTML = opts || '<option value="" selected>No projects available</option>';
+        if (ciSprintSel) loadSprints(ciProjectSel.value, ciSprintSel);
+      })
+      .catch(function () {
+        ciProjectSel.innerHTML = project
+          ? '<option value="' + esc(project) + '" selected>' + esc(project) + ' (' + esc(project) + ')</option>'
+          : '<option value="" selected>No projects available</option>';
+        if (ciSprintSel) loadSprints(ciProjectSel.selectedOptions[0].value, ciSprintSel);
+      });
+  }
+  if (ciProjectSel) {
+    populateProjects();
+    if (ciSprintSel) {
+      ciProjectSel.addEventListener('change', function () {
+        loadSprints(ciProjectSel.value, ciSprintSel);
+      });
+    }
   }
 }
 
@@ -2066,7 +2087,7 @@ function deleteUser(userId, userEmail, userName) {
     confirmBtn.disabled = true;
     confirmBtn.innerHTML = '<span class="inline-flex items-center gap-2"><i data-lucide="loader-2" style="width:15px;height:15px" class="animate-spin"></i> Deleting…</span>';
     lucide.createIcons({ nodes: [confirmBtn] });
-    fetch(`/api/users/${userId}`, {
+    fetch(`/api/v1/users/${userId}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ confirm_email: emailInput.value.trim() }),
@@ -2174,7 +2195,7 @@ function openCreateProject() {
   }
 
   function loadUsers() {
-    return fetch('/api/users')
+    return fetch('/api/v1/users')
       .then(r => r.json())
       .catch(() => []);
   }
@@ -2202,7 +2223,7 @@ function openCreateProject() {
       const submitBtn = document.getElementById('cp-submit');
       submitBtn.disabled = true;
       submitBtn.textContent = 'Creating...';
-      fetch('/api/projects', {
+      fetch('/api/v1/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

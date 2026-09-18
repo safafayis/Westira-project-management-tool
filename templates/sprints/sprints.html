@@ -1,0 +1,1480 @@
+{% extends 'base.html' %}
+
+{% block title %}Sprints{% endblock %}
+
+{% block content %}
+{% set active_sprint = sprints|selectattr('status','equalto','Active')|first %}
+{% set kpi_total_points = sprints|map(attribute='story_points_total')|sum %}
+{% set kpi_done_points = sprints|map(attribute='story_points_done')|sum %}
+{% set kpi_completed = sprints|map(attribute='done')|sum %}
+{% set kpi_remaining = sprints|map(attribute='remaining')|sum %}
+{% set kpi_total_tasks = sprints|map(attribute='total')|sum %}
+{% set kpi_done_tasks = sprints|map(attribute='done')|sum %}
+{% set kpi_progress = (kpi_done_tasks / (kpi_total_tasks or 1) * 100)|round|int %}
+{% set active_progress = active_sprint.progress if active_sprint else 0 %}
+
+<div class="wf-fade-up">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <div>
+      <nav class="flex items-center gap-1.5 text-[12px] text-[var(--wf-text-tertiary)] mb-1">
+        <a href="/projects" class="hover:text-[var(--wf-primary)]">Projects</a>
+        <i data-lucide="chevron-right" style="width:12px;height:12px"></i>
+        <span class="text-[var(--wf-text-secondary)]">{{ project.name }}</span>
+        <i data-lucide="chevron-right" style="width:12px;height:12px"></i>
+        <span class="text-[var(--wf-text)] font-medium">Sprints</span>
+      </nav>
+      <div class="flex items-center gap-3 flex-wrap">
+        <div>
+          <h1 class="text-[20px] font-bold text-[var(--wf-text)]">Sprints</h1>
+          <p class="text-[12.5px] text-[var(--wf-text-secondary)] mt-0.5">Plan, track, and manage sprint cycles</p>
+        </div>
+        <div class="wf-project-selector" id="sprintsProjectSelector">
+          <button type="button" class="wf-project-selector-trigger" id="sprintsProjectTrigger" aria-haspopup="listbox" aria-expanded="false">
+            <span class="wf-project-selector-name" id="sprintsProjectName">{{ project.name }}</span>
+            <svg class="wf-project-selector-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="wf-project-selector-dropdown" id="sprintsProjectDropdown" role="listbox" aria-label="Select project">
+            {% for p in projects_list %}
+            <div class="wf-project-selector-option {{ 'is-selected' if p.id == project.id }}" role="option" data-key="{{ p.key }}" data-name="{{ p.name }}" aria-selected="{{ 'true' if p.id == project.id else 'false' }}">
+              <span class="wf-project-selector-option-name">{{ p.name }}</span>
+              <svg class="wf-project-selector-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button class="wf-btn wf-btn-secondary wf-btn-sm" id="createSprintBtn"><i data-lucide="calendar-plus" style="width:14px;height:14px"></i> Create Sprint</button>
+    </div>
+  </div>
+
+  <div id="sprintKpis" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="wf-card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <span class="wf-kpi-icon" style="width:38px;height:38px;background:#eef2ff;color:#4f46e5"><i data-lucide="timer" style="width:18px;height:18px"></i></span>
+        {% if active_sprint %}<span class="wf-badge wf-badge-soft-green">Active</span>{% endif %}
+      </div>
+      <div class="text-[20px] font-bold text-[var(--wf-text)] leading-none truncate">{{ active_sprint.name if active_sprint else 'No active sprint' }}</div>
+      <div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">Current Sprint</div>
+    </div>
+    <div class="wf-card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <span class="wf-kpi-icon" style="width:38px;height:38px;background:#ecfdf5;color:#059669"><i data-lucide="gauge" style="width:18px;height:18px"></i></span>
+      </div>
+      <div class="text-[24px] font-bold text-[var(--wf-text)] leading-none">{{ kpi_progress }}%</div>
+      <div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">Sprint Progress</div>
+    </div>
+    <div class="wf-card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <span class="wf-kpi-icon" style="width:38px;height:38px;background:#f5f3ff;color:#7c3aed"><i data-lucide="target" style="width:18px;height:18px"></i></span>
+      </div>
+      <div class="text-[24px] font-bold text-[var(--wf-text)] leading-none">{{ kpi_done_points }}<span class="text-[14px] font-semibold text-[var(--wf-text-tertiary)]">/{{ kpi_total_points }}</span></div>
+      <div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">Story Points</div>
+    </div>
+    <div class="wf-card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <span class="wf-kpi-icon" style="width:38px;height:38px;background:#ecfeff;color:#0891b2"><i data-lucide="check-circle-2" style="width:18px;height:18px"></i></span>
+      </div>
+      <div class="text-[24px] font-bold text-[var(--wf-text)] leading-none">{{ kpi_completed }}<span class="text-[14px] font-semibold text-[var(--wf-text-tertiary)]">/{{ kpi_completed + kpi_remaining }}</span></div>
+      <div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">Completed Tasks</div>
+      <div class="text-[11px] text-[var(--wf-text-tertiary)] mt-0.5">{{ kpi_remaining }} remaining</div>
+    </div>
+  </div>
+
+  <div id="currentSprintSection">
+  {% if active_sprint %}
+  <div class="wf-card mb-4 overflow-hidden">
+    <div class="p-5 border-b border-[var(--wf-border-soft)]">
+      <div class="flex flex-wrap items-center gap-2 justify-between mb-1">
+        <div class="text-[11px] font-semibold uppercase tracking-[.05em] text-[var(--wf-text-tertiary)]">Current Sprint</div>
+        <div class="flex items-center gap-2">
+          <span class="wf-badge wf-badge-soft-green">Active</span>
+          <span class="text-[12.5px] text-[var(--wf-text-secondary)]">{{ active_sprint.start_date }} → {{ active_sprint.end_date }}</span>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <h2 class="text-[17px] font-bold text-[var(--wf-text)]">{{ active_sprint.name }}</h2>
+        <span class="wf-chip" style="background:#f5f3ff;color:#7c3aed">{{ active_sprint.story_points_total }} pts</span>
+      </div>
+      <p class="text-[13px] text-[var(--wf-text-secondary)] mt-1"><i data-lucide="flag" style="width:13px;height:13px;display:inline;vertical-align:-2px;margin-right:4px"></i>{{ active_sprint.goal or 'No sprint goal set' }}</p>
+    </div>
+    <div class="p-5">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[12.5px] font-semibold text-[var(--wf-text)]">Progress</span>
+        <span class="text-[13px] font-bold text-[var(--wf-primary)]">{{ active_progress }}%</span>
+      </div>
+      <div class="wf-progress-track" style="height:8px">
+        <div class="wf-progress-bar" style="width:{{ active_progress }}%;background:var(--wf-primary)"></div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
+        <div>
+          <div class="text-[20px] font-bold text-[var(--wf-text)] leading-none">{{ active_sprint.story_points_done }}<span class="text-[13px] font-semibold text-[var(--wf-text-tertiary)]">/{{ active_sprint.story_points_total }}</span></div>
+          <div class="text-[11.5px] font-medium text-[var(--wf-text-secondary)] mt-1">Story Points Done</div>
+        </div>
+        <div>
+          <div class="text-[20px] font-bold text-[var(--wf-success)] leading-none">{{ active_sprint.done }}</div>
+          <div class="text-[11.5px] font-medium text-[var(--wf-text-secondary)] mt-1">Completed Tasks</div>
+        </div>
+        <div>
+          <div class="text-[20px] font-bold text-[var(--wf-warning)] leading-none">{{ active_sprint.remaining }}</div>
+          <div class="text-[11.5px] font-medium text-[var(--wf-text-secondary)] mt-1">Remaining Tasks</div>
+        </div>
+        <div>
+          <div class="text-[20px] font-bold text-[var(--wf-text)] leading-none">{{ active_sprint.total }}</div>
+          <div class="text-[11.5px] font-medium text-[var(--wf-text-secondary)] mt-1">Total Tasks</div>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-3 pt-4 mt-4 border-t border-[var(--wf-border-soft)] text-[12px] text-[var(--wf-text-secondary)]">
+        <span><i data-lucide="circle" style="width:10px;height:10px;display:inline;vertical-align:-1px;color:var(--wf-text-tertiary)"></i> To Do: <b class="text-[var(--wf-text)]">{{ active_sprint.to_do }}</b></span>
+        <span><i data-lucide="loader" style="width:10px;height:10px;display:inline;vertical-align:-1px;color:#4f46e5"></i> In Progress: <b class="text-[var(--wf-text)]">{{ active_sprint.in_progress }}</b></span>
+        <span><i data-lucide="eye" style="width:10px;height:10px;display:inline;vertical-align:-1px;color:#7c3aed"></i> In Review: <b class="text-[var(--wf-text)]">{{ active_sprint.in_review }}</b></span>
+        <span><i data-lucide="check-circle-2" style="width:10px;height:10px;display:inline;vertical-align:-1px;color:var(--wf-success)"></i> Done: <b class="text-[var(--wf-text)]">{{ active_sprint.done }}</b></span>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="wf-card mb-4">
+    <div class="p-10 text-center">
+      <div class="w-12 h-12 mx-auto rounded-full bg-[#f5f3ff] grid place-items-center text-[#7c3aed] mb-3">
+        <i data-lucide="timer" style="width:22px;height:22px"></i>
+      </div>
+      <div class="text-[14px] font-semibold text-[var(--wf-text)]">No active sprint</div>
+      <p class="text-[12.5px] text-[var(--wf-text-secondary)] mt-1">Create a sprint to start planning this project's next cycle.</p>
+    </div>
+  </div>
+  {% endif %}
+  </div>
+
+  <div id="allSprintsCard">
+  <div class="wf-card overflow-hidden">
+    <div class="p-4 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--wf-border-soft)]">
+      <h2 class="text-[14px] font-bold text-[var(--wf-text)]">All Sprints</h2>
+      <span class="wf-badge wf-badge-soft-gray">{{ sprints|length }} sprints</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="wf-table">
+        <thead><tr><th>Sprint</th><th>Status</th><th>Dates</th><th>Goal</th><th>Progress</th><th>Story Points</th><th>Completed</th><th>Remaining</th><th>Actions</th></tr></thead>
+        <tbody>
+          {% for sp in sprints %}
+          <tr class="{{ 'bg-[#fafbff]' if sp.status == 'Active' else '' }}">
+            <td>
+              <div class="flex items-center gap-3 min-w-[140px]">
+                <span class="w-8 h-8 rounded-lg grid place-items-center text-white" style="background:{{ '#4f46e5' if sp.status == 'Active' else '#9ca3af' if sp.status == 'Completed' else '#c7d2fe' }}"><i data-lucide="timer" style="width:15px;height:15px"></i></span>
+                <div class="font-semibold text-[var(--wf-text)] text-[13.5px]">{{ sp.name }}</div>
+              </div>
+            </td>
+            <td>
+              {% if sp.status == 'Active' %}<span class="wf-badge wf-badge-soft-green">Active</span>
+              {% elif sp.status == 'Completed' %}<span class="wf-badge wf-badge-soft-gray">Completed</span>
+              {% else %}<span class="wf-badge wf-badge-soft-blue">Planned</span>{% endif %}
+            </td>
+            <td><span class="text-[12.5px] text-[var(--wf-text-secondary)] whitespace-nowrap">{{ sp.start_date }} → {{ sp.end_date }}</span></td>
+            <td><span class="text-[12.5px] text-[var(--wf-text-secondary)] max-w-[220px] truncate block">{{ sp.goal or '—' }}</span></td>
+            <td>
+              <div class="flex items-center gap-2 min-w-[120px]">
+                <div class="wf-progress-track" style="height:7px">
+                  <div class="wf-progress-bar" style="width:{{ sp.progress }}%;background:{{ '#059669' if sp.progress >= 100 else '#4f46e5' if sp.status == 'Active' else '#c7d2fe' }}"></div>
+                </div>
+                <span class="text-[12px] font-semibold text-[var(--wf-text-secondary)]">{{ sp.progress }}%</span>
+              </div>
+            </td>
+            <td><span class="text-[12.5px] font-semibold text-[var(--wf-text)]">{{ sp.story_points_done }}<span class="text-[var(--wf-text-tertiary)]">/{{ sp.story_points_total }}</span></span></td>
+            <td><span class="text-[12.5px] font-semibold text-[var(--wf-success)]">{{ sp.done }}</span></td>
+            <td><span class="text-[12.5px] font-semibold text-[var(--wf-warning)]">{{ sp.remaining }}</span></td>
+            <td>
+              <div class="flex items-center gap-1.5">
+                <button type="button" class="wf-icon-btn" title="View Sprint" data-sprint-view="{{ sp.id }}"><i data-lucide="eye" style="width:14px;height:14px"></i></button>
+                <button type="button" class="wf-icon-btn" title="Edit Sprint" data-sprint-edit="{{ sp.id }}"><i data-lucide="pencil" style="width:14px;height:14px"></i></button>
+                {% if sp.status == 'Active' %}
+                <button type="button" class="wf-btn wf-btn-primary wf-btn-sm wf-sprint-complete" data-sprint-id="{{ sp.id }}" data-sprint-name="{{ sp.name }}"><i data-lucide="check" style="width:12px;height:12px"></i> Complete Sprint</button>
+                {% elif sp.status == 'Planned' %}
+                <button type="button" class="wf-btn wf-btn-primary wf-btn-sm wf-sprint-start" data-sprint-id="{{ sp.id }}" data-sprint-name="{{ sp.name }}"><i data-lucide="play" style="width:12px;height:12px"></i> Start Sprint</button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="9" class="text-center py-8 text-[13px] text-[var(--wf-text-tertiary)]">No sprints created yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  </div>
+</div>
+
+<script>
+var SPRINTS_PROJECT_KEY = {{ project.key|tojson }};
+var SPRINTS_PROJECTS = [
+  {% for p in projects_list %}{ "key": {{ p.key|tojson }}, "name": {{ p.name|tojson }} }{% if not loop.last %},{% endif %}
+  {% endfor %}];
+var SPRINT_TASKS = {{ project_tasks|tojson }};
+var SPRINTS_NAMES = {{ sprints|map(attribute='name')|list|tojson }};
+var SPRINTS_NUMBERS = {{ sprints|map(attribute='number')|list|tojson }};
+
+(function () {
+  var selector = document.getElementById('sprintsProjectSelector');
+  if (!selector) return;
+  var trigger = document.getElementById('sprintsProjectTrigger');
+  var dropdown = document.getElementById('sprintsProjectDropdown');
+
+  function closeDropdown() {
+    dropdown.classList.remove('is-open');
+    trigger.setAttribute('aria-expanded', 'false');
+  }
+
+  function openDropdown() {
+    dropdown.classList.add('is-open');
+    trigger.setAttribute('aria-expanded', 'true');
+  }
+
+  trigger.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (dropdown.classList.contains('is-open')) closeDropdown();
+    else openDropdown();
+  });
+
+  dropdown.querySelectorAll('.wf-project-selector-option').forEach(function (opt) {
+    opt.addEventListener('click', function () {
+      var key = opt.getAttribute('data-key');
+      closeDropdown();
+      if (key && key !== SPRINTS_PROJECT_KEY) {
+        window.location.href = '/sprints/' + encodeURIComponent(key);
+      }
+    });
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!selector.contains(e.target)) closeDropdown();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeDropdown();
+  });
+
+  trigger.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (!dropdown.classList.contains('is-open')) openDropdown();
+    }
+  });
+})();
+
+/* ------------------------------------------------------------------
+   Sprint data helper: per-project name history + next-number suggestion
+   ------------------------------------------------------------------ */
+var sprintCache = {};
+(function seedSprintCache() {
+  var nums = SPRINTS_NUMBERS.slice();
+  var names = SPRINTS_NAMES.slice();
+  sprintCache[SPRINTS_PROJECT_KEY] = { names: names, maxNumber: nums.length ? Math.max.apply(null, nums) : 0 };
+})();
+
+function loadSprintInfo(projectKey) {
+  return new Promise(function (resolve) {
+    if (sprintCache[projectKey]) { resolve(sprintCache[projectKey]); return; }
+    fetch('/api/v1/sprints?project=' + encodeURIComponent(projectKey))
+      .then(function (r) { return r.json(); })
+      .then(function (list) {
+        var nums = (list || []).map(function (s) { return s.number; });
+        var names = (list || []).map(function (s) { return s.name; });
+        sprintCache[projectKey] = { names: names, maxNumber: nums.length ? Math.max.apply(null, nums) : 0 };
+        resolve(sprintCache[projectKey]);
+      })
+      .catch(function () { resolve({ names: [], maxNumber: 0 }); });
+  });
+}
+
+function suggestedSprintName(info) {
+  return 'Sprint ' + (info.maxNumber + 1);
+}
+
+/* ------------------------------------------------------------------
+   Sprint page refresh (no full browser reload)
+   ------------------------------------------------------------------ */
+function sprintProgress(sp) {
+  return sp && sp.total ? Math.round((sp.done / sp.total) * 100) : 0;
+}
+
+function renderSprintKpis(sprints) {
+  var el = document.getElementById('sprintKpis');
+  if (!el) return;
+
+  var active = null;
+  var kpiTotalPoints = 0, kpiDonePoints = 0, kpiCompleted = 0, kpiRemaining = 0;
+  var kpiTotalTasks = 0, kpiDoneTasks = 0;
+  sprints.forEach(function (sp) {
+    if (sp.status === 'Active') active = sp;
+    kpiTotalPoints += sp.story_points_total || 0;
+    kpiDonePoints += sp.story_points_done || 0;
+    kpiCompleted += sp.done || 0;
+    kpiRemaining += sp.remaining || 0;
+    kpiTotalTasks += sp.total || 0;
+    kpiDoneTasks += sp.done || 0;
+  });
+  var kpiProgress = kpiTotalTasks ? Math.round((kpiDoneTasks / kpiTotalTasks) * 100) : 0;
+
+  var html =
+    '<div class="wf-card p-5">' +
+      '<div class="flex items-center justify-between mb-3">' +
+        '<span class="wf-kpi-icon" style="width:38px;height:38px;background:#eef2ff;color:#4f46e5"><i data-lucide="timer" style="width:18px;height:18px"></i></span>' +
+        (active ? '<span class="wf-badge wf-badge-soft-green">Active</span>' : '') +
+      '</div>' +
+      '<div class="text-[20px] font-bold text-[var(--wf-text)] leading-none truncate">' + escapeHtml(active ? active.name : 'No active sprint') + '</div>' +
+      '<div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">Current Sprint</div>' +
+    '</div>' +
+    '<div class="wf-card p-5">' +
+      '<div class="flex items-center justify-between mb-3">' +
+        '<span class="wf-kpi-icon" style="width:38px;height:38px;background:#ecfdf5;color:#059669"><i data-lucide="gauge" style="width:18px;height:18px"></i></span>' +
+      '</div>' +
+      '<div class="text-[24px] font-bold text-[var(--wf-text)] leading-none">' + kpiProgress + '%</div>' +
+      '<div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">Sprint Progress</div>' +
+    '</div>' +
+    '<div class="wf-card p-5">' +
+      '<div class="flex items-center justify-between mb-3">' +
+        '<span class="wf-kpi-icon" style="width:38px;height:38px;background:#f5f3ff;color:#7c3aed"><i data-lucide="target" style="width:18px;height:18px"></i></span>' +
+      '</div>' +
+      '<div class="text-[24px] font-bold text-[var(--wf-text)] leading-none">' + kpiDonePoints + '<span class="text-[14px] font-semibold text-[var(--wf-text-tertiary)]">/' + kpiTotalPoints + '</span></div>' +
+      '<div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">Story Points</div>' +
+    '</div>' +
+    '<div class="wf-card p-5">' +
+      '<div class="flex items-center justify-between mb-3">' +
+        '<span class="wf-kpi-icon" style="width:38px;height:38px;background:#ecfeff;color:#0891b2"><i data-lucide="check-circle-2" style="width:18px;height:18px"></i></span>' +
+      '</div>' +
+      '<div class="text-[24px] font-bold text-[var(--wf-text)] leading-none">' + kpiCompleted + '<span class="text-[14px] font-semibold text-[var(--wf-text-tertiary)]">/' + (kpiCompleted + kpiRemaining) + '</span></div>' +
+      '<div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">Completed Tasks</div>' +
+      '<div class="text-[11px] text-[var(--wf-text-tertiary)] mt-0.5">' + kpiRemaining + ' remaining</div>' +
+    '</div>';
+
+  el.innerHTML = html;
+  lucide.createIcons({ nodes: [el] });
+}
+
+function renderCurrentSprint(active) {
+  var el = document.getElementById('currentSprintSection');
+  if (!el) return;
+  if (!active) {
+    el.innerHTML =
+      '<div class="wf-card mb-4">' +
+        '<div class="p-10 text-center">' +
+          '<div class="w-12 h-12 mx-auto rounded-full bg-[#f5f3ff] grid place-items-center text-[#7c3aed] mb-3">' +
+            '<i data-lucide="timer" style="width:22px;height:22px"></i>' +
+          '</div>' +
+          '<div class="text-[14px] font-semibold text-[var(--wf-text)]">No active sprint</div>' +
+          '<p class="text-[12.5px] text-[var(--wf-text-secondary)] mt-1">Create a sprint to start planning this project\'s next cycle.</p>' +
+        '</div>' +
+      '</div>';
+    lucide.createIcons({ nodes: [el] });
+    return;
+  }
+
+  var activeProgress = sprintProgress(active);
+  var remainingTasks = active.remaining != null ? active.remaining : (active.to_do + active.in_progress + active.in_review);
+  var totalTasks = active.total != null ? active.total : (active.to_do + active.in_progress + active.in_review + active.done);
+  var goalText = active.goal ? escapeHtml(active.goal) : 'No sprint goal set';
+
+  var html =
+    '<div class="wf-card mb-4 overflow-hidden">' +
+      '<div class="p-5 border-b border-[var(--wf-border-soft)]">' +
+        '<div class="flex flex-wrap items-center gap-2 justify-between mb-1">' +
+          '<div class="text-[11px] font-semibold uppercase tracking-[.05em] text-[var(--wf-text-tertiary)]">Current Sprint</div>' +
+          '<div class="flex items-center gap-2">' +
+            '<span class="wf-badge wf-badge-soft-green">Active</span>' +
+            '<span class="text-[12.5px] text-[var(--wf-text-secondary)]">' + escapeHtml(active.start_date || '') + ' \u2192 ' + escapeHtml(active.end_date || '') + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="flex flex-wrap items-center gap-2">' +
+          '<h2 class="text-[17px] font-bold text-[var(--wf-text)]">' + escapeHtml(active.name) + '</h2>' +
+          '<span class="wf-chip" style="background:#f5f3ff;color:#7c3aed">' + (active.story_points_total || 0) + ' pts</span>' +
+        '</div>' +
+        '<p class="text-[13px] text-[var(--wf-text-secondary)] mt-1"><i data-lucide="flag" style="width:13px;height:13px;display:inline;vertical-align:-2px;margin-right:4px"></i>' + goalText + '</p>' +
+      '</div>' +
+      '<div class="p-5">' +
+        '<div class="flex items-center justify-between mb-2">' +
+          '<span class="text-[12.5px] font-semibold text-[var(--wf-text)]">Progress</span>' +
+          '<span class="text-[13px] font-bold text-[var(--wf-primary)]">' + activeProgress + '%</span>' +
+        '</div>' +
+        '<div class="wf-progress-track" style="height:8px">' +
+          '<div class="wf-progress-bar" style="width:' + activeProgress + '%;background:var(--wf-primary)"></div>' +
+        '</div>' +
+        '<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">' +
+          '<div><div class="text-[20px] font-bold text-[var(--wf-text)] leading-none">' + (active.story_points_done || 0) + '<span class="text-[13px] font-semibold text-[var(--wf-text-tertiary)]">/' + (active.story_points_total || 0) + '</span></div><div class="text-[11.5px] font-medium text-[var(--wf-text-secondary)] mt-1">Story Points Done</div></div>' +
+          '<div><div class="text-[20px] font-bold text-[var(--wf-success)] leading-none">' + (active.done || 0) + '</div><div class="text-[11.5px] font-medium text-[var(--wf-text-secondary)] mt-1">Completed Tasks</div></div>' +
+          '<div><div class="text-[20px] font-bold text-[var(--wf-warning)] leading-none">' + remainingTasks + '</div><div class="text-[11.5px] font-medium text-[var(--wf-text-secondary)] mt-1">Remaining Tasks</div></div>' +
+          '<div><div class="text-[20px] font-bold text-[var(--wf-text)] leading-none">' + totalTasks + '</div><div class="text-[11.5px] font-medium text-[var(--wf-text-secondary)] mt-1">Total Tasks</div></div>' +
+        '</div>' +
+        '<div class="flex flex-wrap gap-3 pt-4 mt-4 border-t border-[var(--wf-border-soft)] text-[12px] text-[var(--wf-text-secondary)]">' +
+          '<span><i data-lucide="circle" style="width:10px;height:10px;display:inline;vertical-align:-1px;color:var(--wf-text-tertiary)"></i> To Do: <b class="text-[var(--wf-text)]">' + (active.to_do || 0) + '</b></span>' +
+          '<span><i data-lucide="loader" style="width:10px;height:10px;display:inline;vertical-align:-1px;color:#4f46e5"></i> In Progress: <b class="text-[var(--wf-text)]">' + (active.in_progress || 0) + '</b></span>' +
+          '<span><i data-lucide="eye" style="width:10px;height:10px;display:inline;vertical-align:-1px;color:#7c3aed"></i> In Review: <b class="text-[var(--wf-text)]">' + (active.in_review || 0) + '</b></span>' +
+          '<span><i data-lucide="check-circle-2" style="width:10px;height:10px;display:inline;vertical-align:-1px;color:var(--wf-success)"></i> Done: <b class="text-[var(--wf-text)]">' + (active.done || 0) + '</b></span>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  el.innerHTML = html;
+  lucide.createIcons({ nodes: [el] });
+}
+
+function renderAllSprints(sprints) {
+  var el = document.getElementById('allSprintsCard');
+  if (!el) return;
+
+  var rows = '';
+  if (!sprints.length) {
+    rows = '<tr><td colspan="9" class="text-center py-8 text-[13px] text-[var(--wf-text-tertiary)]">No sprints created yet.</td></tr>';
+  } else {
+    sprints.forEach(function (sp) {
+      var statusBadge = sp.status === 'Active'
+        ? '<span class="wf-badge wf-badge-soft-green">Active</span>'
+        : sp.status === 'Completed'
+          ? '<span class="wf-badge wf-badge-soft-gray">Completed</span>'
+          : '<span class="wf-badge wf-badge-soft-blue">Planned</span>';
+      var iconBg = sp.status === 'Active' ? '#4f46e5' : sp.status === 'Completed' ? '#9ca3af' : '#c7d2fe';
+      var barBg = sp.progress >= 100 ? '#059669' : sp.status === 'Active' ? '#4f46e5' : '#c7d2fe';
+      var actions = '<div class="flex items-center gap-1.5">' +
+        '<button type="button" class="wf-icon-btn" title="View Sprint" data-sprint-view="' + sp.id + '"><i data-lucide="eye" style="width:14px;height:14px"></i></button>' +
+        '<button type="button" class="wf-icon-btn" title="Edit Sprint" data-sprint-edit="' + sp.id + '"><i data-lucide="pencil" style="width:14px;height:14px"></i></button>';
+      if (sp.status === 'Active') {
+        actions += '<button type="button" class="wf-btn wf-btn-primary wf-btn-sm wf-sprint-complete" data-sprint-id="' + sp.id + '" data-sprint-name="' + escapeHtml(sp.name) + '"><i data-lucide="check" style="width:12px;height:12px"></i> Complete Sprint</button>';
+      } else if (sp.status === 'Planned') {
+        actions += '<button type="button" class="wf-btn wf-btn-primary wf-btn-sm wf-sprint-start" data-sprint-id="' + sp.id + '" data-sprint-name="' + escapeHtml(sp.name) + '"><i data-lucide="play" style="width:12px;height:12px"></i> Start Sprint</button>';
+      }
+      actions += '</div>';
+
+      rows += '<tr class="' + (sp.status === 'Active' ? 'bg-[#fafbff]' : '') + '">' +
+        '<td><div class="flex items-center gap-3 min-w-[140px]">' +
+          '<span class="w-8 h-8 rounded-lg grid place-items-center text-white" style="background:' + iconBg + '"><i data-lucide="timer" style="width:15px;height:15px"></i></span>' +
+          '<div class="font-semibold text-[var(--wf-text)] text-[13.5px]">' + escapeHtml(sp.name) + '</div>' +
+        '</div></td>' +
+        '<td>' + statusBadge + '</td>' +
+        '<td><span class="text-[12.5px] text-[var(--wf-text-secondary)] whitespace-nowrap">' + escapeHtml(sp.start_date || '') + ' \u2192 ' + escapeHtml(sp.end_date || '') + '</span></td>' +
+        '<td><span class="text-[12.5px] text-[var(--wf-text-secondary)] max-w-[220px] truncate block">' + escapeHtml(sp.goal || '\u2014') + '</span></td>' +
+        '<td><div class="flex items-center gap-2 min-w-[120px]">' +
+          '<div class="wf-progress-track" style="height:7px"><div class="wf-progress-bar" style="width:' + sp.progress + '%;background:' + barBg + '"></div></div>' +
+          '<span class="text-[12px] font-semibold text-[var(--wf-text-secondary)]">' + sp.progress + '%</span>' +
+        '</div></td>' +
+        '<td><span class="text-[12.5px] font-semibold text-[var(--wf-text)]">' + (sp.story_points_done || 0) + '<span class="text-[var(--wf-text-tertiary)]">/' + (sp.story_points_total || 0) + '</span></span></td>' +
+        '<td><span class="text-[12.5px] font-semibold text-[var(--wf-success)]">' + (sp.done || 0) + '</span></td>' +
+        '<td><span class="text-[12.5px] font-semibold text-[var(--wf-warning)]">' + (sp.remaining || 0) + '</span></td>' +
+        '<td>' + actions + '</td>' +
+      '</tr>';
+    });
+  }
+
+  var html =
+    '<div class="wf-card overflow-hidden">' +
+      '<div class="p-4 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--wf-border-soft)]">' +
+        '<h2 class="text-[14px] font-bold text-[var(--wf-text)]">All Sprints</h2>' +
+        '<span class="wf-badge wf-badge-soft-gray">' + sprints.length + ' sprints</span>' +
+      '</div>' +
+      '<div class="overflow-x-auto">' +
+        '<table class="wf-table">' +
+          '<thead><tr><th>Sprint</th><th>Status</th><th>Dates</th><th>Goal</th><th>Progress</th><th>Story Points</th><th>Completed</th><th>Remaining</th><th>Actions</th></tr></thead>' +
+          '<tbody>' + rows + '</tbody>' +
+        '</table>' +
+      '</div>' +
+    '</div>';
+
+  el.innerHTML = html;
+  lucide.createIcons({ nodes: [el] });
+}
+
+function renderSprints(sprints) {
+  sprints = Array.isArray(sprints) ? sprints : [];
+  var active = null;
+  sprints.forEach(function (sp) { if (sp.status === 'Active') active = sp; });
+
+  SPRINTS_NAMES = sprints.map(function (sp) { return sp.name; });
+  SPRINTS_NUMBERS = sprints.map(function (sp) { return sp.number; });
+  sprintCache[SPRINTS_PROJECT_KEY] = {
+    names: SPRINTS_NAMES,
+    maxNumber: SPRINTS_NUMBERS.length ? Math.max.apply(null, SPRINTS_NUMBERS) : 0,
+  };
+
+  renderSprintKpis(sprints);
+  renderCurrentSprint(active);
+  renderAllSprints(sprints);
+}
+
+function refreshSprintPage() {
+  return fetch('/api/v1/sprints?project=' + encodeURIComponent(SPRINTS_PROJECT_KEY))
+    .then(function (r) { return r.json(); })
+    .then(function (sprints) { renderSprints(sprints); })
+    .catch(function () {
+      Wexira.showToast('Could not refresh sprint data.', 'error');
+    });
+}
+
+/* ------------------------------------------------------------------
+   Create Sprint modal
+   ------------------------------------------------------------------ */
+function openCreateSprint(projectKey) {
+  var modalRoot = document.getElementById('modalRoot');
+  var projectOptions = SPRINTS_PROJECTS.map(function (p) {
+    return '<option value="' + p.key + '"' + (p.key === projectKey ? ' selected' : '') + '>' + p.name + ' (' + p.key + ')</option>';
+  }).join('');
+
+  modalRoot.innerHTML = `
+    <div class="wf-modal-backdrop" id="csBackdrop">
+      <div class="wf-modal" style="max-width:620px">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-[var(--wf-border-soft)]">
+          <div>
+            <h2 class="text-[16px] font-bold text-[var(--wf-text)]">Create Sprint</h2>
+            <p class="text-[12px] text-[var(--wf-text-secondary)]">Start a new sprint for your project</p>
+          </div>
+          <button type="button" class="wf-icon-btn" data-close><i data-lucide="x" style="width:16px;height:16px"></i></button>
+        </div>
+        <div class="px-6 py-5">
+          <div class="wf-field">
+            <label class="wf-label">Project <span class="req">*</span></label>
+            <select class="wf-select" id="cs-project">${projectOptions}</select>
+            <span class="wf-field-error" id="cs-err-project" style="display:none;color:var(--wf-error);font-size:12px;margin-top:3px"></span>
+          </div>
+          <div class="wf-field">
+            <label class="wf-label">Sprint Name <span class="req">*</span></label>
+            <input class="wf-input" id="cs-name" type="text" maxlength="80" autocomplete="off" placeholder="Sprint 16">
+            <span class="wf-field-error" id="cs-err-name" style="display:none;color:var(--wf-error);font-size:12px;margin-top:3px"></span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+            <div class="wf-field">
+              <label class="wf-label">Start Date <span class="req">*</span></label>
+              <input class="wf-input" id="cs-start" type="date" aria-label="Start Date (dd-mm-yyyy)">
+              <span class="wf-field-error" id="cs-err-start" style="display:none;color:var(--wf-error);font-size:12px;margin-top:3px"></span>
+            </div>
+            <div class="wf-field">
+              <label class="wf-label">End Date <span class="req">*</span></label>
+              <input class="wf-input" id="cs-end" type="date" aria-label="End Date (dd-mm-yyyy)">
+              <span class="wf-field-error" id="cs-err-end" style="display:none;color:var(--wf-error);font-size:12px;margin-top:3px"></span>
+            </div>
+          </div>
+          <div class="wf-field">
+            <label class="wf-label">Tasks</label>
+            <div class="wf-cs-tasks" id="cs-tasks-field">
+              <button type="button" class="wf-cs-tasks-trigger" id="cs-tasks-trigger" aria-haspopup="true" aria-expanded="false">
+                <span class="wf-cs-tasks-label" id="cs-tasks-label">Select tasks...</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+              <div class="wf-cs-tasks-panel" id="cs-tasks-panel">
+                <div class="wf-cs-tasks-search">
+                  <input type="text" id="cs-tasks-search" placeholder="Search tasks..." autocomplete="off">
+                </div>
+                <div class="wf-cs-tasks-list" id="cs-tasks-list"></div>
+              </div>
+            </div>
+            <span class="wf-field-error" id="cs-err-tasks" style="display:none;color:var(--wf-error);font-size:12px;margin-top:3px"></span>
+          </div>
+          <div class="wf-field">
+            <label class="wf-label">Sprint Goal</label>
+            <input class="wf-input" id="cs-goal" placeholder="e.g. Complete checkout flow" maxlength="160">
+          </div>
+          <div class="wf-field">
+            <label class="wf-label">Description</label>
+            <textarea class="wf-textarea" id="cs-description" rows="3" placeholder="Additional sprint details..."></textarea>
+          </div>
+          <p class="text-[12.5px]" id="cs-error" style="color:var(--wf-error);display:none"></p>
+        </div>
+        <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--wf-border-soft)] bg-[#fafafb]">
+          <button class="wf-btn wf-btn-secondary" data-close>Cancel</button>
+          <button class="wf-btn wf-btn-primary" id="cs-submit">Create Sprint</button>
+        </div>
+      </div>
+    </div>`;
+
+  lucide.createIcons({ nodes: [modalRoot] });
+
+  function closeModal() {
+    modalRoot.innerHTML = '';
+    document.body.style.overflow = '';
+  }
+  modalRoot.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', closeModal); });
+  document.getElementById('csBackdrop').addEventListener('click', function (e) {
+    if (e.target.id === 'csBackdrop') closeModal();
+  });
+
+  var nameEl = document.getElementById('cs-name');
+  var projectEl = document.getElementById('cs-project');
+  var submitBtn = document.getElementById('cs-submit');
+  var currentProject = projectKey;
+  var knownNames = [];
+  var nameTouched = false;
+  var submitting = false;
+  var originalLabel = submitBtn.innerHTML;
+
+  function setFieldError(field, msg) {
+    var el = document.getElementById('cs-err-' + field);
+    el.textContent = msg || '';
+    el.style.display = msg ? 'block' : 'none';
+  }
+  function setGeneralError(msg) {
+    var el = document.getElementById('cs-error');
+    el.textContent = msg || '';
+    el.style.display = msg ? 'block' : 'none';
+  }
+  function applySuggestion(info) {
+    if (nameTouched) return;
+    nameEl.value = suggestedSprintName(info);
+  }
+  function refreshForProject(key) {
+    loadSprintInfo(key).then(function (info) {
+      knownNames = info.names;
+      applySuggestion(info);
+    });
+  }
+
+  /* ------------------------------------------------------------------
+     Create Sprint: Tasks multi-select (dropdown with checkboxes)
+     ------------------------------------------------------------------ */
+  var tasksField = document.getElementById('cs-tasks-field');
+  var tasksTrigger = document.getElementById('cs-tasks-trigger');
+  var tasksPanel = document.getElementById('cs-tasks-panel');
+  var tasksLabel = document.getElementById('cs-tasks-label');
+  var tasksSearch = document.getElementById('cs-tasks-search');
+  var tasksList = document.getElementById('cs-tasks-list');
+  var currentTasks = [];
+  var selectedTaskIds = {};
+
+  function updateTaskLabel() {
+    var n = 0;
+    for (var k in selectedTaskIds) {
+      if (Object.prototype.hasOwnProperty.call(selectedTaskIds, k)) n++;
+    }
+    setFieldError('tasks', '');
+    tasksLabel.textContent = n ? (n + ' task' + (n === 1 ? '' : 's') + ' selected') : 'Select tasks...';
+  }
+
+  function renderTaskList(tasks) {
+    tasksList.innerHTML = '';
+    if (!tasks || !tasks.length) {
+      tasksList.innerHTML = '<div class="wf-cs-tasks-nopt">No tasks found for this project.</div>';
+      return;
+    }
+    tasks.forEach(function (t) {
+      var checked = selectedTaskIds[t.id] ? ' checked' : '';
+      var label = document.createElement('label');
+      label.className = 'wf-cs-tasks-opt';
+      label.innerHTML = '<input type="checkbox" class="wf-checkbox" value="' + t.id + '"' + checked + '>' +
+        '<span class="wf-cs-tasks-opt-label">' +
+          '<span class="wf-cs-tasks-key">' + escapeHtml(t.key || t.id) + '</span>' +
+          '<span class="wf-cs-tasks-title">' + escapeHtml(t.title || '') + '</span>' +
+          (t.points ? '<span class="wf-cs-tasks-pts">' + t.points + ' pts</span>' : '') +
+        '</span>';
+      var cb = label.querySelector('input');
+      cb.addEventListener('change', function () {
+        if (cb.checked) { selectedTaskIds[t.id] = true; }
+        else { delete selectedTaskIds[t.id]; }
+        updateTaskLabel();
+      });
+      tasksList.appendChild(label);
+    });
+    applyTaskFilter('');
+  }
+
+  function applyTaskFilter(term) {
+    var q = String(term || '').trim().toLowerCase();
+    tasksList.querySelectorAll('.wf-cs-tasks-opt').forEach(function (opt) {
+      var key = (opt.querySelector('.wf-cs-tasks-key') || {}).textContent || '';
+      var title = (opt.querySelector('.wf-cs-tasks-title') || {}).textContent || '';
+      opt.style.display = (!q || (key + ' ' + title).toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+    });
+  }
+
+  function loadCreateSprintTasks(projectKey) {
+    selectedTaskIds = {};
+    currentTasks = [];
+    updateTaskLabel();
+    var local = (window.SPRINT_TASKS || []).filter(function (t) {
+      return t.project === projectKey;
+    });
+    if (local.length) {
+      currentTasks = local;
+      renderTaskList(currentTasks);
+      return;
+    }
+    fetch('/api/v1/issues?project=' + encodeURIComponent(projectKey))
+      .then(function (r) { return r.json(); })
+      .then(function (list) {
+        currentTasks = (list || []).slice();
+        renderTaskList(currentTasks);
+      })
+      .catch(function () { renderTaskList([]); });
+  }
+
+  function closeTasksPanel() {
+    tasksPanel.classList.remove('is-open');
+    tasksTrigger.classList.remove('is-open');
+    tasksTrigger.setAttribute('aria-expanded', 'false');
+  }
+  function openTasksPanel() {
+    tasksPanel.classList.add('is-open');
+    tasksTrigger.classList.add('is-open');
+    tasksTrigger.setAttribute('aria-expanded', 'true');
+    if (tasksSearch) { tasksSearch.value = ''; applyTaskFilter(''); tasksSearch.focus(); }
+  }
+
+  tasksTrigger.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (tasksPanel.classList.contains('is-open')) closeTasksPanel();
+    else openTasksPanel();
+  });
+  tasksSearch.addEventListener('input', function () {
+    applyTaskFilter(tasksSearch.value);
+  });
+  document.addEventListener('click', function (e) {
+    if (tasksField && !tasksField.contains(e.target)) closeTasksPanel();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeTasksPanel();
+  });
+
+  loadCreateSprintTasks(currentProject);
+
+  nameEl.addEventListener('input', function () {
+    nameTouched = true;
+    var val = nameEl.value.trim();
+    var dup = val && knownNames.some(function (n) { return String(n).toLowerCase() === val.toLowerCase(); });
+    setFieldError('name', dup ? 'A sprint with this name already exists in this project.' : '');
+  });
+
+  projectEl.addEventListener('change', function () {
+    currentProject = projectEl.value;
+    nameTouched = false;
+    setFieldError('project', '');
+    refreshForProject(currentProject);
+    loadCreateSprintTasks(currentProject);
+  });
+
+  refreshForProject(currentProject);
+
+  submitBtn.addEventListener('click', function () {
+    if (submitting) return;
+    var name = nameEl.value.trim();
+    var start = document.getElementById('cs-start').value;
+    var end = document.getElementById('cs-end').value;
+
+    setFieldError('project', '');
+    setFieldError('name', '');
+    setFieldError('start', '');
+    setFieldError('end', '');
+    setFieldError('tasks', '');
+    setGeneralError('');
+
+    var valid = true;
+    if (!currentProject) { setFieldError('project', 'Project is required.'); valid = false; }
+    if (!name) { setFieldError('name', 'Sprint name is required.'); valid = false; }
+    if (!start) { setFieldError('start', 'Start date is required.'); valid = false; }
+    if (!end) { setFieldError('end', 'End date is required.'); valid = false; }
+    if (valid && start && end && end <= start) { setFieldError('end', 'End date must be after the start date.'); valid = false; }
+    if (valid && name && knownNames.some(function (n) { return String(n).toLowerCase() === name.toLowerCase(); })) {
+      setFieldError('name', 'A sprint with this name already exists in this project.');
+      valid = false;
+    }
+    if (!valid) return;
+
+    var taskIds = [];
+    for (var k in selectedTaskIds) {
+      if (Object.prototype.hasOwnProperty.call(selectedTaskIds, k)) taskIds.push(parseInt(k, 10));
+    }
+
+    submitting = true;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = 'Creating...';
+
+    fetch('/api/v1/sprints', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project: currentProject,
+        name: name,
+        start_date: start,
+        end_date: end,
+        goal: document.getElementById('cs-goal').value.trim(),
+        description: document.getElementById('cs-description').value.trim(),
+        task_ids: taskIds,
+      }),
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok) {
+          submitting = false;
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalLabel;
+          var fieldMap = { project: 'project', name: 'name', start_date: 'start', end_date: 'end', tasks: 'tasks' };
+          if (res.d && res.d.field && fieldMap[res.d.field]) {
+            setFieldError(fieldMap[res.d.field], res.d.error);
+          } else {
+            setGeneralError(res.d && res.d.error ? res.d.error : 'Could not create the sprint.');
+          }
+          return;
+        }
+        closeModal();
+        Wexira.showToast(res.d.name + ' created for ' + res.d.project + '.', 'success', 'Sprint created');
+        refreshSprintPage();
+      })
+      .catch(function () {
+        submitting = false;
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalLabel;
+        setGeneralError('Could not create the sprint. Check your connection and try again.');
+      });
+  });
+}
+
+var createSprintBtn = document.getElementById('createSprintBtn');
+if (createSprintBtn) {
+  createSprintBtn.addEventListener('click', function () {
+    openCreateSprint(SPRINTS_PROJECT_KEY);
+  });
+}
+
+/* ------------------------------------------------------------------
+   Sprint lifecycle: start / complete
+   ------------------------------------------------------------------ */
+function postAction(url, payload) {
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {}),
+  }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); });
+}
+
+function toDateInput(value) {
+  if (!value) return '';
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value).trim());
+  if (m) return String(value).trim();
+  var parsed = new Date(String(value));
+  if (!isNaN(parsed.getTime())) {
+    var y = parsed.getFullYear();
+    var mm = String(parsed.getMonth() + 1).padStart(2, '0');
+    var dd = String(parsed.getDate()).padStart(2, '0');
+    return y + '-' + mm + '-' + dd;
+  }
+  return '';
+}
+
+function statusLabel(status) {
+  return { backlog: 'Backlog', todo: 'To Do', in_progress: 'In Progress',
+           in_review: 'In Review', done: 'Done' }[String(status || 'backlog')] || status;
+}
+
+function statusBadgeClass(status) {
+  return status === 'done' ? 'wf-badge wf-badge-soft-green'
+       : status === 'in_progress' || status === 'in_review' ? 'wf-badge wf-badge-soft-blue'
+       : 'wf-badge wf-badge-soft-gray';
+}
+
+/* ------------------------------------------------------------------
+   Start Sprint (Planned sprints)
+   ------------------------------------------------------------------ */
+function startSprint(id, name) {
+  var btn = document.querySelector('.wf-sprint-start[data-sprint-id="' + id + '"]');
+  if (btn && btn.disabled) return;
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Starting...'; }
+  postAction('/api/v1/sprints/' + id + '/start', {}).then(function (res) {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="play" style="width:12px;height:12px"></i> Start Sprint';
+      lucide.createIcons({ nodes: [btn] });
+    }
+    if (res.ok) {
+      Wexira.showToast(name + ' started.', 'success', 'Sprint started');
+      refreshSprintPage();
+      return;
+    }
+    var msg = res.d.active_sprint
+      ? 'Another sprint is already active for this project: ' + res.d.active_sprint + '. Complete it before starting a new one.'
+      : (res.d.error || 'Could not start the sprint.');
+    Wexira.showToast(msg, 'error', 'Sprint could not be started');
+  }).catch(function () {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="play" style="width:12px;height:12px"></i> Start Sprint';
+      lucide.createIcons({ nodes: [btn] });
+    }
+    Wexira.showToast('Could not start the sprint.', 'error');
+  });
+}
+
+/* ------------------------------------------------------------------
+   View Sprint details
+   ------------------------------------------------------------------ */
+function openViewSprint(id) {
+  var modalRoot = document.getElementById('modalRoot');
+  modalRoot.innerHTML =
+    '<div class="wf-modal-backdrop" id="vsBackdrop">' +
+      '<div class="wf-modal" style="max-width:640px;max-height:90vh;overflow-y:auto">' +
+        '<div class="flex items-center justify-between px-6 py-4 border-b border-[var(--wf-border-soft)]">' +
+          '<div>' +
+            '<h2 class="text-[16px] font-bold text-[var(--wf-text)]">Sprint details</h2>' +
+            '<p class="text-[12px] text-[var(--wf-text-secondary)]" id="vs-loading">Loading sprint...</p>' +
+          '</div>' +
+          '<button type="button" class="wf-icon-btn" data-close><i data-lucide="x" style="width:16px;height:16px"></i></button>' +
+        '</div>' +
+        '<div class="px-6 py-5" id="vs-body"></div>' +
+        '<div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--wf-border-soft)] bg-[#fafafb]">' +
+          '<button class="wf-btn wf-btn-secondary" data-close>Close</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  lucide.createIcons({ nodes: [modalRoot] });
+  document.body.style.overflow = 'hidden';
+
+  function closeModal() {
+    modalRoot.innerHTML = '';
+    document.body.style.overflow = '';
+  }
+  modalRoot.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', closeModal); });
+  document.getElementById('vsBackdrop').addEventListener('click', function (e) {
+    if (e.target.id === 'vsBackdrop') closeModal();
+  });
+
+  fetch('/api/v1/sprints?project=' + encodeURIComponent(SPRINTS_PROJECT_KEY))
+    .then(function (r) { return r.json(); })
+    .then(function (list) {
+      var sp = null;
+      (list || []).forEach(function (s) { if (String(s.id) === String(id)) sp = s; });
+      if (!sp) {
+        var body = document.getElementById('vs-body');
+        body.innerHTML = '<p class="text-[13px] text-[var(--wf-text-secondary)]">Sprint not found.</p>';
+        var loading = document.getElementById('vs-loading');
+        if (loading) loading.textContent = 'Sprint could not be loaded';
+        return;
+      }
+      renderViewSprint(sp);
+    })
+    .catch(function () {
+      var body = document.getElementById('vs-body');
+      body.innerHTML = '<p class="text-[13px] text-[var(--wf-text-secondary)]">Could not load the sprint. Check your connection and try again.</p>';
+    });
+}
+
+function renderViewSprint(sp) {
+  var badge = sp.status === 'Active'
+    ? '<span class="wf-badge wf-badge-soft-green">Active</span>'
+    : sp.status === 'Completed'
+      ? '<span class="wf-badge wf-badge-soft-gray">Completed</span>'
+      : '<span class="wf-badge wf-badge-soft-blue">Planned</span>';
+  var tasksHtml = '';
+  (sp.tasks || []).forEach(function (t) {
+    tasksHtml += '<div class="flex items-center gap-2 py-1.5 border-b border-[var(--wf-border-soft)] last:border-0">' +
+      '<span class="wf-badge wf-badge-soft-gray" style="flex:none">' + escapeHtml(statusLabel(t.status)) + '</span>' +
+      '<span class="text-[12px] font-bold text-[var(--wf-primary)] whitespace-nowrap">' + escapeHtml(t.key || t.id) + '</span>' +
+      '<span class="text-[13px] text-[var(--wf-text)] truncate">' + escapeHtml(t.title || '') + '</span>' +
+      (t.points ? '<span class="text-[11.5px] text-[var(--wf-text-tertiary)] whitespace-nowrap">' + t.points + ' pts</span>' : '') +
+    '</div>';
+  });
+  var goalText = sp.goal ? escapeHtml(sp.goal) : '<span class="text-[var(--wf-text-tertiary)]">No sprint goal set</span>';
+  var descHtml = sp.description
+    ? '<div class="wf-field"><label class="wf-label">Description</label><p class="text-[13px] text-[var(--wf-text-secondary)] whitespace-pre-wrap">' + escapeHtml(sp.description) + '</p></div>'
+    : '';
+
+  var body = document.getElementById('vs-body');
+  body.innerHTML =
+    '<div class="flex flex-wrap items-center gap-2 mb-1">' +
+      '<h3 class="text-[17px] font-bold text-[var(--wf-text)]">' + escapeHtml(sp.name) + '</h3>' +
+      badge +
+      '<span class="text-[12.5px] text-[var(--wf-text-secondary)]">Sprint ' + (sp.number || '') + '</span>' +
+    '</div>' +
+    '<div class="flex items-center gap-2 text-[12.5px] text-[var(--wf-text-secondary)] mb-4">' +
+      '<i data-lucide="calendar" style="width:13px;height:13px;display:inline;vertical-align:-2px"></i>' +
+      escapeHtml(sp.start_date || '\u2014') + ' \u2192 ' + escapeHtml(sp.end_date || '\u2014') +
+    '</div>' +
+    '<div class="flex items-center gap-2 text-[13px] text-[var(--wf-text-secondary)] mb-4">' +
+      '<i data-lucide="flag" style="width:13px;height:13px;display:inline;vertical-align:-2px;flex:none"></i>' + goalText +
+    '</div>' +
+    (descHtml || '') +
+    '<div class="flex items-center justify-between mb-2">' +
+      '<span class="text-[12.5px] font-semibold text-[var(--wf-text)]">Progress</span>' +
+      '<span class="text-[13px] font-bold text-[var(--wf-primary)]">' + (sp.progress || 0) + '%</span>' +
+    '</div>' +
+    '<div class="wf-progress-track" style="height:8px"><div class="wf-progress-bar" style="width:' + (sp.progress || 0) + '%;background:var(--wf-primary)"></div></div>' +
+    '<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">' +
+      '<div><div class="text-[20px] font-bold text-[var(--wf-text)] leading-none">' + (sp.story_points_done || 0) + '<span class="text-[13px] font-semibold text-[var(--wf-text-tertiary)]">/' + (sp.story_points_total || 0) + '</span></div><div class="text-[11.5px] font-medium text-[var(--wf-text-secondary)] mt-1">Story Points Done</div></div>' +
+      '<div><div class="text-[20px] font-bold text-[var(--wf-success)] leading-none">' + (sp.done || 0) + '</div><div class="text-[11.5px] font-medium text-[var(--wf-text-secondary)] mt-1">Completed Tasks</div></div>' +
+      '<div><div class="text-[20px] font-bold text-[var(--wf-warning)] leading-none">' + (sp.remaining || 0) + '</div><div class="text-[11.5px] font-medium text-[var(--wf-text-secondary)] mt-1">Remaining Tasks</div></div>' +
+      '<div><div class="text-[20px] font-bold text-[var(--wf-text)] leading-none">' + (sp.total || 0) + '</div><div class="text-[11.5px] font-medium text-[var(--wf-text-secondary)] mt-1">Total Tasks</div></div>' +
+    '</div>' +
+    '<div class="flex flex-wrap gap-3 pt-4 mt-4 border-t border-[var(--wf-border-soft)] text-[12px] text-[var(--wf-text-secondary)]">' +
+      '<span><i data-lucide="circle" style="width:10px;height:10px;display:inline;vertical-align:-1px;color:var(--wf-text-tertiary)"></i> To Do: <b class="text-[var(--wf-text)]">' + (sp.to_do || 0) + '</b></span>' +
+      '<span><i data-lucide="loader" style="width:10px;height:10px;display:inline;vertical-align:-1px;color:#4f46e5"></i> In Progress: <b class="text-[var(--wf-text)]">' + (sp.in_progress || 0) + '</b></span>' +
+      '<span><i data-lucide="eye" style="width:10px;height:10px;display:inline;vertical-align:-1px;color:#7c3aed"></i> In Review: <b class="text-[var(--wf-text)]">' + (sp.in_review || 0) + '</b></span>' +
+      '<span><i data-lucide="check-circle-2" style="width:10px;height:10px;display:inline;vertical-align:-1px;color:var(--wf-success)"></i> Done: <b class="text-[var(--wf-text)]">' + (sp.done || 0) + '</b></span>' +
+    '</div>' +
+    '<div class="pt-4 mt-4 border-t border-[var(--wf-border-soft)]">' +
+      '<div class="text-[12.5px] font-semibold text-[var(--wf-text)] mb-2">Tasks (' + (sp.tasks ? sp.tasks.length : 0) + ')</div>' +
+      (sp.tasks && sp.tasks.length
+        ? tasksHtml
+        : '<p class="text-[12.5px] text-[var(--wf-text-tertiary)]">No tasks assigned to this sprint.</p>') +
+    '</div>';
+
+  var loading = document.getElementById('vs-loading');
+  if (loading) loading.textContent = 'Real-time data';
+  lucide.createIcons({ nodes: [body] });
+}
+
+/* ------------------------------------------------------------------
+   Edit Sprint modal
+   ------------------------------------------------------------------ */
+function openEditSprint(id) {
+  var modalRoot = document.getElementById('modalRoot');
+  modalRoot.innerHTML = `
+    <div class="wf-modal-backdrop" id="esBackdrop">
+      <div class="wf-modal" style="max-width:620px">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-[var(--wf-border-soft)]">
+          <div>
+            <h2 class="text-[16px] font-bold text-[var(--wf-text)]">Edit Sprint</h2>
+            <p class="text-[12px] text-[var(--wf-text-secondary)]">Update sprint details and tasks</p>
+          </div>
+          <button type="button" class="wf-icon-btn" data-close><i data-lucide="x" style="width:16px;height:16px"></i></button>
+        </div>
+        <div class="px-6 py-5">
+          <div class="wf-field">
+            <label class="wf-label">Project <span class="req">*</span></label>
+            <input class="wf-input" id="es-project" type="text" readonly style="background:#fafafb">
+          </div>
+          <div class="wf-field">
+            <label class="wf-label">Sprint Name <span class="req">*</span></label>
+            <input class="wf-input" id="es-name" type="text" maxlength="80" autocomplete="off" placeholder="Sprint 16">
+            <span class="wf-field-error" id="es-err-name" style="display:none;color:var(--wf-error);font-size:12px;margin-top:3px"></span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+            <div class="wf-field">
+              <label class="wf-label">Start Date <span class="req">*</span></label>
+              <input class="wf-input" id="es-start" type="date" aria-label="Start Date (dd-mm-yyyy)">
+              <span class="wf-field-error" id="es-err-start" style="display:none;color:var(--wf-error);font-size:12px;margin-top:3px"></span>
+            </div>
+            <div class="wf-field">
+              <label class="wf-label">End Date <span class="req">*</span></label>
+              <input class="wf-input" id="es-end" type="date" aria-label="End Date (dd-mm-yyyy)">
+              <span class="wf-field-error" id="es-err-end" style="display:none;color:var(--wf-error);font-size:12px;margin-top:3px"></span>
+            </div>
+          </div>
+          <div class="wf-field">
+            <label class="wf-label">Tasks</label>
+            <div class="wf-cs-tasks" id="es-tasks-field">
+              <button type="button" class="wf-cs-tasks-trigger" id="es-tasks-trigger" aria-haspopup="true" aria-expanded="false">
+                <span class="wf-cs-tasks-label" id="es-tasks-label">Select tasks...</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+              <div class="wf-cs-tasks-panel" id="es-tasks-panel">
+                <div class="wf-cs-tasks-search">
+                  <input type="text" id="es-tasks-search" placeholder="Search tasks..." autocomplete="off">
+                </div>
+                <div class="wf-cs-tasks-list" id="es-tasks-list"></div>
+              </div>
+            </div>
+            <span class="wf-field-error" id="es-err-tasks" style="display:none;color:var(--wf-error);font-size:12px;margin-top:3px"></span>
+          </div>
+          <div class="wf-field">
+            <label class="wf-label">Sprint Goal</label>
+            <input class="wf-input" id="es-goal" placeholder="e.g. Complete checkout flow" maxlength="160">
+          </div>
+          <div class="wf-field">
+            <label class="wf-label">Description</label>
+            <textarea class="wf-textarea" id="es-description" rows="3" placeholder="Additional sprint details..."></textarea>
+          </div>
+          <p class="text-[12.5px]" id="es-error" style="color:var(--wf-error);display:none"></p>
+        </div>
+        <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--wf-border-soft)] bg-[#fafafb]">
+          <button class="wf-btn wf-btn-secondary" data-close>Cancel</button>
+          <button class="wf-btn wf-btn-primary" id="es-submit">Save Changes</button>
+        </div>
+      </div>
+    </div>`;
+
+  lucide.createIcons({ nodes: [modalRoot] });
+
+  function closeModal() {
+    modalRoot.innerHTML = '';
+    document.body.style.overflow = '';
+  }
+  modalRoot.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', closeModal); });
+  document.getElementById('esBackdrop').addEventListener('click', function (e) {
+    if (e.target.id === 'esBackdrop') closeModal();
+  });
+
+  var nameEl = document.getElementById('es-name');
+  var submitBtn = document.getElementById('es-submit');
+  var currentProject = null;
+  var knownNames = [];
+  var submitting = false;
+  var originalLabel = submitBtn.innerHTML;
+
+  function setFieldError(field, msg) {
+    var el = document.getElementById('es-err-' + field);
+    el.textContent = msg || '';
+    el.style.display = msg ? 'block' : 'none';
+  }
+  function setGeneralError(msg) {
+    var el = document.getElementById('es-error');
+    el.textContent = msg || '';
+    el.style.display = msg ? 'block' : 'none';
+  }
+
+  var tasksField = document.getElementById('es-tasks-field');
+  var tasksTrigger = document.getElementById('es-tasks-trigger');
+  var tasksPanel = document.getElementById('es-tasks-panel');
+  var tasksLabel = document.getElementById('es-tasks-label');
+  var tasksSearch = document.getElementById('es-tasks-search');
+  var tasksList = document.getElementById('es-tasks-list');
+  var currentTasks = [];
+  var selectedTaskIds = {};
+
+  function updateTaskLabel() {
+    var n = 0;
+    for (var k in selectedTaskIds) {
+      if (Object.prototype.hasOwnProperty.call(selectedTaskIds, k)) n++;
+    }
+    setFieldError('tasks', '');
+    tasksLabel.textContent = n ? (n + ' task' + (n === 1 ? '' : 's') + ' selected') : 'Select tasks...';
+  }
+
+  function renderTaskList(tasks) {
+    tasksList.innerHTML = '';
+    if (!tasks || !tasks.length) {
+      tasksList.innerHTML = '<div class="wf-cs-tasks-nopt">No tasks found for this project.</div>';
+      return;
+    }
+    tasks.forEach(function (t) {
+      var checked = selectedTaskIds[t.id] ? ' checked' : '';
+      var label = document.createElement('label');
+      label.className = 'wf-cs-tasks-opt';
+      label.innerHTML = '<input type="checkbox" class="wf-checkbox" value="' + t.id + '"' + checked + '>' +
+        '<span class="wf-cs-tasks-opt-label">' +
+          '<span class="wf-cs-tasks-key">' + escapeHtml(t.key || t.id) + '</span>' +
+          '<span class="wf-cs-tasks-title">' + escapeHtml(t.title || '') + '</span>' +
+          (t.points ? '<span class="wf-cs-tasks-pts">' + t.points + ' pts</span>' : '') +
+        '</span>';
+      var cb = label.querySelector('input');
+      cb.addEventListener('change', function () {
+        if (cb.checked) { selectedTaskIds[t.id] = true; }
+        else { delete selectedTaskIds[t.id]; }
+        updateTaskLabel();
+      });
+      tasksList.appendChild(label);
+    });
+    applyTaskFilter('');
+  }
+
+  function applyTaskFilter(term) {
+    var q = String(term || '').trim().toLowerCase();
+    tasksList.querySelectorAll('.wf-cs-tasks-opt').forEach(function (opt) {
+      var key = (opt.querySelector('.wf-cs-tasks-key') || {}).textContent || '';
+      var title = (opt.querySelector('.wf-cs-tasks-title') || {}).textContent || '';
+      opt.style.display = (!q || (key + ' ' + title).toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+    });
+  }
+
+  function loadEditTasks(projectKey, assignedIds) {
+    assignedIds.forEach(function (tid) { selectedTaskIds[tid] = true; });
+    updateTaskLabel();
+    var local = (window.SPRINT_TASKS || []).filter(function (t) {
+      return t.project === projectKey;
+    });
+    if (local.length) {
+      currentTasks = local;
+      renderTaskList(currentTasks);
+      return;
+    }
+    fetch('/api/v1/issues?project=' + encodeURIComponent(projectKey))
+      .then(function (r) { return r.json(); })
+      .then(function (list) {
+        currentTasks = (list || []).slice();
+        renderTaskList(currentTasks);
+      })
+      .catch(function () { renderTaskList([]); });
+  }
+
+  function closeTasksPanel() {
+    tasksPanel.classList.remove('is-open');
+    tasksTrigger.classList.remove('is-open');
+    tasksTrigger.setAttribute('aria-expanded', 'false');
+  }
+  function openTasksPanel() {
+    tasksPanel.classList.add('is-open');
+    tasksTrigger.classList.add('is-open');
+    tasksTrigger.setAttribute('aria-expanded', 'true');
+    if (tasksSearch) { tasksSearch.value = ''; applyTaskFilter(''); tasksSearch.focus(); }
+  }
+
+  tasksTrigger.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (tasksPanel.classList.contains('is-open')) closeTasksPanel();
+    else openTasksPanel();
+  });
+  tasksSearch.addEventListener('input', function () {
+    applyTaskFilter(tasksSearch.value);
+  });
+  document.addEventListener('click', function (e) {
+    if (tasksField && !tasksField.contains(e.target)) closeTasksPanel();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeTasksPanel();
+  });
+
+  fetch('/api/v1/sprints?project=' + encodeURIComponent(SPRINTS_PROJECT_KEY))
+    .then(function (r) { return r.json(); })
+    .then(function (list) {
+      var sp = null;
+      (list || []).forEach(function (s) { if (String(s.id) === String(id)) sp = s; });
+      if (!sp) {
+        closeModal();
+        Wexira.showToast('Sprint not found.', 'error');
+        return;
+      }
+      currentProject = sp.project || SPRINTS_PROJECT_KEY;
+      nameEl.value = sp.name || '';
+      document.getElementById('es-start').value = toDateInput(sp.start_date);
+      document.getElementById('es-end').value = toDateInput(sp.end_date);
+      document.getElementById('es-goal').value = sp.goal || '';
+      document.getElementById('es-description').value = sp.description || '';
+      document.getElementById('es-project').value = currentProject;
+      knownNames = [];
+      (list || []).forEach(function (s2) {
+        if (String(s2.id) !== String(id)) knownNames.push(s2.name);
+      });
+      var assigned = (sp.tasks || []).map(function (t) { return t.id; });
+      loadEditTasks(currentProject, assigned);
+    })
+    .catch(function () {
+      closeModal();
+      Wexira.showToast('Could not load the sprint data.', 'error');
+    });
+
+  nameEl.addEventListener('input', function () {
+    var val = nameEl.value.trim();
+    var dup = val && knownNames.some(function (n) { return String(n).toLowerCase() === val.toLowerCase(); });
+    setFieldError('name', dup ? 'A sprint with this name already exists in this project.' : '');
+  });
+
+  submitBtn.addEventListener('click', function () {
+    if (submitting) return;
+    var name = nameEl.value.trim();
+    var start = document.getElementById('es-start').value;
+    var end = document.getElementById('es-end').value;
+
+    setFieldError('name', '');
+    setFieldError('start', '');
+    setFieldError('end', '');
+    setFieldError('tasks', '');
+    setGeneralError('');
+
+    var valid = true;
+    if (!name) { setFieldError('name', 'Sprint name is required.'); valid = false; }
+    if (!start) { setFieldError('start', 'Start date is required.'); valid = false; }
+    if (!end) { setFieldError('end', 'End date is required.'); valid = false; }
+    if (valid && start && end && end <= start) { setFieldError('end', 'End date must be after the start date.'); valid = false; }
+    if (valid && name && knownNames.some(function (n) { return String(n).toLowerCase() === name.toLowerCase(); })) {
+      setFieldError('name', 'A sprint with this name already exists in this project.');
+      valid = false;
+    }
+    if (!valid) return;
+
+    var taskIds = [];
+    for (var k in selectedTaskIds) {
+      if (Object.prototype.hasOwnProperty.call(selectedTaskIds, k)) taskIds.push(parseInt(k, 10));
+    }
+
+    submitting = true;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = 'Saving...';
+
+    fetch('/api/v1/sprints/' + id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project: currentProject,
+        name: name,
+        start_date: start,
+        end_date: end,
+        goal: document.getElementById('es-goal').value.trim(),
+        description: document.getElementById('es-description').value.trim(),
+        task_ids: taskIds,
+      }),
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok) {
+          submitting = false;
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalLabel;
+          var fieldMap = { name: 'name', start_date: 'start', end_date: 'end', tasks: 'tasks' };
+          if (res.d && res.d.field && fieldMap[res.d.field]) {
+            setFieldError(fieldMap[res.d.field], res.d.error);
+          } else {
+            setGeneralError(res.d && res.d.error ? res.d.error : 'Could not update the sprint.');
+          }
+          return;
+        }
+        closeModal();
+        Wexira.showToast(res.d.name + ' updated.', 'success', 'Sprint updated');
+        refreshSprintPage();
+      })
+      .catch(function () {
+        submitting = false;
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalLabel;
+        setGeneralError('Could not update the sprint. Check your connection and try again.');
+      });
+  });
+}
+
+function completeSprint(id, name) {
+  var btn = document.querySelector('.wf-sprint-complete[data-sprint-id="' + id + '"]');
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
+  btn.innerHTML = 'Working...';
+  postAction('/api/v1/sprints/' + id + '/complete', {}).then(function (res) {
+    if (res.ok) {
+      Wexira.showToast(name + ' completed.', 'success', 'Sprint completed');
+      refreshSprintPage();
+      return;
+    }
+    if (res.d && res.d.requires_decision) {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="check" style="width:12px;height:12px"></i> Complete Sprint';
+      showCompleteDecision(id, name, res.d.incomplete_count || 0);
+      return;
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="check" style="width:12px;height:12px"></i> Complete Sprint';
+    Wexira.showToast(res.d.error || 'Could not complete the sprint.', 'error', 'Sprint could not be completed');
+  }).catch(function () {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="check" style="width:12px;height:12px"></i> Complete Sprint';
+    Wexira.showToast('Could not complete the sprint.', 'error');
+  });
+}
+
+function showCompleteDecision(id, name, count) {
+  var modalRoot = document.getElementById('modalRoot');
+  modalRoot.innerHTML = `
+    <div class="wf-modal-backdrop" id="cdBackdrop">
+      <div class="wf-modal" style="max-width:520px">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-[var(--wf-border-soft)]">
+          <div>
+            <h2 class="text-[16px] font-bold text-[var(--wf-text)]">Complete ${escapeHtml(name)}?</h2>
+            <p class="text-[12px] text-[var(--wf-text-secondary)]">${count} issue(s) are still incomplete in this sprint.</p>
+          </div>
+          <button type="button" class="wf-icon-btn" data-close><i data-lucide="x" style="width:16px;height:16px"></i></button>
+        </div>
+        <div class="px-6 py-5">
+          <p class="text-[13px] text-[var(--wf-text-secondary)] mb-3">Choose what happens to the incomplete issues:</p>
+          <label class="flex items-center gap-2 text-[13px] text-[var(--wf-text)] mb-2 cursor-pointer">
+            <input type="radio" name="cd-action" value="backlog" checked style="accent-color:var(--wf-primary)">
+            Move incomplete issues to Backlog
+          </label>
+          <label class="flex items-center gap-2 text-[13px] text-[var(--wf-text)] mb-2 cursor-pointer">
+            <input type="radio" name="cd-action" value="next" style="accent-color:var(--wf-primary)">
+            Move incomplete issues to the next Sprint
+          </label>
+          <label class="flex items-center gap-2 text-[13px] text-[var(--wf-text)] mb-2 cursor-pointer">
+            <input type="radio" name="cd-action" value="keep" style="accent-color:var(--wf-primary)">
+            Keep issues in this completed Sprint
+          </label>
+          <p class="text-[12.5px]" id="cd-error" style="color:var(--wf-error);display:none"></p>
+        </div>
+        <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--wf-border-soft)] bg-[#fafafb]">
+          <button class="wf-btn wf-btn-secondary" data-close>Cancel</button>
+          <button class="wf-btn wf-btn-primary" id="cd-submit">Complete Sprint</button>
+        </div>
+      </div>
+    </div>`;
+
+  lucide.createIcons({ nodes: [modalRoot] });
+
+  function closeModal() {
+    modalRoot.innerHTML = '';
+    document.body.style.overflow = '';
+  }
+  modalRoot.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', closeModal); });
+  document.getElementById('cdBackdrop').addEventListener('click', function (e) {
+    if (e.target.id === 'cdBackdrop') closeModal();
+  });
+
+  document.getElementById('cd-submit').addEventListener('click', function () {
+    var checked = document.querySelector('input[name="cd-action"]:checked');
+    var action = checked ? checked.value : 'backlog';
+    var btn = document.getElementById('cd-submit');
+    btn.disabled = true;
+    btn.innerHTML = 'Completing...';
+    postAction('/api/v1/sprints/' + id + '/complete', { incomplete_action: action }).then(function (res) {
+      if (!res.ok) {
+        btn.disabled = false;
+        btn.innerHTML = 'Complete Sprint';
+        var el = document.getElementById('cd-error');
+        el.textContent = res.d.error || 'Could not complete the sprint.';
+        el.style.display = 'block';
+        return;
+      }
+      closeModal();
+      Wexira.showToast(name + ' completed.', 'success', 'Sprint completed');
+      refreshSprintPage();
+    }).catch(function () {
+      btn.disabled = false;
+      btn.innerHTML = 'Complete Sprint';
+      var el = document.getElementById('cd-error');
+      el.textContent = 'Could not complete the sprint.';
+      el.style.display = 'block';
+    });
+  });
+}
+
+document.addEventListener('click', function (e) {
+  var complete = e.target.closest('.wf-sprint-complete');
+  if (complete) { e.preventDefault(); completeSprint(complete.dataset.sprintId, complete.dataset.sprintName); return; }
+  var start = e.target.closest('.wf-sprint-start');
+  if (start) { e.preventDefault(); startSprint(start.dataset.sprintId, start.dataset.sprintName); return; }
+  var view = e.target.closest('[data-sprint-view]');
+  if (view) { e.preventDefault(); openViewSprint(view.dataset.sprintView); return; }
+  var edit = e.target.closest('[data-sprint-edit]');
+  if (edit) { e.preventDefault(); openEditSprint(edit.dataset.sprintEdit); return; }
+});
+</script>
+
+<style>
+  /* Create Sprint: Tasks multi-select dropdown */
+  .wf-cs-tasks { position: relative; }
+  .wf-cs-tasks-trigger {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    width: 100%; min-height: 38px; padding: 9px 12px;
+    border: 1px solid var(--wf-border); border-radius: var(--wf-radius);
+    background: #fff; font-family: inherit; font-size: 13.5px; color: var(--wf-text);
+    cursor: pointer; outline: none; text-align: left;
+    transition: border .12s, box-shadow .12s;
+  }
+  .wf-cs-tasks-trigger:hover { border-color: #d1d5db; }
+  .wf-cs-tasks-trigger.is-open {
+    border-color: var(--wf-primary);
+    box-shadow: 0 0 0 3px rgba(79,70,229,.15);
+  }
+  .wf-cs-tasks-trigger svg { flex-shrink: 0; color: var(--wf-text-secondary); transition: transform .15s; }
+  .wf-cs-tasks-trigger.is-open svg { transform: rotate(180deg); }
+  .wf-cs-tasks-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wf-cs-tasks-panel {
+    position: absolute; left: 0; right: 0; top: calc(100% + 4px);
+    background: #fff; border: 1px solid var(--wf-border);
+    border-radius: var(--wf-radius); box-shadow: var(--wf-shadow-lg);
+    z-index: 210; display: none; overflow: hidden;
+  }
+  .wf-cs-tasks-panel.is-open { display: block; }
+  .wf-cs-tasks-search { padding: 8px; border-bottom: 1px solid var(--wf-border-soft); }
+  .wf-cs-tasks-search input {
+    width: 100%; padding: 6px 10px; border: 1px solid var(--wf-border);
+    border-radius: 6px; font-size: 12.5px; outline: none; font-family: inherit;
+  }
+  .wf-cs-tasks-search input:focus { border-color: var(--wf-primary); box-shadow: 0 0 0 2px rgba(79,70,229,.12); }
+  .wf-cs-tasks-list { max-height: 200px; overflow-y: auto; }
+  .wf-cs-tasks-opt {
+    display: flex; align-items: flex-start; gap: 8px; padding: 7px 12px;
+    cursor: pointer; font-size: 13px; color: var(--wf-text);
+  }
+  .wf-cs-tasks-opt:hover { background: var(--wf-bg); }
+  .wf-cs-tasks-opt .wf-checkbox { margin-top: 1px; flex-shrink: 0; }
+  .wf-cs-tasks-opt-label { display: inline; }
+  .wf-cs-tasks-key { font-weight: 700; color: var(--wf-primary); margin-right: 6px; flex-shrink: 0; }
+  .wf-cs-tasks-pts { color: var(--wf-text-tertiary); font-size: 11.5px; margin-left: 6px; }
+  .wf-cs-tasks-nopt { padding: 12px; font-size: 13px; color: var(--wf-text-tertiary); }
+</style>
+{% endblock %}

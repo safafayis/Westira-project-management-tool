@@ -1,0 +1,281 @@
+{% extends 'base.html' %}
+
+{% block title %}Notifications{% endblock %}
+
+{% block content %}
+<div class="wf-fade-up">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+    <div>
+      <h1 class="text-[22px] font-bold text-[var(--wf-text)]">Notifications</h1>
+      <p class="text-[13.5px] text-[var(--wf-text-secondary)] mt-1">Stay on top of mentions, assignments, and updates.</p>
+    </div>
+    <button class="wf-btn wf-btn-secondary wf-btn-sm" id="markAllBtn" onclick="markAllRead()"><i data-lucide="check-check" style="width:14px;height:14px"></i> Mark all as read</button>
+  </div>
+
+  <div class="wf-tabs wf-card rounded-t-lg mb-5">
+    <button class="wf-tab is-active" data-notif-tab="all" onclick="switchTab('all')">
+      All <span class="wf-badge wf-badge-soft-red" id="badge-all">0</span>
+    </button>
+    <button class="wf-tab" data-notif-tab="mentions" onclick="switchTab('mentions')">
+      Mentions <span class="wf-badge wf-badge-soft-blue" id="badge-mentions">0</span>
+    </button>
+    <button class="wf-tab" data-notif-tab="assigned" onclick="switchTab('assigned')">
+      Assigned <span class="wf-badge wf-badge-soft-grape" id="badge-assigned">0</span>
+    </button>
+    <button class="wf-tab" data-notif-tab="updates" onclick="switchTab('updates')">
+      Updates <span class="wf-badge wf-badge-soft-cyan" id="badge-updates">0</span>
+    </button>
+  </div>
+
+  <div class="wf-card mb-5 p-3">
+    <div class="flex flex-wrap items-center gap-3">
+      <div class="relative flex-1 min-w-[200px]">
+        <i data-lucide="search" style="width:15px;height:15px" class="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--wf-text-tertiary)] pointer-events-none"></i>
+        <input id="searchInput" type="text" placeholder="Search notifications…"
+               class="w-full pl-9 pr-3 py-2 text-[13px] border border-[var(--wf-border)] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[var(--wf-primary)]/20 focus:border-[var(--wf-primary)] transition-all"
+               oninput="debounceSearch()" />
+      </div>
+      <button id="unreadToggle" class="wf-btn wf-btn-sm border border-[var(--wf-border)] text-[var(--wf-text-secondary)] hover:text-[var(--wf-text)]" onclick="toggleUnread()">
+        <i data-lucide="filter" style="width:13px;height:13px"></i> Unread only
+      </button>
+    </div>
+  </div>
+
+  <div class="wf-card">
+    <div class="max-h-[620px] overflow-y-auto" id="notifList">
+      <div id="skeleton">
+        {% for _ in range(5) %}
+        <div class="flex items-start gap-3 p-4 border-b border-[var(--wf-border-soft)]">
+          <span class="w-9 h-9 rounded-full bg-gray-200 animate-pulse-soft flex-none"></span>
+          <div class="flex-1 space-y-2">
+            <div class="h-3 bg-gray-200 rounded animate-pulse-soft w-3/4"></div>
+            <div class="h-2.5 bg-gray-100 rounded animate-pulse-soft w-1/2"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <div id="emptyState" style="display:none" class="p-10">
+        <div class="wf-empty">
+          <i data-lucide="inbox" style="width:36px;height:36px" class="text-[var(--wf-text-tertiary)] mb-3"></i>
+          <p class="text-[14px] font-semibold text-[var(--wf-text)]">No notifications yet</p>
+          <p class="text-[12.5px] text-[var(--wf-text-secondary)] mt-1">You'll see mentions, assignments, and updates here.</p>
+        </div>
+      </div>
+      <div id="errorState" style="display:none" class="p-10">
+        <div class="wf-empty">
+          <i data-lucide="alert-triangle" style="width:36px;height:36px" class="text-[var(--wf-error)] mb-3"></i>
+          <p class="text-[14px] font-semibold text-[var(--wf-text)]">Something went wrong</p>
+          <p class="text-[12.5px] text-[var(--wf-text-secondary)] mt-1">Could not load notifications. <button class="text-[var(--wf-primary)] underline text-[12.5px]" onclick="loadNotifications(true)">Try again</button></p>
+        </div>
+      </div>
+      <div id="notifItems" style="display:none"></div>
+    </div>
+    <div id="loadMoreWrap" style="display:none" class="p-3 text-center border-t border-[var(--wf-border-soft)]">
+      <button class="wf-btn wf-btn-sm wf-btn-secondary" id="loadMoreBtn" onclick="loadMore()">Load more</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var state = { category:'all', page:1, q:'', unread_only:false, total:0, has_next:false, loading:false };
+  var searchTimer = null;
+  var items = [];
+
+  window.escapeHtml = window.escapeHtml || function(s){ var d=document.createElement('div'); d.appendChild(document.createTextNode(s)); return d.innerHTML; };
+
+  function apiUrl(){
+    var p = new URLSearchParams();
+    p.set('page', state.page);
+    p.set('limit', 20);
+    if(state.category !== 'all') p.set('category', state.category);
+    if(state.q) p.set('q', state.q);
+    if(state.unread_only) p.set('read', 'false');
+    return '/api/v1/notifications?' + p.toString();
+  }
+
+  window.switchTab = function(cat){
+    state.category = cat;
+    state.page = 1;
+    items = [];
+    document.querySelectorAll('[data-notif-tab]').forEach(function(t){ t.classList.toggle('is-active', t.dataset.notifTab === cat); });
+    loadNotifications();
+  };
+
+  window.debounceSearch = function(){
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function(){
+      state.q = document.getElementById('searchInput').value.trim();
+      state.page = 1;
+      items = [];
+      loadNotifications();
+    }, 300);
+  };
+
+  window.toggleUnread = function(){
+    state.unread_only = !state.unread_only;
+    state.page = 1;
+    items = [];
+    var btn = document.getElementById('unreadToggle');
+    btn.classList.toggle('bg-[var(--wf-primary)]');
+    btn.classList.toggle('text-white');
+    btn.classList.toggle('border-[var(--wf-primary)]');
+    loadNotifications();
+  };
+
+  window.loadNotifications = function(reset){
+    if(state.loading) return;
+    state.loading = true;
+    if(reset){ state.page = 1; items = []; }
+    showSkeleton(items.length === 0);
+    fetch(apiUrl())
+      .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function(data){
+        state.total = data.pagination.total;
+        state.has_next = data.pagination.has_next;
+        if(state.page === 1) items = data.notifications; else items = items.concat(data.notifications);
+        render();
+        loadUnreadCounts();
+        state.loading = false;
+      })
+      .catch(function(){
+        state.loading = false;
+        showSkeleton(false);
+        document.getElementById('emptyState').style.display='none';
+        document.getElementById('notifItems').style.display='none';
+        document.getElementById('errorState').style.display='';
+        lucide.createIcons({nodes:[document.getElementById('errorState')]});
+      });
+  };
+
+  window.loadMore = function(){
+    state.page++;
+    loadNotifications();
+  };
+
+  function showSkeleton(show){
+    document.getElementById('skeleton').style.display = show ? '' : 'none';
+    if(show){
+      document.getElementById('emptyState').style.display='none';
+      document.getElementById('errorState').style.display='none';
+      document.getElementById('notifItems').style.display='none';
+      lucide.createIcons({nodes:[document.getElementById('skeleton')]});
+    }
+  }
+
+  function render(){
+    document.getElementById('skeleton').style.display='none';
+    document.getElementById('errorState').style.display='none';
+    var container = document.getElementById('notifItems');
+    var empty = document.getElementById('emptyState');
+    var loadWrap = document.getElementById('loadMoreWrap');
+    if(items.length === 0){
+      container.style.display='none';
+      empty.style.display='';
+      loadWrap.style.display='none';
+      lucide.createIcons({nodes:[empty]});
+      return;
+    }
+    empty.style.display='none';
+    container.style.display='';
+    loadWrap.style.display = state.has_next ? '' : 'none';
+    container.innerHTML = '';
+    items.forEach(function(n){
+      container.appendChild(buildItem(n));
+    });
+    lucide.createIcons({nodes:[container]});
+  }
+
+  function buildItem(n){
+    var div = document.createElement('div');
+    div.className = 'notif-item flex items-start gap-3 p-4 border-b border-[var(--wf-border-soft)] hover:bg-[#fafafb] transition-colors cursor-pointer' + (n.read ? '' : ' bg-[var(--wf-primary-50)]/50');
+    div.dataset.id = n.id;
+    div.dataset.read = n.read ? 'true' : 'false';
+    div.onclick = function(){ handleNotifClick(n, div); };
+
+    var iconColor = n.color || '#4f46e5';
+    var priorityHtml = '';
+    if(n.priority === 'urgent') priorityHtml = '<span class="wf-badge wf-badge-soft-red" style="font-size:10px;padding:0 6px">Urgent</span>';
+    else if(n.priority === 'important') priorityHtml = '<span class="wf-badge wf-badge-soft-amber" style="font-size:10px;padding:0 6px">Important</span>';
+
+    var actorHtml = '';
+    if(n.actor){
+      actorHtml = '<span class="inline-flex items-center gap-1 text-[11px] font-medium" style="color:' + escapeHtml(n.actor.color) + '">' +
+        '<span class="w-4 h-4 rounded-full grid place-items-center text-white" style="background:' + escapeHtml(n.actor.color) + ';font-size:7px">' + escapeHtml(n.actor.initials) + '</span>' +
+        escapeHtml(n.actor.name) + '</span> ';
+    }
+
+    var unreadDot = n.read ? '' : '<span class="w-2 h-2 rounded-full flex-none mt-1.5" style="background:var(--wf-primary)"></span>';
+
+    div.innerHTML =
+      '<span class="w-9 h-9 rounded-full grid place-items-center flex-none" style="background:' + escapeHtml(iconColor) + '1a;color:' + escapeHtml(iconColor) + '">' +
+        '<i data-lucide="' + escapeHtml(n.icon || 'bell') + '" style="width:16px;height:16px"></i>' +
+      '</span>' +
+      '<div class="min-w-0 flex-1">' +
+        '<div class="flex items-start justify-between gap-2">' +
+          '<p class="text-[13px] text-[var(--wf-text)] leading-snug">' + actorHtml + escapeHtml(n.title) + '</p>' +
+          unreadDot +
+        '</div>' +
+        (n.message ? '<p class="text-[12.5px] text-[var(--wf-text-secondary)] mt-0.5 line-clamp-2">' + escapeHtml(n.message) + '</p>' : '') +
+        '<div class="flex items-center gap-2 mt-1.5 flex-wrap">' +
+          '<span class="text-[11px] text-[var(--wf-text-tertiary)]">' + escapeHtml(n.time) + '</span>' +
+          '<span class="wf-badge wf-badge-soft-gray" style="font-size:10px;padding:0 7px">' + escapeHtml((n.category || '').charAt(0).toUpperCase() + (n.category || '').slice(1)) + '</span>' +
+          priorityHtml +
+          (n.project ? '<span class="text-[11px] text-[var(--wf-text-tertiary)]">' + escapeHtml(n.project.key) + '</span>' : '') +
+        '</div>' +
+      '</div>';
+    return div;
+  }
+
+  function handleNotifClick(n, el){
+    if(!n.read){
+      fetch('/api/v1/notifications/' + n.id + '/read', {method:'PATCH'})
+        .then(function(){
+          el.dataset.read='true';
+          el.classList.remove('bg-[var(--wf-primary-50)]/50');
+          var dot = el.querySelector('.w-2.h-2');
+          if(dot) dot.remove();
+          loadUnreadCounts();
+        });
+    }
+    if(n.url) window.location.href = n.url;
+  }
+
+  window.markAllRead = function(){
+    fetch('/api/v1/notifications/read-all', {method:'PATCH'})
+      .then(function(r){ return r.json(); })
+      .then(function(){
+        document.querySelectorAll('.notif-item[data-read="false"]').forEach(function(el){
+          el.dataset.read='true';
+          el.classList.remove('bg-[var(--wf-primary-50)]/50');
+          var dot = el.querySelector('.w-2.h-2');
+          if(dot) dot.remove();
+        });
+        items.forEach(function(n){ n.read = true; });
+        loadUnreadCounts();
+        Wexira.showToast('All notifications marked as read.', 'success');
+      });
+  };
+
+  function loadUnreadCounts(){
+    fetch('/api/v1/notifications/unread-count')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        setBadge('all', d.count);
+        setBadge('mentions', d.mentions);
+        setBadge('assigned', d.assigned);
+        setBadge('updates', d.updates);
+      });
+  }
+
+  function setBadge(cat, count){
+    var el = document.getElementById('badge-' + cat);
+    if(!el) return;
+    el.textContent = count;
+    el.style.display = count > 0 ? '' : 'none';
+  }
+
+  loadNotifications();
+})();
+</script>
+{% endblock %}

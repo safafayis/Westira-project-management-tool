@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+{% set sp = active_sprint %}
+<div class="wf-fade-up">
+  <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+    <div>
+      <h1 class="text-[22px] font-bold text-[var(--wf-text)]">Good morning, {{ current_user.name.split()[0] }} !</h1>
+      <p class="text-[13.5px] text-[var(--wf-text-secondary)] mt-1">Here's what's assigned to you.</p>
+    </div>
+    <div class="wf-project-selector" id="wfProjectSelector">
+      <button type="button" class="wf-project-selector-trigger" id="wfProjectTrigger" aria-haspopup="listbox" aria-expanded="false">
+        <span class="wf-project-selector-name" id="wfProjectName">{{ selected_project.name if selected_project else 'Select Project' }}</span>
+        <svg class="wf-project-selector-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+      <div class="wf-project-selector-dropdown" id="wfProjectDropdown" role="listbox" aria-label="Select project">
+        {% for p in user_projects %}
+        <div class="wf-project-selector-option {{ 'is-selected' if selected_project and p.id == selected_project.id }}" role="option" data-key="{{ p.key }}" data-name="{{ p.name }}" data-id="{{ p.id }}" aria-selected="{{ 'true' if selected_project and p.id == selected_project.id else 'false' }}">
+          <span class="wf-project-selector-option-name">{{ p.name }}</span>
+          <svg class="wf-project-selector-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {# ---------------- PERSONAL KPI CARDS ---------------- #}
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="wf-card wf-kpi wf-fade-up p-5">
+      <div class="flex items-start justify-between mb-4">
+        <div class="wf-kpi-icon" style="background:#eef2ff;color:#4f46e5"><i data-lucide="list-todo" style="width:20px;height:20px"></i></div>
+        <span class="wf-chip" style="background:#ecfdf5;color:#059669">assigned</span>
+      </div>
+      <div class="text-[26px] font-bold text-[var(--wf-text)] leading-none">{{ my_tasks|length }}</div>
+      <div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">My Tasks</div>
+    </div>
+    <div class="wf-card wf-kpi wf-fade-up p-5">
+      <div class="flex items-start justify-between mb-4">
+        <div class="wf-kpi-icon" style="background:#ecfeff;color:#0891b2"><i data-lucide="loader" style="width:20px;height:20px"></i></div>
+      </div>
+      <div class="text-[26px] font-bold text-[var(--wf-text)] leading-none">{{ my_tasks|selectattr('status','equalto','in_progress')|list|length }}</div>
+      <div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">In Progress</div>
+    </div>
+    <div class="wf-card wf-kpi wf-fade-up p-5">
+      <div class="flex items-start justify-between mb-4">
+        <div class="wf-kpi-icon" style="background:#fffbeb;color:#d97706"><i data-lucide="clock" style="width:20px;height:20px"></i></div>
+      </div>
+      <div class="text-[26px] font-bold text-[var(--wf-text)] leading-none">{{ current_user.current_tasks }}</div>
+      <div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">Active Tasks</div>
+    </div>
+    <div class="wf-card wf-kpi wf-fade-up p-5">
+      <div class="flex items-start justify-between mb-4">
+        <div class="wf-kpi-icon" style="background:#f5f3ff;color:#7c3aed"><i data-lucide="gauge" style="width:20px;height:20px"></i></div>
+      </div>
+      <div class="text-[26px] font-bold text-[var(--wf-text)] leading-none">{{ current_user.capacity }}<span class="text-[var(--wf-text-tertiary)] text-[16px] font-semibold">%</span></div>
+      <div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">My Capacity</div>
+    </div>
+  </div>
+
+  {# ---------------- CURRENT SPRINT ---------------- #}
+  <div class="wf-card">
+    <div class="wf-card-header">
+      <div>
+        <h2 class="text-[15px] font-bold text-[var(--wf-text)]">Current Sprint</h2>
+        <p class="text-[12px] text-[var(--wf-text-secondary)]">Sprint {{ sp.number if sp else '—' }} · {{ sp.name if sp else 'No active sprint' }}</p>
+      </div>
+      <span class="wf-badge wf-badge-soft-green">Active</span>
+    </div>
+    <div class="p-5">
+      <div class="flex items-center justify-between mb-2">
+        <div>
+          <div class="text-[20px] font-bold text-[var(--wf-text)]">
+            {% set sp = active_sprint %} {{ (sp.story_points_done if sp else 0) }}<span class="text-[var(--wf-text-tertiary)] text-[14px] font-semibold"> / {{ (sp.story_points_total if sp else 0) }} pts</span>
+          </div>
+          <div class="text-[12px] text-[var(--wf-text-secondary)]">Story points completed</div>
+        </div>
+        {% set sp_pct_raw = ((sp.story_points_done / (sp.story_points_total or 1)) * 100) if sp else 0 %}
+        {% set sp_pct_show = (sp_pct_raw | round) | int %}
+        {% set sp_pct_show = [sp_pct_show, 100] | min %}
+        {% set sp_pct_show = [sp_pct_show, 0] | max %}
+        <div class="w-14 h-14 rounded-full grid place-items-center text-white text-[14px] font-bold" style="background:conic-gradient(var(--wf-primary) {{ sp_pct_show }}%,#eef0f3 0)">
+          <div class="w-11 h-11 rounded-full bg-white grid place-items-center text-[var(--wf-primary)]">{{ sp_pct_show }}%</div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2.5 mt-5">
+        <div class="rounded-lg p-3" style="background:#eef2ff">
+          <div class="text-[20px] font-bold text-[#4f46e5]">{{ sp.to_do if sp else 0 }}</div>
+          <div class="text-[11.5px] font-medium text-[#4338ca]">To Do</div>
+        </div>
+        <div class="rounded-lg p-3" style="background:#ecfeff">
+          <div class="text-[20px] font-bold text-[#0891b2]">{{ sp.in_progress if sp else 0 }}</div>
+          <div class="text-[11.5px] font-medium text-[#0e7490]">In Progress</div>
+        </div>
+        <div class="rounded-lg p-3" style="background:#f5f3ff">
+          <div class="text-[20px] font-bold text-[#7c3aed]">{{ sp.in_review if sp else 0 }}</div>
+          <div class="text-[11.5px] font-medium text-[#6d28d9]">In Review</div>
+        </div>
+        <div class="rounded-lg p-3" style="background:#ecfdf5">
+          <div class="text-[20px] font-bold text-[#059669]">{{ sp.done if sp else 0 }}</div>
+          <div class="text-[11.5px] font-medium text-[#047857]">Done</div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between mt-5 pt-4 border-t border-[var(--wf-border-soft)]">
+        <span class="text-[11.5px] text-[var(--wf-text-tertiary)]">Sprint ends {{ sp.end_date if sp and sp.end_date else '—' }}</span>
+        <a href="/kanban" class="wf-btn wf-btn-primary wf-btn-sm"><i data-lucide="columns-3" style="width:13px;height:13px"></i> Kanban Board</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

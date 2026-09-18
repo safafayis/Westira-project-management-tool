@@ -1,0 +1,753 @@
+{% extends 'base.html' %}
+
+{% block title %}Reports & Analytics{% endblock %}
+
+{% block content %}
+<div class="wf-fade-up">
+  <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+    <div>
+      <h1 class="text-[22px] font-bold text-[var(--wf-text)]">Reports & Analytics</h1>
+      <p class="text-[13.5px] text-[var(--wf-text-secondary)] mt-1">Track project health, delivery performance, sprint progress, velocity, workload, and team performance.</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <button class="wf-btn wf-btn-secondary wf-btn-sm" onclick="ReportApp.toggleFilters()"><i data-lucide="filter" style="width:14px;height:14px"></i> <span id="btnFiltersLabel">Filters</span></button>
+      <button class="wf-btn wf-btn-secondary wf-btn-sm" onclick="ReportApp.exportCsv()"><i data-lucide="download" style="width:14px;height:14px"></i> Export</button>
+    </div>
+  </div>
+
+  {# ---------------- Filter bar ---------------- #}
+  <div class="wf-card mb-6" id="filtersCard" style="display:none">
+    <div class="p-5">
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div>
+          <label class="wf-label">Project</label>
+          <select class="wf-input" id="fProject"><option value="">All projects</option></select>
+        </div>
+        <div>
+          <label class="wf-label">Sprint</label>
+          <select class="wf-input" id="fSprint"><option value="">All sprints</option></select>
+        </div>
+        <div>
+          <label class="wf-label">Assignee</label>
+          <select class="wf-input" id="fAssignee"><option value="">Everyone</option></select>
+        </div>
+        <div>
+          <label class="wf-label">Status</label>
+          <select class="wf-input" id="fStatus"><option value="">All statuses</option></select>
+        </div>
+        <div>
+          <label class="wf-label">Date range</label>
+          <div class="flex items-center gap-1.5">
+            <input type="date" class="wf-input" id="fStart" style="padding:7px 8px">
+            <span class="text-[11px] text-[var(--wf-text-tertiary)]">–</span>
+            <input type="date" class="wf-input" id="fEnd" style="padding:7px 8px">
+          </div>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center justify-between gap-3 mt-4">
+        <div class="flex items-center gap-1.5">
+          <button class="wf-chip" style="cursor:pointer" data-range="7" onclick="ReportApp.setQuickRange(7)">Last 7 days</button>
+          <button class="wf-chip" style="cursor:pointer" data-range="30" onclick="ReportApp.setQuickRange(30)">Last 30 days</button>
+          <button class="wf-chip" style="cursor:pointer" data-range="90" onclick="ReportApp.setQuickRange(90)">Last 90 days</button>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="wf-btn wf-btn-primary wf-btn-sm" onclick="ReportApp.applyFilters()"><i data-lucide="search" style="width:14px;height:14px"></i> Apply</button>
+          <button class="wf-btn wf-btn-secondary wf-btn-sm" onclick="ReportApp.resetFilters()"><i data-lucide="rotate-ccw" style="width:14px;height:14px"></i> Reset</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ---------------- KPI cards ---------------- #}
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="kpiGrid">
+    <div class="wf-card p-5 animate-pulse-soft"><div class="h-9 w-9 rounded-lg bg-gray-200"></div><div class="mt-3 h-6 w-16 bg-gray-200 rounded"></div></div>
+    <div class="wf-card p-5 animate-pulse-soft"><div class="h-9 w-9 rounded-lg bg-gray-200"></div><div class="mt-3 h-6 w-16 bg-gray-200 rounded"></div></div>
+    <div class="wf-card p-5 animate-pulse-soft"><div class="h-9 w-9 rounded-lg bg-gray-200"></div><div class="mt-3 h-6 w-16 bg-gray-200 rounded"></div></div>
+    <div class="wf-card p-5 animate-pulse-soft"><div class="h-9 w-9 rounded-lg bg-gray-200"></div><div class="mt-3 h-6 w-16 bg-gray-200 rounded"></div></div>
+    <div class="wf-card p-5 animate-pulse-soft"><div class="h-9 w-9 rounded-lg bg-gray-200"></div><div class="mt-3 h-6 w-16 bg-gray-200 rounded"></div></div>
+    <div class="wf-card p-5 animate-pulse-soft"><div class="h-9 w-9 rounded-lg bg-gray-200"></div><div class="mt-3 h-6 w-16 bg-gray-200 rounded"></div></div>
+    <div class="wf-card p-5 animate-pulse-soft"><div class="h-9 w-9 rounded-lg bg-gray-200"></div><div class="mt-3 h-6 w-16 bg-gray-200 rounded"></div></div>
+    <div class="wf-card p-5 animate-pulse-soft"><div class="h-9 w-9 rounded-lg bg-gray-200"></div><div class="mt-3 h-6 w-16 bg-gray-200 rounded"></div></div>
+  </div>
+
+  {# ---------------- Project Health ---------------- #}
+  <div class="wf-card mb-6" id="cardHealth" style="display:none">
+    <div class="wf-card-header">
+      <h2 class="text-[14px] font-bold text-[var(--wf-text)]">Project Health</h2>
+      <span class="wf-chip" id="healthSummary"></span>
+    </div>
+    <div class="overflow-x-auto" id="healthWrap"><div class="wf-empty"><p class="text-[13px] text-[var(--wf-text-tertiary)]">Loading&hellip;</p></div></div>
+  </div>
+
+  {# ---------------- Sprint Analytics ---------------- #}
+  <div class="wf-card mb-6" id="cardSprints" style="display:none">
+    <div class="wf-card-header">
+      <h2 class="text-[14px] font-bold text-[var(--wf-text)]">Sprint Analytics</h2>
+      <span class="wf-chip" id="sprintChip">—</span>
+    </div>
+    <div class="overflow-x-auto" id="sprintWrap"><div class="wf-empty"><p class="text-[13px] text-[var(--wf-text-tertiary)]">Loading&hellip;</p></div></div>
+  </div>
+
+  {# ---------------- Charts row ---------------- #}
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+    <div class="wf-card lg:col-span-2">
+      <div class="wf-card-header">
+        <h2 class="text-[14px] font-bold text-[var(--wf-text)]">Velocity</h2>
+        <span class="wf-chip" id="velocityChip">—</span>
+      </div>
+      <div class="p-5">
+        <div id="velocityEmpty" class="wf-empty" style="display:block">
+          <span class="wf-kpi-icon" style="width:40px;height:40px;background:#f5f3ff;color:#7c3aed"><i data-lucide="trending-up" style="width:18px;height:18px"></i></span>
+          <p class="text-[13px] text-[var(--wf-text-secondary)]" id="velocityMsg">Loading&hellip;</p>
+        </div>
+        <canvas id="chartVelocity" style="display:none" height="220"></canvas>
+      </div>
+    </div>
+    <div class="wf-card">
+      <div class="wf-card-header">
+        <h2 class="text-[14px] font-bold text-[var(--wf-text)]">Status Distribution</h2>
+        <span class="wf-chip" id="statusTotal">—</span>
+      </div>
+      <div class="p-5 flex items-center gap-4">
+        <div class="flex-1">
+          <div id="statusEmpty" class="wf-empty" style="display:none;padding:28px 12px"><p class="text-[12.5px] text-[var(--wf-text-tertiary)]">No tasks</p></div>
+          <canvas id="chartStatus" style="display:none" height="190"></canvas>
+        </div>
+        <div class="flex flex-col gap-2 text-[12px] w-32" id="statusLegend"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+    <div class="wf-card">
+      <div class="wf-card-header">
+        <h2 class="text-[14px] font-bold text-[var(--wf-text)]">Priority Distribution</h2>
+        <span class="wf-chip" id="priorityTotal">—</span>
+      </div>
+      <div class="p-5 flex items-center gap-4">
+        <div class="flex-1">
+          <div id="priorityEmpty" class="wf-empty" style="display:none;padding:28px 12px"><p class="text-[12.5px] text-[var(--wf-text-tertiary)]">No tasks</p></div>
+          <canvas id="chartPriority" style="display:none" height="190"></canvas>
+        </div>
+        <div class="flex flex-col gap-2 text-[12px] w-32" id="priorityLegend"></div>
+      </div>
+    </div>
+    <div class="wf-card lg:col-span-2">
+      <div class="wf-card-header">
+        <h2 class="text-[14px] font-bold text-[var(--wf-text)]">Completed Work Over Time</h2>
+        <span class="wf-chip" id="completedChip">—</span>
+      </div>
+      <div class="p-5">
+        <div id="completedEmpty" class="wf-empty">
+          <span class="wf-kpi-icon" style="width:40px;height:40px;background:#ecfdf5;color:#059669"><i data-lucide="chart-line" style="width:18px;height:18px"></i></span>
+          <p class="text-[13px] text-[var(--wf-text-secondary)]" id="completedMsg">Loading&hellip;</p>
+        </div>
+        <canvas id="chartCompleted" style="display:none" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+
+  {# ---------------- Overdue Analytics ---------------- #}
+  <div class="wf-card mb-6" id="cardOverdue" style="display:none">
+    <div class="wf-card-header">
+      <h2 class="text-[14px] font-bold text-[var(--wf-text)]">Overdue Analytics</h2>
+      <span class="wf-chip" style="background:#fef2f2;color:#dc2626" id="overdueTotalChip">—</span>
+    </div>
+    <div class="p-5 border-b border-[var(--wf-border-soft)]">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="rounded-xl border border-[var(--wf-border-soft)] p-4">
+          <div class="text-[11.5px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide">Overdue points</div>
+          <div class="text-[22px] font-bold text-[var(--wf-text)] mt-1" id="overduePoints">—</div>
+        </div>
+        <div>
+          <div class="text-[11.5px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide mb-2">By project</div>
+          <div class="flex flex-col gap-1.5" id="overdueByProject"></div>
+        </div>
+        <div>
+          <div class="text-[11.5px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide mb-2">By assignee</div>
+          <div class="flex flex-col gap-1.5" id="overdueByAssignee"></div>
+        </div>
+        <div>
+          <div class="text-[11.5px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide mb-2">By priority</div>
+          <div class="flex flex-col gap-1.5" id="overdueByPriority"></div>
+        </div>
+      </div>
+    </div>
+    <div class="overflow-x-auto" id="overdueWrap"><div class="wf-empty"><p class="text-[13px] text-[var(--wf-text-tertiary)]">Loading&hellip;</p></div></div>
+    <div class="wf-card-header border-t border-[var(--wf-border-soft)] mt-0" style="border-top-width:1px">
+      <h3 class="text-[13px] font-bold text-[var(--wf-text)]">Upcoming deadlines (next 7 days)</h3>
+    </div>
+    <div class="overflow-x-auto" id="upcomingWrap"><div class="wf-empty"><p class="text-[13px] text-[var(--wf-text-tertiary)]">Loading&hellip;</p></div></div>
+  </div>
+
+  {# ---------------- Team Performance ---------------- #}
+  <div class="wf-card" id="cardTeam" style="display:none">
+    <div class="wf-card-header">
+      <h2 class="text-[14px] font-bold text-[var(--wf-text)]">Team Performance</h2>
+      <span class="wf-chip" id="teamChip">—</span>
+    </div>
+    <div class="overflow-x-auto" id="teamWrap"><div class="wf-empty"><p class="text-[13px] text-[var(--wf-text-tertiary)]">Loading&hellip;</p></div></div>
+  </div>
+</div>
+
+{% block scripts %}
+<script>
+(function () {
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => {
+    const s = (v == null ? '' : String(v));
+    return (window.Wexira && Wexira.escapeHtml) ? Wexira.escapeHtml(s) : s;
+  };
+
+  const statusOrder = ['backlog', 'todo', 'in_progress', 'in_review', 'done'];
+  const priorityOrder = ['Critical', 'Highest', 'High', 'Medium', 'Low', 'Lowest'];
+
+  let scope = {
+    project_id: '', sprint_id: '', assignee_id: '', status: '',
+    start_date: '', end_date: ''
+  };
+  let charts = { velocity: null, status: null, priority: null, completed: null };
+
+  Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+  Chart.defaults.font.size = 11;
+  Chart.defaults.color = '#6b7280';
+  Chart.defaults.borderColor = '#f0f1f4';
+  const tooltipStyle = { backgroundColor: '#111827', padding: 10, cornerRadius: 8, titleFont: { weight: '600' } };
+  const grid = { color: '#f0f1f4', drawBorder: false };
+
+  function params() {
+    const p = new URLSearchParams();
+    ['project_id', 'sprint_id', 'assignee_id', 'status', 'start_date', 'end_date'].forEach(k => {
+      if (scope[k]) p.set(k, scope[k]);
+    });
+    const s = p.toString();
+    return s ? ('?' + s) : '';
+  }
+
+  async function api(path) {
+    const res = await fetch(path);
+    if (!res.ok) {
+      let msg = 'Request failed (' + res.status + ')';
+      try {
+        const body = await res.json();
+        if (body && body.error) msg = body.error;
+      } catch (e) { /* ignore */ }
+      throw new Error(msg);
+    }
+    return res.json();
+  }
+
+  function fail(msg) {
+    if (window.Wexira && Wexira.showToast) Wexira.showToast(msg || 'Failed to load report data.', 'error');
+  }
+
+  function healthBadge(h) {
+    const map = {
+      Healthy: { bg: '#ecfdf5', fg: '#059669', icon: 'circle-check' },
+      'At Risk': { bg: '#fffbeb', fg: '#d97706', icon: 'alert-triangle' },
+      Critical: { bg: '#fef2f2', fg: '#dc2626', icon: 'octagon-alert' }
+    };
+    const c = map[h] || map.Healthy;
+    return '<span class="wf-badge" style="background:' + c.bg + ';color:' + c.fg + '"><i data-lucide="' + c.icon + '" style="width:12px;height:12px"></i>' + esc(h) + '</span>';
+  }
+
+  function progressBar(pct, color) {
+    pct = Math.max(0, Math.min(100, Number(pct) || 0));
+    return '<div class="flex items-center gap-2 min-w-[100px]">' +
+      '<div class="wf-progress-track" style="height:7px"><div class="wf-progress-bar" style="width:' + pct + '%;background:' + (color || 'var(--wf-primary)') + '"></div></div>' +
+      '<span class="text-[12px] font-semibold text-[var(--wf-text-secondary)]">' + pct + '%</span></div>';
+  }
+
+  function taskRow(t) {
+    const due = t.due_date ? '<span class="text-[11px] text-[var(--wf-text-tertiary)]">Due ' + esc(t.due_date) + '</span>' : '';
+    const sprints = t.sprint ? '<span class="wf-chip" style="font-size:10.5px;padding:1px 7px">' + esc(t.sprint) + '</span>' : '';
+    return '<tr class="cursor-pointer" onclick="location=\'/issue/' + t.id + '\'">' +
+      '<td><div class="flex items-center gap-2.5 min-w-[190px]">' +
+        '<span class="text-[11px] font-bold text-[var(--wf-primary)] flex-none">' + esc(t.key) + '</span>' +
+        '<div class="min-w-0"><div class="text-[13px] font-medium text-[var(--wf-text)] leading-tight truncate max-w-[280px]">' + esc(t.title) + '</div>' + due + '</div>' +
+      '</div></td>' +
+      '<td><span class="inline-flex items-center gap-1.5 whitespace-nowrap"><span class="w-2 h-2 rounded-full" style="background:' + esc(t.status_color) + '"></span><span class="text-[12.5px] text-[var(--wf-text-secondary)]">' + esc(t.status_label) + '</span></span></td>' +
+      '<td><span class="wf-badge" style="background:' + esc(t.priority_color) + '1a;color:' + esc(t.priority_color) + '">' + esc(t.priority) + '</span></td>' +
+      (t.points ? '<td class="text-center"><span class="text-[12.5px] font-semibold text-[var(--wf-text-secondary)]">' + esc(t.points) + '</span></td>' : '') +
+      '<td><span class="inline-flex items-center gap-2 whitespace-nowrap"><span class="wf-avatar wf-avatar-sm" style="background:' + esc(t.assignee_color) + '">' + esc(t.assignee_initials || '--') + '</span><span class="text-[12.5px] text-[var(--wf-text-secondary)]">' + esc(t.assignee || 'Unassigned') + '</span></span></td>' +
+      '<td>' + (t.project ? '<span class="wf-chip" style="font-size:10.5px;padding:1px 7px">' + esc(t.project) + '</span>' : '') + ' ' + sprints + '</td>' +
+    '</tr>';
+  }
+
+  const taskTable = (rows, emptyText) =>
+    '<table class="wf-table"><thead><tr>' +
+      '<th>Task</th><th>Status</th><th>Priority</th><th class="text-center">Points</th><th>Assignee</th><th>Context</th>' +
+    '</tr></thead><tbody>' +
+    (rows.length ? rows.map(taskRow).join('') :
+      '<tr><td colspan="6"><div class="wf-empty" style="padding:26px 16px"><p class="text-[13px] text-[var(--wf-text-tertiary)]">' + esc(emptyText) + '</p></div></td></tr>') +
+    '</tbody></table>';
+
+  function refreshIcons(root) {
+    if (window.lucide) lucide.createIcons({ nodes: root || document });
+  }
+
+  /* ---------------- KPIs ---------------- */
+  function renderKpis(d) {
+    const cards = [
+      { label: 'Projects', value: d.projects, icon: 'folder-kanban', color: '#4f46e5', bg: '#eef2ff', click: null },
+      { label: 'Total Tasks', value: d.total_tasks, icon: 'list-checks', color: '#0891b2', bg: '#ecfeff', click: null },
+      { label: 'Completed', value: d.completed_tasks, icon: 'check-circle-2', color: '#059669', bg: '#ecfdf5', click: null },
+      { label: 'In Progress', value: d.in_progress, icon: 'loader-circle', color: '#0891b2', bg: '#ecfeff', click: () => openOverlay({ type: 'in_progress', title: 'In Progress Tasks' }) },
+      { label: 'Overdue', value: d.overdue, icon: 'alert-triangle', color: '#dc2626', bg: '#fef2f2', click: () => openOverlay({ type: 'overdue', title: 'Overdue Tasks' }) },
+      { label: 'Sprint Progress', value: d.sprint_progress + '%', icon: 'gauge', color: '#7c3aed', bg: '#f5f3ff', sub: d.sprint_progress_text, click: null },
+      { label: 'Avg Velocity', value: d.average_velocity, icon: 'trending-up', color: '#0d9488', bg: '#f0fdfa', sub: d.velocity_count ? d.velocity_count + ' sprint' + (d.velocity_count === 1 ? '' : 's') + ' · ' + d.velocity_total + ' pts' : (d.velocity_message || ''), click: null },
+      { label: 'Team Workload', value: String(d.team_workload).indexOf('.') >= 0 ? d.team_workload.toFixed(1) : d.team_workload, icon: 'users', color: '#d97706', bg: '#fffbeb', sub: d.team_workload_open + ' open / ' + d.team_workload_members + ' members', click: null },
+    ];
+    $('kpiGrid').innerHTML = cards.map(k => {
+      const sub = k.sub ? '<div class="text-[11px] text-[var(--wf-text-tertiary)] mt-0.5 truncate">' + esc(k.sub) + '</div>' : '';
+      return '<div class="wf-card p-5 ' + (k.click ? 'cursor-pointer hover:shadow-md hover:border-[#d1d5db] transition-shadow' : '') + '"' +
+        (k.click ? ' onclick="ReportApp.kpiClick(' + cards.indexOf(k) + ')"' : '') + '>' +
+        '<div class="flex items-center justify-between mb-3">' +
+        '<span class="wf-kpi-icon" style="width:38px;height:38px;background:' + k.bg + ';color:' + k.color + '"><i data-lucide="' + k.icon + '" style="width:18px;height:18px"></i></span>' +
+        (k.click ? '<span class="wf-chip" style="font-size:10.5px;color:' + k.color + '">View</span>' : '') +
+        '</div>' +
+        '<div class="text-[24px] font-bold text-[var(--wf-text)] leading-none">' + esc(k.value) + '</div>' +
+        '<div class="text-[12.5px] font-medium text-[var(--wf-text-secondary)] mt-1.5">' + esc(k.label) + '</div>' + sub +
+      '</div>';
+    }).join('');
+    window._reportKpiClicks = cards.map(k => k.click);
+    refreshIcons();
+  }
+
+  function openOverlay(p) {
+    const opts = {};
+    if (p.type) opts.type = p.type;
+    if (p.status) opts.status = p.status;
+    if (p.sprint_id) opts.sprint_id = p.sprint_id;
+    if (p.assignee_id) opts.assignee_id = p.assignee_id;
+    fetch('/api/v1/reports/drilldown' + queryFor(opts)).then(r => r.json()).then(data => {
+      if (!data.tasks) { if (window.Wexira) Wexira.showToast(data.error || 'No data.', 'error'); return; }
+      renderOverlay(p.title + ' (' + data.count + ')', data.tasks);
+    }).catch(() => fail('Failed to load drill-down.'));
+  }
+
+  function queryFor(opts) {
+    const p = new URLSearchParams();
+    ['project_id', 'sprint_id', 'assignee_id', 'status', 'start_date', 'end_date'].forEach(k => {
+      if (scope[k] && !opts[k]) p.set(k, scope[k]);
+    });
+    Object.keys(opts).forEach(k => { if (opts[k]) p.set(k, opts[k]); });
+    const s = p.toString();
+    return s ? ('?' + s) : '';
+  }
+
+  function renderOverlay(title, tasks) {
+    const root = document.getElementById('modalRoot');
+    root.innerHTML =
+      '<div class="wf-modal-backdrop" id="repBackdrop">' +
+        '<div class="wf-modal" style="max-width:860px;max-height:90vh;overflow-y:auto">' +
+          '<div class="wf-card-header">' +
+            '<h2 class="text-[15px] font-bold text-[var(--wf-text)]">' + esc(title) + '</h2>' +
+            '<button class="wf-icon-btn wf-btn-secondary wf-btn-sm" data-rep-close style="padding:6px"><i data-lucide="x" style="width:16px;height:16px"></i></button>' +
+          '</div>' +
+          '<div class="p-5">' + taskTable(tasks, 'No tasks match the current filters.') + '</div>' +
+        '</div>' +
+      '</div>';
+    lucide.createIcons({ nodes: [root] });
+    root.querySelectorAll('[data-rep-close]').forEach(b => b.addEventListener('click', () => root.innerHTML = ''));
+    const backdrop = document.getElementById('repBackdrop');
+    if (backdrop) backdrop.addEventListener('click', e => { if (e.target.id === 'repBackdrop') root.innerHTML = ''; });
+  }
+
+  /* ---------------- Project Health ---------------- */
+  function renderHealth(projects) {
+    const total = projects.length;
+    const crit = projects.filter(p => p.health === 'Critical').length;
+    const risk = projects.filter(p => p.health === 'At Risk').length;
+    $('healthSummary').textContent = total + ' project' + (total === 1 ? '' : 's') + ' · ' + crit + ' critical · ' + risk + ' at risk';
+    $('cardHealth').style.display = '';
+    if (!total) {
+      $('healthWrap').innerHTML = '<div class="wf-empty"><p class="text-[13px] text-[var(--wf-text-tertiary)]">No projects match the current filters.</p></div>';
+      return;
+    }
+    $('healthWrap').innerHTML =
+      '<table class="wf-table"><thead><tr>' +
+      '<th>Project</th><th>Status</th><th>Health</th><th>Progress</th><th>Tasks</th><th>Overdue</th><th>Current sprint</th><th>Sprint progress</th><th>Target</th>' +
+      '</tr></thead><tbody>' +
+      projects.map(p =>
+        '<tr class="cursor-pointer" onclick="location=\'/project/' + encodeURIComponent(p.key) + '\'">' +
+        '<td><div class="flex items-center gap-2.5 min-w-[170px]"><span class="w-8 h-8 rounded-lg grid place-items-center text-white text-[10.5px] font-bold flex-none" style="background:' + esc(p.color) + '">' + esc(p.key.substring(0, 3)) + '</span><div><div class="font-semibold text-[var(--wf-text)] leading-tight">' + esc(p.name) + '</div><div class="text-[11px] text-[var(--wf-text-tertiary)]">' + esc(p.key) + '</div></div></div></td>' +
+        '<td><span class="wf-badge wf-badge-soft-gray">' + esc(p.status) + '</span></td>' +
+        '<td>' + healthBadge(p.health) + '</td>' +
+        '<td>' + progressBar(p.progress, p.color) + '</td>' +
+        '<td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">' + esc(p.total_tasks) + ' <span class="text-[var(--wf-text-tertiary)]">· ' + esc(p.completed) + ' done</span></span></td>' +
+        '<td>' + (p.overdue ? '<span class="wf-badge" style="background:#fef2f2;color:#dc2626">' + esc(p.overdue) + '</span>' : '<span class="text-[12.5px] text-[var(--wf-text-tertiary)]">0</span>') + '</td>' +
+        '<td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">' + esc(p.current_sprint || '—') + '</span></td>' +
+        '<td>' + (p.current_sprint ? progressBar(p.current_sprint_progress, '#7c3aed') : '<span class="text-[12.5px] text-[var(--wf-text-tertiary)]">—</span>') + '</td>' +
+        '<td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">' + esc(p.due_date || '—') + '</span></td>' +
+        '</tr>').join('') +
+      '</tbody></table>';
+  }
+
+  /* ---------------- Sprint Analytics ---------------- */
+  function renderSprints(data) {
+    $('cardSprints').style.display = '';
+    $('sprintChip').textContent = data.total_committed + ' committed / ' + data.total_completed + ' completed pts';
+    const rows = data.sprints;
+    if (!rows.length) {
+      $('sprintWrap').innerHTML = '<div class="wf-empty"><p class="text-[13px] text-[var(--wf-text-tertiary)]">No sprints match the current filters.</p></div>';
+      return;
+    }
+    const statusStyle = { Active: 'wf-badge-soft-blue', Planned: 'wf-badge-soft-gray', Completed: 'wf-badge-soft-green' };
+    $('sprintWrap').innerHTML =
+      '<table class="wf-table"><thead><tr>' +
+      '<th>Sprint</th><th>Status</th><th>Dates</th><th>Tasks</th><th>Story points</th><th>Progress</th>' +
+      '</tr></thead><tbody>' +
+      rows.map(s => {
+        const badge = statusStyle[s.status] || 'wf-badge-soft-gray';
+        const clickable = s.status === 'Completed';
+        return '<tr' + (clickable ? ' onclick="openOverlay({ type: \'velocity\', sprint_id: ' + s.id + ', title: \'' + esc(s.name) + ' — completed work\' })" class="cursor-pointer"' : '') + '>' +
+          '<td><div class="min-w-[150px]"><div class="text-[13px] font-semibold text-[var(--wf-text)] leading-tight">' + esc(s.name) + '</div>' + (s.goal ? '<div class="text-[11px] text-[var(--wf-text-tertiary)] truncate max-w-[220px]">' + esc(s.goal) + '</div>' : '') + '</div></td>' +
+          '<td><span class="wf-badge ' + badge + '">' + esc(s.status) + '</span></td>' +
+          '<td><span class="text-[12px] text-[var(--wf-text-secondary)] whitespace-nowrap">' + esc(s.start_date || '—') + ' → ' + esc(s.end_date || '—') + '</span></td>' +
+          '<td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">' + esc(s.total_tasks) + ' <span class="text-[var(--wf-text-tertiary)]">· ' + esc(s.completed_tasks) + ' done · ' + esc(s.remaining_tasks) + ' left</span></span></td>' +
+          '<td><span class="text-[12.5px] text-[var(--wf-text-secondary)] whitespace-nowrap">' + esc(s.completed_points) + ' / ' + esc(s.committed_points) + ' pts</span></td>' +
+          '<td>' + progressBar(s.progress, s.status === 'Completed' ? '#059669' : s.status === 'Active' ? '#0891b2' : '#9ca3af') + '</td>' +
+        '</tr>';
+      }).join('') +
+      '</tbody></table>';
+  }
+
+  /* ---------------- Charts ---------------- */
+  function centerTextPlugin(text) {
+    return {
+      id: 'centerText',
+      afterDraw(chart) {
+        if (chart.options.plugins.centerText === false) return;
+        const ctx = chart.ctx, meta = chart.getDatasetMeta(0);
+        if (!meta.data.length) return;
+        const x = meta.data[0].x, y = meta.data[0].y, total = chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+        ctx.save();
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#111827'; ctx.font = 'bold 17px Inter, sans-serif';
+        ctx.fillText(String(total), x, y - 4);
+        ctx.fillStyle = '#6b7280'; ctx.font = '10px Inter, sans-serif';
+        ctx.fillText(text, x, y + 13);
+        ctx.restore();
+      }
+    };
+  }
+
+  function renderVelocity(data) {
+    $('velocityChip').textContent = data.count ? data.count + ' sprint' + (data.count === 1 ? '' : 's') + ' · avg ' + data.average + ' pts' : 'No velocity data';
+    const el = $('chartVelocity'), empty = $('velocityEmpty');
+    if (!data.sprints.length) {
+      $('velocityMsg').textContent = data.message || 'No completed sprints available.';
+      empty.style.display = '';
+      el.style.display = 'none';
+      return;
+    }
+    const labels = data.sprints.map(s => 'S' + s.number);
+    const completed = data.sprints.map(s => s.completed);
+    empty.style.display = 'none';
+    el.style.display = '';
+    if (charts.velocity) charts.velocity.destroy();
+    charts.velocity = new Chart(el, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Completed points', data: completed, backgroundColor: '#0891b2', borderRadius: 6, barThickness: 28 },
+          ...(data.count ? [{ label: 'Average ' + data.average, data: completed.map(() => data.average), type: 'line', borderColor: '#dc2626', borderDash: [5, 5], pointRadius: 0, borderWidth: 1.5 }] : [])
+        ]
+      },
+      options: {
+        responsive: true,
+        scales: { y: { beginAtZero: true, grid }, x: { grid: { display: false } } },
+        plugins: { tooltip: tooltipStyle, legend: { display: data.count > 0, position: 'bottom', labels: { usePointStyle: true, boxWidth: 7 } } }
+      }
+    });
+    $('velocityChip').textContent = data.count ? labels.length + ' sprint' + (labels.length === 1 ? '' : 's') + ' · avg ' + data.average + ' pts' : 'No committed sprint work';
+  }
+
+  function doughnut(el, legendEl, rows, order, emptyEl, center, chartKey) {
+    rows = rows.slice().sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
+    if (!rows.length) {
+      emptyEl.style.display = '';
+      el.style.display = 'none';
+      legendEl.innerHTML = '';
+      return;
+    }
+    emptyEl.style.display = 'none';
+    el.style.display = '';
+    if (charts[chartKey]) charts[chartKey].destroy();
+    charts[chartKey] = new Chart(el, {
+      type: 'doughnut',
+      data: {
+        labels: rows.map(r => r.label),
+        datasets: [{ data: rows.map(r => r.count), backgroundColor: rows.map(r => r.color), borderWidth: 3, borderColor: '#fff', borderRadius: 4 }]
+      },
+      options: {
+        cutout: '70%',
+        plugins: {
+          centerText: false,
+          tooltip: tooltipStyle,
+          legend: { display: false }
+        }
+      },
+      plugins: [centerTextPlugin(center)]
+    });
+    legendEl.innerHTML = rows.map(r =>
+      '<div class="flex items-center justify-between gap-2">' +
+        '<span class="flex items-center gap-1.5 text-[var(--wf-text-secondary)] truncate"><span class="w-2.5 h-2.5 rounded-sm flex-none" style="background:' + r.color + '"></span>' + esc(r.label) + '</span>' +
+        '<span class="font-bold text-[var(--wf-text)]">' + r.count + '</span></div>').join('');
+  }
+
+  function renderStatus(data) {
+    const rows = data.statuses.map(s => ({ key: s.status, label: s.label, count: s.count, color: s.color }));
+    $('statusTotal').textContent = data.total + ' total';
+    doughnut($('chartStatus'), $('statusLegend'), rows, statusOrder, $('statusEmpty'), 'tasks', 'status');
+  }
+
+  function renderPriority(data) {
+    $('priorityTotal').textContent = data.total + ' total';
+    const rows = data.priorities.map(p => ({ key: p.priority, label: p.priority, count: p.count, color: p.color }));
+    doughnut($('chartPriority'), $('priorityLegend'), rows, priorityOrder, $('priorityEmpty'), 'issues', 'priority');
+  }
+
+  function renderCompleted(data) {
+    const el = $('chartCompleted'), empty = $('completedEmpty');
+    $('completedChip').textContent = data.has_completion_data
+      ? data.done_total + ' done · ' + data.total_points + ' pts'
+      : (data.done_total ? 'No completion timestamps' : 'No completed tasks');
+    if (!data.has_completion_data) {
+      $('completedMsg').textContent = data.done_total
+        ? (data.message || 'Completed tasks appear here as the team finishes work.')
+        : 'No completed tasks yet.';
+      empty.style.display = '';
+      el.style.display = 'none';
+      return;
+    }
+    empty.style.display = 'none';
+    el.style.display = '';
+    if (charts.completed) charts.completed.destroy();
+    charts.completed = new Chart(el, {
+      type: 'bar',
+      data: {
+        labels: data.series.map(s => s.label),
+        datasets: [
+          { label: 'Tasks completed', data: data.series.map(s => s.completed_tasks), backgroundColor: '#059669', borderRadius: 6, barThickness: 20 }
+        ]
+      },
+      options: {
+        scales: { y: { beginAtZero: true, grid, ticks: { precision: 0 } }, x: { grid: { display: false } } },
+        plugins: { tooltip: tooltipStyle, legend: { display: false } }
+      }
+    });
+  }
+
+  /* ---------------- Overdue ---------------- */
+  function renderOverdue(data) {
+    $('cardOverdue').style.display = '';
+    $('overdueTotalChip').textContent = data.total_overdue + ' overdue task' + (data.total_overdue === 1 ? '' : 's');
+    $('overduePoints').textContent = data.overdue_points + ' pts';
+
+    const projectHtml = data.by_project.length ? data.by_project.map(p =>
+      '<div class="flex items-center justify-between text-[12.5px]"><span class="text-[var(--wf-text-secondary)]">' + esc(p.project) + '</span><span class="font-semibold text-[var(--wf-text)]">' + p.count + '</span></div>').join('') :
+      '<p class="text-[12px] text-[var(--wf-text-tertiary)]">None</p>';
+    $('overdueByProject').innerHTML = projectHtml;
+
+    const asgHtml = data.by_assignee.length ? data.by_assignee.map(a =>
+      '<div class="flex items-center justify-between text-[12.5px]"><span class="inline-flex items-center gap-1.5 text-[var(--wf-text-secondary)]"><span class="wf-avatar wf-avatar-sm" style="background:' + esc(a.color) + '">' + esc(a.initials) + '</span>' + esc(a.name) + '</span><span class="font-semibold text-[var(--wf-text)]">' + a.count + '</span></div>').join('') :
+      '<p class="text-[12px] text-[var(--wf-text-tertiary)]">None</p>';
+    $('overdueByAssignee').innerHTML = asgHtml;
+
+    const prioHtml = data.by_priority.length ? data.by_priority.map(p =>
+      '<div class="flex items-center justify-between text-[12.5px]"><span class="inline-flex items-center gap-1.5 text-[var(--wf-text-secondary)]"><span class="w-2 h-2 rounded-full" style="background:' + esc(p.color) + '"></span>' + esc(p.priority) + '</span><span class="font-semibold text-[var(--wf-text)]">' + p.count + '</span></div>').join('') :
+      '<p class="text-[12px] text-[var(--wf-text-tertiary)]">None</p>';
+    $('overdueByPriority').innerHTML = prioHtml;
+
+    $('overdueWrap').innerHTML = data.total_overdue
+      ? taskTable(data.tasks, 'No overdue tasks.')
+      : '<div class="wf-empty"><p class="text-[13px] text-[var(--wf-text-tertiary)]">No overdue tasks. Nice!</p></div>';
+
+    if (data.upcoming_total) {
+      $('upcomingWrap').innerHTML =
+        '<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 p-5">' +
+        data.upcoming.map(u =>
+          '<div class="rounded-xl border border-[var(--wf-border-soft)] p-3 cursor-pointer hover:bg-[#fafafb] transition-colors" onclick="location=\'/issue/' + u.task.id + '\'">' +
+            '<div class="flex items-center justify-between gap-2"><span class="text-[11px] font-bold text-[var(--wf-primary)]">' + esc(u.task.key) + '</span>' +
+            (u.days_until === 0 ? '<span class="wf-badge" style="background:#fef2f2;color:#dc2626">Due today</span>' : '<span class="wf-badge" style="background:#fffbeb;color:#d97706">' + u.days_until + 'd</span>') + '</div>' +
+            '<div class="text-[13px] font-medium text-[var(--wf-text)] leading-tight mt-1 line-clamp-2">' + esc(u.task.title) + '</div>' +
+            '<div class="flex items-center gap-2 mt-2 text-[11px] text-[var(--wf-text-tertiary)]"><span class="w-2 h-2 rounded-full" style="background:' + esc(u.task.status_color) + '"></span>' + esc(u.task.status_label) +
+            '<span class="wf-badge" style="background:' + esc(u.task.priority_color) + '1a;color:' + esc(u.task.priority_color) + '">' + esc(u.task.priority) + '</span> due ' + esc(u.task.due_date) + '</div>' +
+          '</div>').join('') +
+        '</div>';
+    } else {
+      $('upcomingWrap').innerHTML = '<div class="wf-empty"><p class="text-[13px] text-[var(--wf-text-tertiary)]">No deadlines in the next 7 days.</p></div>';
+    }
+  }
+
+  /* ---------------- Team Performance ---------------- */
+  function renderTeam(data) {
+    $('cardTeam').style.display = '';
+    $('teamChip').textContent = data.total_members + ' members · ' + data.total_assigned + ' assignments';
+    if (!data.members.length) {
+      $('teamWrap').innerHTML = '<div class="wf-empty"><p class="text-[13px] text-[var(--wf-text-tertiary)]">No assigned work matches the current filters.</p></div>';
+      return;
+    }
+    $('teamWrap').innerHTML =
+      '<table class="wf-table"><thead><tr>' +
+      '<th>Member</th><th>Assigned</th><th>Completed</th><th>In progress</th><th>Overdue</th><th>Completion</th><th>Points</th>' +
+      '</tr></thead><tbody>' +
+      data.members.map(m => {
+        const pct = m.assigned ? Math.round(m.completed / m.assigned * 100) : 0;
+        return '<tr onclick="openOverlay({ type: \'in_progress\', assignee_id: ' + m.user_id + ', title: \'' + esc(m.name || '') + ' — in progress\' }); return false;" class="cursor-pointer">' +
+          '<td><span class="inline-flex items-center gap-2 min-w-[170px]"><span class="wf-avatar wf-avatar-sm" style="background:' + esc(m.color) + '">' + esc(m.initials) + '</span><span><div class="text-[13px] font-semibold text-[var(--wf-text)] leading-tight">' + esc(m.name) + '</div><div class="text-[11px] text-[var(--wf-text-tertiary)]">' + esc(m.role || '') + '</div></span></span></td>' +
+          '<td><span class="text-[12.5px] font-semibold text-[var(--wf-text)]">' + m.assigned + '</span></td>' +
+          '<td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">' + m.completed + '</span></td>' +
+          '<td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">' + m.in_progress + '</span></td>' +
+          '<td>' + (m.overdue ? '<span class="wf-badge" style="background:#fef2f2;color:#dc2626">' + m.overdue + '</span>' : '<span class="text-[12.5px] text-[var(--wf-text-tertiary)]">0</span>') + '</td>' +
+          '<td>' + progressBar(pct, '#059669') + '</td>' +
+          '<td><span class="text-[12.5px] text-[var(--wf-text-secondary)] whitespace-nowrap">' + m.completed_points + ' / ' + m.allocated_points + ' pts</span></td>' +
+        '</tr>';
+      }).join('') +
+      '</tbody></table>';
+  }
+
+  /* ---------------- Filters ---------------- */
+  function populateFilters(meta) {
+    filtersMeta = meta;
+    $('fProject').innerHTML = '<option value="">All projects</option>' + meta.projects.map(p => '<option value="' + p.id + '">' + esc(p.key) + ' — ' + esc(p.name) + '</option>').join('');
+    $('fSprint').innerHTML = '<option value="">All sprints</option>' + meta.sprints.map(s => '<option value="' + s.id + '">' + esc(s.name) + ' · ' + esc(s.status) + '</option>').join('');
+    $('fAssignee').innerHTML = '<option value="">Everyone</option>' + meta.assignees.map(u => '<option value="' + u.id + '">' + esc(u.name) + '</option>').join('');
+    $('fStatus').innerHTML = '<option value="">All statuses</option>' + meta.statuses.map(s => '<option value="' + s.key + '">' + esc(s.label) + '</option>').join('');
+  }
+
+  function syncScopeFromForm() {
+    scope.project_id = $('fProject').value;
+    scope.sprint_id = $('fSprint').value;
+    scope.assignee_id = $('fAssignee').value;
+    scope.status = $('fStatus').value;
+    scope.start_date = $('fStart').value;
+    scope.end_date = $('fEnd').value;
+  }
+
+  function setQuickRange(days) {
+    const end = new Date();
+    const start = new Date(end.getTime() - days * 86400000);
+    const fmt = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    $('fStart').value = fmt(start);
+    $('fEnd').value = fmt(end);
+  }
+
+  function toggleFilters() {
+    const card = $('filtersCard');
+    const show = card.style.display === 'none';
+    card.style.display = show ? '' : 'none';
+    $('btnFiltersLabel').textContent = show ? 'Hide filters' : 'Filters';
+  }
+
+  function applyFilters() {
+    syncScopeFromForm();
+    $('cardHealth').style.display = 'none';
+    $('cardOverdue').style.display = 'none';
+    $('cardSprints').style.display = 'none';
+    $('cardTeam').style.display = 'none';
+    loadAll(true);
+  }
+
+  function resetFilters() {
+    scope = { project_id: '', sprint_id: '', assignee_id: '', status: '', start_date: '', end_date: '' };
+    $('fProject').value = $('fSprint').value = $('fAssignee').value = $('fStatus').value = '';
+    $('fStart').value = $('fEnd').value = '';
+    applyFilters();
+  }
+
+  /* ---------------- Load ---------------- */
+  async function loadAll(isApply) {
+    const qs = params();
+    if (isApply) { /* keep cards visible with skeletons */ }
+    try {
+      const [summary, health, sprints, velocity, statusD, priorityD, overdue, completed, team] = await Promise.all([
+        api('/api/v1/reports/summary' + qs),
+        api('/api/v1/reports/project-health' + qs),
+        api('/api/v1/reports/sprint-analytics' + qs),
+        api('/api/v1/reports/velocity' + qs),
+        api('/api/v1/reports/status-distribution' + qs),
+        api('/api/v1/reports/priority-distribution' + qs),
+        api('/api/v1/reports/overdue' + qs),
+        api('/api/v1/reports/completed-over-time' + qs),
+        api('/api/v1/reports/team-performance' + qs)
+      ]);
+      renderKpis(summary);
+      renderHealth(health.projects);
+      renderSprints(sprints);
+      renderVelocity(velocity);
+      renderStatus(statusD);
+      renderPriority(priorityD);
+      renderOverdue(overdue);
+      renderCompleted(completed);
+      renderTeam(team);
+    } catch (err) {
+      fail(err.message || 'Failed to load report data.');
+    }
+  }
+
+  async function init() {
+    try {
+      const meta = await api('/api/v1/reports/filters');
+      populateFilters(meta);
+    } catch (err) { fail('Failed to load filter options.'); }
+    await loadAll(false);
+  }
+
+  window.ReportApp = {
+    toggleFilters,
+    applyFilters,
+    resetFilters,
+    setQuickRange,
+    exportCsv: buildExport,
+    kpiClick: (i) => {
+      const fn = (window._reportKpiClicks || [])[i];
+      if (fn) fn();
+    }
+  };
+
+  function buildExport() {
+    const rows = [];
+    const header = ['Type', 'Key', 'Title', 'Status', 'Priority', 'Points', 'Assignee', 'Project', 'Sprint', 'Due', 'Created'];
+    Promise.all([
+      api('/api/v1/reports/overdue' + params()),
+      api('/api/v1/reports/team-performance' + params())
+    ]).then(([overdue, team]) => {
+      overdue.tasks.forEach(t => {
+        rows.push(['Overdue', t.key, t.title, t.status_label, t.priority, t.points || '', t.assignee || '', t.project || '', t.sprint || '', t.due_date, t.created_at]);
+      });
+      team.members.forEach(m => {
+        rows.push(['Team', m.name, m.role, '', '', '', m.assigned, m.completed, m.overdue, m.completed_points, m.allocated_points]);
+      });
+      const csv = [header].concat(rows).map(r => {
+        const padded = [];
+        for (let i = 0; i < header.length; i++) padded.push(r[i]);
+        return padded.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',');
+      }).join('\r\n');
+      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'wexira-reports-export.csv';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+      if (window.Wexira) Wexira.showToast('Export downloaded.', 'success', 'Done');
+    }).catch(() => fail('Failed to export.'));
+  }
+
+  /* expose overlay for inline handlers */
+  window.openOverlay = openOverlay;
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+{% endblock %}
+{% endblock %}

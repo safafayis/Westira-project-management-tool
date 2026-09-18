@@ -7,9 +7,10 @@ import os
 from datetime import datetime, timedelta
 
 from dotenv import load_dotenv
-from flask import Flask
 
-from models import (
+from app import create_app
+from app.extensions import db
+from app.models import (
     Activity,
     Comment,
     Issue,
@@ -18,17 +19,12 @@ from models import (
     ProjectMembers,
     Sprint,
     User,
-    db,
+    WorkspaceSettings,
 )
 
 load_dotenv()
 
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
-    'DATABASE_URL', 'postgresql://wexira:wexira@127.0.0.1:5432/wexira'
-)
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db.init_app(app)
+app = create_app()
 
 
 def seed():
@@ -41,7 +37,7 @@ def seed():
         # ----------------------------------------------------------
         users_data = [
             # name, initials, email, role, plan, team, cap, ap, ct, color
-            ('Alex Morgan', 'AM', 'alex@wexira.io', 'Project Manager', 'pro', 'Platform', 85, 3, 8, '#4f46e5'),
+            ('Alex Morgan', 'AM', 'alex@abc.io', 'Project Manager', 'pro', 'Platform', 85, 3, 8, '#4f46e5'),
             ('Sarah Chen', 'SC', 'sarah@wexira.io', 'Frontend Developer', 'pro', 'Checkout', 90, 2, 12, '#0891b2'),
             ('Marcus Johnson', 'MJ', 'marcus@wexira.io', 'Backend Developer', 'plus', 'Platform', 75, 2, 10, '#059669'),
             ('Priya Sharma', 'PS', 'priya@wexira.io', 'UI/UX Designer', 'plus', 'Checkout', 60, 2, 6, '#d97706'),
@@ -248,6 +244,17 @@ def seed():
         for icon, color, title, detail, t, ntype, unread in notifications:
             db.session.add(Notification(icon=icon, color=color, title=title, detail=detail,
                                         created_at=t, notification_type=ntype, is_read=not unread))
+
+        # ----------------------------------------------------------
+        # WORKSPACE (singleton row id=1) - idempotent: update existing,
+        # never create a duplicate.
+        # ----------------------------------------------------------
+        ws = WorkspaceSettings.query.get(1)
+        if ws is None:
+            db.session.add(WorkspaceSettings(id=1, name='ABC', slug='abc-workspace'))
+        else:
+            ws.name = 'ABC'
+            ws.slug = 'abc-workspace'
 
         db.session.commit()
         print('Seed complete. Tables created and populated in:', os.getenv('DATABASE_URL'))

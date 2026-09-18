@@ -1,0 +1,285 @@
+{% extends 'base.html' %}
+
+{% block title %}Team{% endblock %}
+
+{% block content %}
+<div class="wf-fade-up">
+  <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+    <div>
+      <h1 class="text-[22px] font-bold text-[var(--wf-text)]">Team</h1>
+      <p class="text-[13.5px] text-[var(--wf-text-secondary)] mt-1">People, roles, and workload across your access.</p>
+    </div>
+  </div>
+
+  <div class="wf-card">
+    <div class="p-4 flex flex-wrap items-center gap-3 border-b border-[var(--wf-border-soft)]">
+      <div class="wf-search" style="max-width:320px;flex:1;min-width:180px">
+        <i data-lucide="search" style="width:15px;height:15px"></i>
+        <input type="text" id="teamSearch" placeholder="Search team members…">
+      </div>
+      <button class="wf-btn wf-btn-sm wf-btn-secondary" id="roleBtn"><i data-lucide="filter" style="width:13px;height:13px"></i> Role<span id="roleBadge" class="hidden ml-1 w-4 h-4 rounded-full bg-[var(--wf-primary)] text-white text-[10px] grid place-items-center font-bold">1</span></button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="wf-table">
+        <thead><tr><th>Member</th><th>Role</th><th>Team</th><th>Projects</th><th>Tasks</th></tr></thead>
+        <tbody id="teamBody">
+          {% for u in users %}
+          <tr class="cursor-pointer hover:bg-[#fafafb]">
+            <td>
+              <div class="flex items-center gap-3 min-w-[170px]">
+                <span class="wf-avatar" style="background:{{ u.color }}">{{ u.initials }}</span>
+                <div>
+                  <div class="font-semibold text-[var(--wf-text)] text-[13.5px]">{{ u.name }}</div>
+                  <div class="text-[11.5px] text-[var(--wf-text-tertiary)]">{{ u.email }}</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="wf-badge {{ 'wf-badge-soft-purple' if 'Manager' in u.role else 'wf-badge-soft-blue' if 'Developer' in u.role else 'wf-badge-soft-green' if u.role.startswith('UI') else 'wf-badge-soft-amber' if u.role.startswith('QA') else 'wf-badge-soft-cyan' if 'DevOps' in u.role else 'wf-badge-soft-gray' }}">
+                {{ u.role }}
+              </span>
+            </td>
+            <td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">{{ u.team }}</span></td>
+            <td><span class="text-[12.5px] font-semibold text-[var(--wf-text)]">{{ u.active_projects }}</span></td>
+            <td><span class="text-[12.5px] font-semibold {{ 'text-[var(--wf-error)]' if u.current_tasks > 12 else 'text-[var(--wf-text)]' }}">{{ u.current_tasks }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="wf-card mt-4">
+    <div class="wf-card-header"><h2 class="text-[15px] font-bold text-[var(--wf-text)]">Team by Role</h2></div>
+    <div class="p-5">
+      {% set roles = {} %}
+      {% for u in users %}{% set _ = roles.update({u.role: roles.get(u.role, []) + [u]}) %}{% endfor %}
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {% for role, members in roles.items() %}
+        <div class="rounded-lg border border-[var(--wf-border)] p-3.5">
+          <div class="flex items-center justify-between mb-2.5">
+            <span class="text-[12.5px] font-semibold text-[var(--wf-text)]">{{ role }}</span>
+            <span class="wf-badge wf-badge-soft-gray">{{ members|length }}</span>
+          </div>
+          <div class="wf-avatar-group">
+            {% for m in members %}
+            <span class="wf-avatar" style="background:{{ m.color }}" title="{{ m.name }}">{{ m.initials }}</span>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  #roleMenu .wf-menu-item.is-selected { color: var(--wf-primary); font-weight: 600; background: var(--wf-primary-50); }
+  .wf-radio-dot { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid #c7c9d1; flex: none; }
+  #roleMenu .wf-menu-item.is-selected .wf-radio-dot { border-color: var(--wf-primary); background: var(--wf-primary); }
+</style>
+<script>
+(function () {
+  'use strict';
+
+  var esc = window.Wexira && Wexira.escapeHtml
+    ? function (s) { return Wexira.escapeHtml(s == null ? '' : String(s)); }
+    : function (s) { return String(s == null ? '' : s); };
+  var toast = function (msg, type, title) { if (window.Wexira) Wexira.showToast(msg, type, title); };
+
+  var body = document.getElementById('teamBody');
+  var roleBtn = document.getElementById('roleBtn');
+  var roleBadge = document.getElementById('roleBadge');
+  var searchEl = document.getElementById('teamSearch');
+
+  var state = { role: '' };
+  var teamRoles = null;
+  var lastMembers = null;
+  var openMenu = null;
+
+  /* Mirrors the Jinja badge logic used for the statically rendered rows. */
+  function roleBadgeClass(role) {
+    role = role || '';
+    if (role.indexOf('Manager') !== -1) return 'wf-badge-soft-purple';
+    if (role.indexOf('Developer') !== -1) return 'wf-badge-soft-blue';
+    if (role.indexOf('UI') === 0) return 'wf-badge-soft-green';
+    if (role.indexOf('QA') === 0) return 'wf-badge-soft-amber';
+    if (role.indexOf('DevOps') !== -1) return 'wf-badge-soft-cyan';
+    return 'wf-badge-soft-gray';
+  }
+
+  function rowHtml(u) {
+    var taskClass = Number(u.current_tasks) > 12 ? 'text-[var(--wf-error)]' : 'text-[var(--wf-text)]';
+    return '<tr class="cursor-pointer hover:bg-[#fafafb]">' +
+      '<td><div class="flex items-center gap-3 min-w-[170px]">' +
+        '<span class="wf-avatar" style="background:' + esc(u.color) + '">' + esc(u.initials) + '</span>' +
+        '<div>' +
+          '<div class="font-semibold text-[var(--wf-text)] text-[13.5px]">' + esc(u.name) + '</div>' +
+          '<div class="text-[11.5px] text-[var(--wf-text-tertiary)]">' + esc(u.email) + '</div>' +
+        '</div>' +
+      '</div></td>' +
+      '<td><span class="wf-badge ' + roleBadgeClass(u.role) + '">' + esc(u.role) + '</span></td>' +
+      '<td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">' + esc(u.team) + '</span></td>' +
+      '<td><span class="text-[12.5px] font-semibold text-[var(--wf-text)]">' + esc(u.active_projects) + '</span></td>' +
+      '<td><span class="text-[12.5px] font-semibold ' + taskClass + '">' + esc(u.current_tasks) + '</span></td>' +
+    '</tr>';
+  }
+
+  function emptyRow() {
+    return '<tr data-empty-row="1"><td colspan="5">' +
+      '<div class="wf-empty py-8">' +
+        '<i data-lucide="users" style="width:26px;height:26px;margin:0 auto 8px;color:var(--wf-text-tertiary)"></i>' +
+        '<div class="text-[14px] font-semibold text-[var(--wf-text)]">No members found</div>' +
+        '<div class="text-[12.5px] text-[var(--wf-text-secondary)]">Try changing your search or role filter.</div>' +
+      '</div>' +
+    '</td></tr>';
+  }
+
+  function loadingRow() {
+    return '<tr data-empty-row="1"><td colspan="5">' +
+      '<div class="flex items-center justify-center gap-2 py-8 text-[13px] text-[var(--wf-text-secondary)]">' +
+        '<i data-lucide="loader-2" style="width:15px;height:15px"></i> Loading members…' +
+      '</div>' +
+    '</td></tr>';
+  }
+
+  function renderMembers(members) {
+    lastMembers = members;
+    body.innerHTML = members.length ? members.map(rowHtml).join('') : emptyRow();
+    if (window.lucide) lucide.createIcons({ nodes: [body] });
+  }
+
+  function setLoading(on) {
+    if (on) body.innerHTML = loadingRow();
+    if (window.lucide) lucide.createIcons({ nodes: [body] });
+  }
+
+  function runSearch() {
+    if (!searchEl) return;
+    var q = searchEl.value.trim().toLowerCase();
+    var rows = Array.prototype.slice.call(body.querySelectorAll('tr:not([data-empty-row])'));
+    var visible = 0;
+    rows.forEach(function (r) {
+      var show = r.textContent.toLowerCase().includes(q);
+      r.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    var empty = body.querySelector('tr[data-empty-row]');
+    if (empty) empty.remove();
+    if (rows.length && visible === 0) {
+      body.insertAdjacentHTML('beforeend', emptyRow());
+      if (window.lucide) lucide.createIcons({ nodes: [body] });
+    }
+  }
+
+  function applyRoleFilter() {
+    roleBadge.classList.toggle('hidden', !state.role);
+    setLoading(true);
+    var url = state.role ? '/api/v1/users?role=' + encodeURIComponent(state.role) : '/api/v1/users';
+    fetch(url)
+      .then(function (r) { return r.json(); })
+      .then(function (members) {
+        renderMembers(Array.isArray(members) ? members : []);
+        runSearch();
+      })
+      .catch(function () {
+        toast('Could not load team members.', 'error');
+        if (lastMembers) renderMembers(lastMembers); else setLoading(false);
+        runSearch();
+      });
+  }
+
+  /* Menu helpers (same pattern as the Kanban filter dropdowns). */
+  function positionMenu(menu, anchor) {
+    var rect = anchor.getBoundingClientRect();
+    var top = rect.bottom + window.scrollY + 6;
+    var left = rect.left + window.scrollX;
+    menu.style.top = top + 'px';
+    menu.style.left = left + 'px';
+    document.body.appendChild(menu);
+    var menuRect = menu.getBoundingClientRect();
+    if (menuRect.right > window.innerWidth - 16) {
+      menu.style.left = Math.max(16, window.innerWidth - menuRect.width - 16) + 'px';
+    }
+    if (menuRect.bottom > window.innerHeight - 16) {
+      menu.style.top = (rect.top + window.scrollY - menuRect.height - 6) + 'px';
+    }
+  }
+
+  function addSection(menu, title) {
+    var div = document.createElement('div');
+    div.className = 'px-3 py-1 mt-1 text-[11px] font-bold uppercase tracking-wide text-[var(--wf-text-tertiary)]';
+    div.textContent = title;
+    menu.appendChild(div);
+  }
+
+  function addRoleItem(menu, value, label, count, selected) {
+    var btn = document.createElement('button');
+    btn.className = 'wf-menu-item' + (selected ? ' is-selected' : '');
+    var dot = document.createElement('span');
+    dot.className = 'wf-radio-dot';
+    btn.appendChild(dot);
+    var name = document.createElement('span');
+    name.textContent = label;
+    btn.appendChild(name);
+    if (count != null) {
+      var cnt = document.createElement('span');
+      cnt.className = 'text-[11.5px] font-semibold text-[var(--wf-text-tertiary)]';
+      cnt.style.marginLeft = 'auto';
+      cnt.textContent = count;
+      btn.appendChild(cnt);
+    }
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (state.role === value) { closeMenu(); return; }
+      state.role = value;
+      closeMenu();
+      applyRoleFilter();
+    });
+    menu.appendChild(btn);
+  }
+
+  function closeMenu() {
+    if (openMenu) { openMenu.remove(); openMenu = null; }
+  }
+
+  function openRoleMenu() {
+    if (openMenu && openMenu.id === 'roleMenu') { closeMenu(); return; }
+    closeMenu();
+
+    var menu = document.createElement('div');
+    menu.id = 'roleMenu';
+    menu.className = 'wf-menu';
+    positionMenu(menu, roleBtn);
+
+    addSection(menu, 'Role');
+    addRoleItem(menu, '', 'All Roles', null, state.role === '');
+    (teamRoles || []).forEach(function (r) {
+      addRoleItem(menu, r.name, r.name, r.count, state.role === r.name);
+    });
+
+    openMenu = menu;
+    if (window.lucide) lucide.createIcons({ nodes: [menu] });
+  }
+
+  document.addEventListener('click', function (e) {
+    if (openMenu && !openMenu.contains(e.target) && !roleBtn.contains(e.target)) {
+      closeMenu();
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeMenu();
+  });
+
+  if (roleBtn) roleBtn.addEventListener('click', function (e) { e.stopPropagation(); openRoleMenu(); });
+
+  searchEl.addEventListener('input', function () { runSearch(); });
+
+  fetch('/api/v1/team/roles')
+    .then(function (r) { return r.json(); })
+    .then(function (roles) { teamRoles = Array.isArray(roles) ? roles : []; })
+    .catch(function () { toast('Could not load roles.', 'error'); });
+})();
+</script>
+{% endblock %}

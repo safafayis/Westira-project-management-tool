@@ -1,0 +1,450 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="wf-fade-up">
+  {# ---------------- PROJECT HEADER ---------------- #}
+  <div class="wf-card p-6 mb-4">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-start gap-3">
+        <a href="/projects" title="Back to Projects" class="wf-icon-btn flex-none mt-1">
+          <i data-lucide="arrow-left" style="width:17px;height:17px"></i>
+        </a>
+        <span class="w-12 h-12 rounded-xl grid place-items-center text-white text-[14px] font-bold flex-none" style="background:{{ project.color }}">{{ project.key }}</span>
+        <div>
+          <div class="flex items-center gap-3 flex-wrap">
+            <h1 class="text-[22px] font-bold text-[var(--wf-text)]">{{ project.name }}</h1>
+            {% if project.status == 'In Progress' %}<span class="wf-status wf-status-progress"><span class="dot"></span>In Progress</span>
+            {% elif project.status == 'Not Started' %}<span class="wf-status wf-status-todo"><span class="dot"></span>Not Started</span>
+            {% elif project.status == 'Completed' %}<span class="wf-status wf-status-done"><span class="dot"></span>Completed</span>
+            {% elif project.status == 'Hold' %}<span class="wf-status wf-status-blocked"><span class="dot"></span>Hold</span>
+            {% else %}<span class="wf-status wf-status-todo"><span class="dot"></span>{{ project.status }}</span>{% endif %}
+          </div>
+          <p class="text-[13px] text-[var(--wf-text-secondary)] mt-1 max-w-xl">{{ project.description }}</p>
+          <div class="flex items-center gap-5 mt-3 flex-wrap text-[12.5px]">
+            <span class="flex items-center gap-2 text-[var(--wf-text-secondary)]">
+              <i data-lucide="user" style="width:14px;height:14px;color:var(--wf-text-tertiary)"></i>
+              <span class="font-semibold text-[var(--wf-text)]">{{ project.lead.name if project.lead else project.lead_initials }}</span> · Project Lead
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-6 pt-5 border-t border-[var(--wf-border-soft)]">
+      <div>
+        <div class="text-[11.5px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide">Project lead</div>
+        <div class="flex items-center gap-2 mt-1.5">
+          <span class="wf-avatar" style="background:{{ project.color }}">{{ project.lead_initials }}</span>
+          <span class="text-[13px] font-medium">{{ project.lead.name if project.lead else project.lead_initials }}</span>
+        </div>
+      </div>
+      <div>
+        <div class="text-[11.5px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide">Team members</div>
+        <div class="wf-avatar-group mt-1.5">
+          {% for m in members %}
+          <span class="wf-avatar wf-avatar-sm" style="background:{{ m.color }}">{{ m.initials }}</span>
+          {% endfor %}
+          <span class="wf-avatar wf-avatar-sm" style="background:#9ca3af">+2</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3 mt-5">
+      <div class="flex items-center gap-2 min-w-[200px] flex-1">
+        <div class="wf-progress-track" style="height:9px">
+          <div class="wf-progress-bar" style="width:{{ project.progress }}%;background:{{ project.color }}"></div>
+        </div>
+        <span class="text-[13px] font-bold text-[var(--wf-text)]">{{ project.progress }}%</span>
+        <span class="text-[12px] text-[var(--wf-text-secondary)]">complete</span>
+      </div>
+    </div>
+  </div>
+
+  {# ---------------- HEALTH + SPRINT ---------------- #}
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+    <div class="wf-card lg:col-span-2">
+      <div class="wf-card-header">
+        <div>
+          <h2 class="text-[15px] font-bold text-[var(--wf-text)]">Project Health</h2>
+        </div>
+        <span class="wf-badge wf-badge-soft-green">Healthy</span>
+      </div>
+      <div class="p-5 grid grid-cols-2 md:grid-cols-4 gap-3">
+        {% set health = [
+          ('Schedule','schedule','calendar-check','On Track','#059669',project.health_schedule),
+          ('Budget','budget','wallet','On Track','#059669',project.health_budget),
+          ('Scope','scope','target','At Risk','#d97706',project.health_scope),
+          ('Team Capacity','capacity','gauge','Good','#059669',project.health_capacity),
+        ] %}
+        {% for name,key,icon,hue,good,v in health %}
+        <div class="rounded-lg border border-[var(--wf-border)] p-3.5">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="w-7 h-7 rounded-lg grid place-items-center" style="background:{{ good }}1a;color:{{ good }}">
+              <i data-lucide="{{ icon }}" style="width:14px;height:14px"></i>
+            </span>
+            <span class="text-[11.5px] font-semibold text-[var(--wf-text-secondary)]">{{ name }}</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full" style="background:{{ 'var(--wf-success)' if v == 'On Track' or v == 'Good' else 'var(--wf-warning)' }}"></span>
+            <span class="text-[13px] font-bold text-[var(--wf-text)]">{{ v }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% if sprints %}
+    <div class="wf-card">
+      {% set sp = sprints[1] if sprints|length > 1 else sprints[0] %}
+      <div class="wf-card-header">
+        <div>
+          <h2 class="text-[15px] font-bold text-[var(--wf-text)]">{{ sp.name }}</h2>
+          <p class="text-[12px] text-[var(--wf-text-secondary)]">{{ sp.start_date }} → {{ sp.end_date }}</p>
+        </div>
+        <span class="wf-badge wf-badge-soft-green">Active</span>
+      </div>
+      <div class="p-5">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[12.5px] text-[var(--wf-text-secondary)]">Complete</span>
+          <span class="text-[20px] font-bold text-[var(--wf-text)]">{{ (sp.story_points_done / (sp.story_points_total or 1) * 100)|int }}%</span>
+        </div>
+        <div class="wf-progress-track mb-5" style="height:8px">
+          <div class="wf-progress-bar" style="width:{{ (sp.story_points_done / (sp.story_points_total or 1) * 100)|int }}%;background:var(--wf-primary)"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mb-4">
+          <div class="rounded-lg p-2.5 flex items-center justify-between" style="background:#eef2ff">
+            <span class="text-[11.5px] font-medium text-[#4338ca]">To Do</span>
+            <span class="text-[16px] font-bold text-[#4f46e5]">{{ sp.to_do }}</span>
+          </div>
+          <div class="rounded-lg p-2.5 flex items-center justify-between" style="background:#ecfeff">
+            <span class="text-[11.5px] font-medium text-[#0e7490]">In Progress</span>
+            <span class="text-[16px] font-bold text-[#0891b2]">{{ sp.in_progress }}</span>
+          </div>
+          <div class="rounded-lg p-2.5 flex items-center justify-between" style="background:#f5f3ff">
+            <span class="text-[11.5px] font-medium text-[#6d28d9]">In Review</span>
+            <span class="text-[16px] font-bold text-[#7c3aed]">{{ sp.in_review }}</span>
+          </div>
+          <div class="rounded-lg p-2.5 flex items-center justify-between" style="background:#ecfdf5">
+            <span class="text-[11.5px] font-medium text-[#047857]">Done</span>
+            <span class="text-[16px] font-bold text-[#059669]">{{ sp.done }}</span>
+          </div>
+        </div>
+        <div class="text-[11.5px] text-[var(--wf-text-tertiary)] mb-3"><i data-lucide="target" style="width:12px;height:12px;display:inline;vertical-align:-2px"></i> {{ sp.goal }}</div>
+        <a href="/kanban" class="wf-btn wf-btn-secondary wf-btn-sm w-full justify-center"><i data-lucide="columns-3" style="width:13px;height:13px"></i> Open Sprint Board</a>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ---------------- DEADLINES ---------------- #}
+  <div class="wf-card mb-4">
+    <div class="wf-card-header">
+      <h2 class="text-[15px] font-bold text-[var(--wf-text)]">Upcoming Deadlines</h2>
+    </div>
+    <div class="p-4 flex flex-col gap-2">
+      {% set upcoming_all = issues|selectattr('due_date')|list %}
+      {% set upcoming = upcoming_all[:4] %}
+      {% if upcoming %}
+      {% for i in upcoming %}
+      <div class="flex items-center gap-3 p-2.5 rounded-lg hover:bg-[#fafafb] cursor-pointer transition-colors" onclick="location='/issue/{{ i.id }}'">
+        <span class="w-1.5 h-9 rounded-full" style="background:{{ i.priority_color }}"></span>
+        <div class="min-w-0 flex-1">
+          <div class="text-[13px] font-medium text-[var(--wf-text)]">{{ i.title }}</div>
+          <div class="text-[11.5px] text-[var(--wf-text-tertiary)]">{{ i.number }} · {{ i.assignee or 'Unassigned' }}</div>
+        </div>
+        <span class="text-[12px] font-semibold text-[var(--wf-text-secondary)]">{{ i.due_date }}</span>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div class="wf-empty text-[var(--wf-text-tertiary)]"><i data-lucide="calendar-x" style="width:30px;height:30px"></i><div>No upcoming deadlines.</div></div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ---------------- TASK SECTION ---------------- #}
+  <div class="wf-card">
+    <div class="wf-card-header">
+      <div>
+        <h2 class="text-[15px] font-bold text-[var(--wf-text)]">Project Tasks</h2>
+        <p class="text-[12px] text-[var(--wf-text-secondary)]">Tasks and milestones for {{ project.name }}</p>
+      </div>
+      <button class="wf-btn wf-btn-primary wf-btn-sm" onclick="Wexira.openCreateIssue(PROJECT_KEY, PROJECT_BOUNDS)"><i data-lucide="plus" style="width:14px;height:14px"></i> Create Issue</button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="wf-table">
+        <thead><tr>
+          <th>Objective</th><th>Start Date</th><th>End Date</th><th>Task Status</th><th>Commands</th>
+        </tr></thead>
+        <tbody>
+          {% for i in issues %}
+          <tr class="cursor-pointer hover:bg-[#fafafb]" data-id="{{ i.id }}">
+            <td class="cursor-pointer" onclick="location='/issue/{{ i.id }}'">
+              <div class="font-medium text-[var(--wf-text)]">{{ i.number }}</div>
+              <div class="text-[13px] text-[var(--wf-text-secondary)]">{{ i.title }}</div>
+            </td>
+            <td class="text-[12.5px] text-[var(--wf-text-secondary)]">{{ i.start_date or i.created_at or '—' }}</td>
+            <td class="text-[12.5px] text-[var(--wf-text-secondary)]">{{ i.due_date or '—' }}</td>
+            <td>
+              {% if i.status == 'done' %}<span class="wf-status wf-status-done"><span class="dot"></span>Done</span>
+              {% elif i.status == 'in_progress' %}<span class="wf-status wf-status-progress"><span class="dot"></span>In Progress</span>
+              {% elif i.status == 'in_review' %}<span class="wf-status wf-status-review"><span class="dot"></span>In Review</span>
+              {% elif i.status == 'todo' %}<span class="wf-status wf-status-todo"><span class="dot"></span>To Do</span>
+              {% else %}<span class="wf-status wf-status-todo"><span class="dot"></span>Backlog</span>{% endif %}
+            </td>
+            <td>
+              <div class="flex items-center gap-1.5" onclick="event.stopPropagation()">
+                <button class="wf-icon-btn" title="View" onclick="location='/issue/{{ i.id }}'"><i data-lucide="eye" style="width:14px;height:14px"></i></button>
+                <button class="wf-icon-btn" title="Edit Task" onclick="editTask({{ i.id }})"><i data-lucide="pencil" style="width:14px;height:14px"></i></button>
+                <button class="wf-icon-btn" title="Delete" onclick="deleteTaskFrom(this)"><i data-lucide="trash-2" style="width:14px;height:14px;color:var(--wf-error)"></i></button>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-center text-[var(--wf-text-tertiary)] py-8">No tasks yet. Create one to get started.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="editTaskModal"></div>
+
+<script>
+  var PROJECT_KEY = {{ project.key|tojson }};
+  var PROJECT_BOUNDS = { start: {{ project.start_date|tojson }}, target: {{ project.due_date|tojson }} };
+
+  function deleteTaskFrom(btn) {
+    var tr = btn.closest('tr');
+    if (!confirm('Delete task permanently?')) return;
+    fetch('/api/v1/issues/' + tr.dataset.id, { method: 'DELETE' })
+      .then(r => r.json())
+      .then(() => {
+        Wexira.showToast('Task deleted.', 'success');
+        setTimeout(() => location.reload(), 450);
+      })
+      .catch(() => Wexira.showToast('Could not delete the task.', 'error'));
+  }
+
+  var ET_STATUSES = [['backlog', 'Backlog'], ['todo', 'To Do'], ['in_progress', 'In Progress'], ['in_review', 'In Review'], ['done', 'Done']];
+  var ET_PRIORITIES = ['Highest', 'High', 'Medium', 'Low', 'Lowest'];
+  var ET_BADGES = {
+    backlog: ['wf-status-todo', 'Backlog'],
+    todo: ['wf-status-todo', 'To Do'],
+    in_progress: ['wf-status-progress', 'In Progress'],
+    in_review: ['wf-status-review', 'In Review'],
+    done: ['wf-status-done', 'Done'],
+  };
+
+  function esc(v) { return escapeHtml(v || ''); }
+
+  function closeEditModal() {
+    var root = document.getElementById('editTaskModal');
+    if (root) root.innerHTML = '';
+    document.body.style.overflow = '';
+    document.removeEventListener('keydown', editEscHandler);
+  }
+
+  function editEscHandler(e) {
+    if (e.key === 'Escape') closeEditModal();
+  }
+
+  function editTask(id) {
+    fetch('/api/v1/issues/' + id)
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) { Wexira.showToast('Could not load the task.', 'error'); return; }
+        renderEditModal(id, d);
+      })
+      .catch(() => Wexira.showToast('Could not load the task.', 'error'));
+  }
+
+  function renderEditModal(id, d) {
+    var root = document.getElementById('editTaskModal');
+    if (!root) return;
+
+    var statusOpts = ET_STATUSES.map(function (s) {
+      return '<option value="' + s[0] + '"' + (s[0] === d.status ? ' selected' : '') + '>' + s[1] + '</option>';
+    }).join('');
+    var prioOpts = ET_PRIORITIES.map(function (p) {
+      return '<option' + (p === d.priority ? ' selected' : '') + '>' + p + '</option>';
+    }).join('');
+
+    root.innerHTML = '' +
+      '<div class="wf-modal-backdrop" id="etBackdrop">' +
+      '  <div class="wf-modal" style="max-width:640px">' +
+      '    <div class="flex items-center justify-between px-6 py-4 border-b border-[var(--wf-border-soft)]">' +
+      '      <div>' +
+      '        <h2 class="text-[16px] font-bold text-[var(--wf-text)]">Edit Task</h2>' +
+      '        <p class="text-[12px] text-[var(--wf-text-secondary)]">' + esc(PROJECT_KEY) + '-' + esc(d.number) + '</p>' +
+      '      </div>' +
+      '      <button type="button" class="wf-icon-btn" data-close><i data-lucide="x" style="width:16px;height:16px"></i></button>' +
+      '    </div>' +
+      '    <div class="px-6 py-5">' +
+      '      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">' +
+      '        <div class="wf-field md:col-span-2">' +
+      '          <label class="wf-label">Objective <span class="req">*</span></label>' +
+      '          <input class="wf-input" id="et-title" value="' + esc(d.title) + '" maxlength="240">' +
+      '        </div>' +
+      '        <div class="wf-field">' +
+      '          <label class="wf-label">Task Status <span class="req">*</span></label>' +
+      '          <select class="wf-select" id="et-status">' + statusOpts + '</select>' +
+      '        </div>' +
+      '        <div class="wf-field">' +
+      '          <label class="wf-label">Priority</label>' +
+      '          <select class="wf-select" id="et-priority">' + prioOpts + '</select>' +
+      '        </div>' +
+      '        <div class="wf-field">' +
+      '          <label class="wf-label">Assignee</label>' +
+      '          <select class="wf-select" id="et-assignee"><option value="">Unassigned</option></select>' +
+      '        </div>' +
+      '        <div class="wf-field">' +
+      '          <label class="wf-label">Story Points</label>' +
+      '          <input class="wf-input" id="et-points" type="number" min="0" step="1" value="' + esc(d.points || 0) + '">' +
+      '        </div>' +
+      '        <div class="wf-field">' +
+      '          <label class="wf-label">End Date</label>' +
+      '          <input class="wf-input" id="et-due" type="date" value="' + esc(d.due || '') + '">' +
+      '        </div>' +
+      '        <div class="wf-field">' +
+      '          <label class="wf-label">Sprint</label>' +
+      '          <select class="wf-select" id="et-sprint"><option value="">No Sprint</option></select>' +
+      '        </div>' +
+      '        <div class="wf-field md:col-span-2">' +
+      '          <label class="wf-label">Labels</label>' +
+      '          <input class="wf-input" id="et-labels" placeholder="e.g. frontend, urgent" value="' + esc((d.labels || []).join(', ')) + '">' +
+      '        </div>' +
+      '      </div>' +
+      '    </div>' +
+      '    <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--wf-border-soft)] bg-[#fafafb]">' +
+      '      <button class="wf-btn wf-btn-secondary" data-close>Cancel</button>' +
+      '      <button class="wf-btn wf-btn-primary" id="et-save"><i data-lucide="check" style="width:15px;height:15px"></i> Save Changes</button>' +
+      '    </div>' +
+      '  </div>' +
+      '</div>';
+
+    lucide.createIcons({ nodes: [root] });
+    document.body.style.overflow = 'hidden';
+    root.querySelectorAll('[data-close]').forEach(function (b) {
+      b.addEventListener('click', closeEditModal);
+    });
+    document.getElementById('etBackdrop').addEventListener('click', function (e) {
+      if (e.target.id === 'etBackdrop') closeEditModal();
+    });
+    document.addEventListener('keydown', editEscHandler);
+
+    var aSel = document.getElementById('et-assignee');
+    fetch('/api/v1/users')
+      .then(function (r) { return r.json(); })
+      .then(function (users) {
+        users.forEach(function (u) {
+          if (u.status && String(u.status).toLowerCase() !== 'active') return;
+          var opt = document.createElement('option');
+          opt.value = (u.initials || '').toUpperCase();
+          opt.textContent = u.name + ' (' + u.initials + ')';
+          if (d.assignee && (u.initials || '').toUpperCase() === String(d.assignee).toUpperCase()) opt.selected = true;
+          aSel.appendChild(opt);
+        });
+      })
+      .catch(function () {});
+
+    var sSel = document.getElementById('et-sprint');
+    fetch('/api/v1/sprints?project=' + encodeURIComponent(PROJECT_KEY))
+      .then(function (r) { return r.json(); })
+      .then(function (list) {
+        list.forEach(function (s) {
+          var opt = document.createElement('option');
+          opt.value = s.id;
+          opt.textContent = 'Sprint ' + s.number + (s.name ? ' — ' + s.name : '');
+          if (d.sprint && Number(s.number) === Number(d.sprint)) opt.selected = true;
+          sSel.appendChild(opt);
+        });
+      })
+      .catch(function () {});
+
+    document.getElementById('et-save').addEventListener('click', function () { saveEditTask(id); });
+  }
+
+  function saveEditTask(id) {
+    var titleEl = document.getElementById('et-title');
+    var title = titleEl.value.trim();
+    if (!title) { Wexira.showToast('Objective is required.', 'error'); titleEl.focus(); return; }
+    if (title.length > 240) { Wexira.showToast('Objective must be 240 characters or fewer.', 'error'); titleEl.focus(); return; }
+
+    var status = document.getElementById('et-status').value;
+    if (!status) { Wexira.showToast('Task Status is required.', 'error'); return; }
+
+    var pointsEl = document.getElementById('et-points');
+    var pointsVal = pointsEl.value.trim();
+    var points = 0;
+    if (pointsVal !== '') {
+      if (!/^\d+$/.test(pointsVal)) { Wexira.showToast('Story points must be a number.', 'error'); pointsEl.focus(); return; }
+      points = parseInt(pointsVal, 10);
+      if (points < 0) { Wexira.showToast('Story points cannot be negative.', 'error'); pointsEl.focus(); return; }
+    }
+
+    var due = document.getElementById('et-due').value;
+    if (due) {
+      var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(due);
+      if (!m) { Wexira.showToast('Invalid end date.', 'error'); return; }
+      var td = new Date(+m[1], +m[2] - 1, +m[3]);
+      var s0, e0;
+      if (PROJECT_BOUNDS && PROJECT_BOUNDS.start) {
+        s0 = new Date(PROJECT_BOUNDS.start);
+        if (!isNaN(s0.getTime()) && td < s0) { Wexira.showToast('End Date cannot be earlier than the project start date.', 'error'); return; }
+      }
+      if (PROJECT_BOUNDS && PROJECT_BOUNDS.target) {
+        e0 = new Date(PROJECT_BOUNDS.target);
+        if (!isNaN(e0.getTime()) && td > e0) { Wexira.showToast('End Date cannot be later than the project target date.', 'error'); return; }
+      }
+    }
+
+    var labels = Array.from(new Set(
+      document.getElementById('et-labels').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean)
+    ));
+
+    var payload = {
+      title: title,
+      status: status,
+      priority: document.getElementById('et-priority').value,
+      points: points,
+      assignee: document.getElementById('et-assignee').value,
+      sprint_id: document.getElementById('et-sprint').value,
+      labels: labels,
+    };
+    if (due !== '') payload.due_date = due;
+
+    fetch('/api/v1/issues/' + id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok) { Wexira.showToast(res.d.error || 'Could not update the task.', 'error'); return; }
+        closeEditModal();
+        Wexira.showToast('Task updated.', 'success');
+        updateTaskRow(id, res.d);
+      })
+      .catch(function () { Wexira.showToast('Could not update the task.', 'error'); });
+  }
+
+  function updateTaskRow(id, d) {
+    var tr = document.querySelector('tr[data-id="' + id + '"]');
+    if (!tr) { location.reload(); return; }
+    var tds = tr.children;
+    if (tds[0]) {
+      tds[0].innerHTML =
+        '<div class="font-medium text-[var(--wf-text)]">' + esc(d.number) + '</div>' +
+        '<div class="text-[13px] text-[var(--wf-text-secondary)]">' + esc(d.title) + '</div>';
+    }
+    if (tds[2]) tds[2].textContent = d.due || '—';
+    if (tds[3]) {
+      var cfg = ET_BADGES[d.status] || ET_BADGES.backlog;
+      tds[3].innerHTML = '<span class="wf-status ' + cfg[0] + '"><span class="dot"></span>' + cfg[1] + '</span>';
+    }
+  }
+</script>
+{% endblock %}
