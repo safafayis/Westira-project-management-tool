@@ -2,14 +2,16 @@
 from datetime import datetime
 
 from app.extensions import db
-from app.models import (Comment, Issue, IssueAssignees, Notification, Project,
-                        Sprint, User)
+from app.models import (Activity, Comment, Issue, IssueAssignees, Notification,
+                        Project, Sprint, User)
 from app.services import notification_service
 from app.utils.helpers import (
     ISSUE_TYPE_COLORS,
     KANBAN_STATUSES,
     PRIORITY_COLORS,
+    STATUS_LABELS,
     issue_dict,
+    issue_ref,
 )
 from app.utils.validators import validate_task_dates
 
@@ -202,6 +204,28 @@ def create_issue(data, actor):
 # ------------------------------------------------------------------
 # Update / move / delete
 # ------------------------------------------------------------------
+def _record_status_activity(issue, actor, old_status):
+    """Create the dashboard activity for a real status change.
+
+    Uses the existing Activity model/table. The row is added to the current
+    session so it commits atomically together with the issue status update.
+
+    old_status must be captured *before* the status is applied so the event
+    only fires when the status actually changed.
+    """
+    if old_status == issue.status:
+        return
+    actor_name = actor.name if actor is not None else 'Someone'
+    label = STATUS_LABELS.get(issue.status, (issue.status or '').title())
+    db.session.add(Activity(
+        icon='arrow',
+        color='#d97706',
+        text=f'{actor_name} moved {issue_ref(issue)} to {label}',
+        detail=issue.title[:240],
+        time=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+    ))
+
+
 def update_issue(issue_id, data, actor):
     issue = Issue.query.get_or_404(issue_id)
     old_assignee_id = issue.assignee_id
@@ -256,6 +280,8 @@ def update_issue(issue_id, data, actor):
         issue.due_date = data['due_date']
     if 'acceptance_criteria' in data:
         issue.acceptance_criteria = data['acceptance_criteria'] or ''
+    if 'status' in data and issue.status != old_status:
+        _record_status_activity(issue, actor, old_status)
     db.session.commit()
     try:
         if 'assignee' in data and issue.assignee_id != old_assignee_id:
@@ -288,6 +314,8 @@ def move_issue(issue_id, data, actor):
                 Sprint.project_id == issue.project_id,
             ).first()
             issue.sprint_id = sp.id if sp else issue.sprint_id
+    if 'status' in data and issue.status != old_status:
+        _record_status_activity(issue, actor, old_status)
     db.session.commit()
     try:
         if 'status' in data and issue.status != old_status:

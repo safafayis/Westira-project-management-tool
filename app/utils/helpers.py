@@ -4,9 +4,11 @@ Kept dependency-free of services so both API blueprints and the services
 layer can import from here without circular imports.
 """
 from datetime import datetime, timedelta
+import re
 
 from app.extensions import db
 from app.models import (
+    Activity,
     Comment,
     Issue,
     IssueAssignees,
@@ -228,14 +230,61 @@ def _relative_time(dt, day_only=False):
     return dt.strftime('%b %d, %Y')
 
 
+def _activity_issue_key(text):
+    """Parse '<Actor> moved <KEY> to <Label>' from an activity text.
+
+    Returns (issue_key, status) or (None, None) when the row is not a
+    status-change activity (e.g. the seed rows for comments/assignments).
+    """
+    m = re.match(r'^.*\bmoved\s+([A-Z]{1,6}-\d+)\s+to\s+(.+?)\s*$', str(text or '').strip())
+    if not m:
+        return None, None
+    key, label = m.group(1), m.group(2).strip()
+    status = {v: k for k, v in STATUS_LABELS.items()}.get(label)
+    if status is None:
+        return None, None
+    return key, status
+
+
+def _activity_time(value):
+    """Parse a stored activity timestamp.
+
+    Returns None for the seed rows, which store stale display strings such
+    as '2h ago' / '8h ago' instead of a real timestamp.
+    """
+    if not value:
+        return None
+    s = str(value).strip()
+    for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d'):
+        try:
+            return datetime.strptime(s, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _issue_from_key(key):
+    """Resolve a key like 'ECOM-168' back to a real Issue row (or None)."""
+    m = re.match(r'^([A-Z]{1,6})-(\d+)$', key)
+    if not m:
+        return None
+    project = Project.query.filter_by(key=m.group(1)).first()
+    if not project:
+        return None
+    return Issue.query.filter_by(project_id=project.id, number=int(m.group(2))).first()
+
+
 def recent_activity(project=None, limit=8):
     """Build the Recent Activity feed from real records only, newest first.
 
-    Only events that are actually represented by the application's data are
-    included (no fabricated history):
-      - issue created  -> Issue.created_at + reporter
-      - issue completed -> Issue.completed_at
-      - comment created -> Comment.created_at + author
+    Sources (no fabricated history):
+      - issue created            -> Issue.created_at + reporter
+      - issue completed          -> Issue.completed_at
+      - comment created          -> Comment.created_at + author
+      - issue status changed     -> existing Activity table rows that the
+                                    service layer writes on a real status
+                                    change (seeded rows carry only stale
+                                    display strings and are never matched)
 
     Every displayed name / issue key comes from a real row and every relative
     timestamp is recomputed from the recorded timestamp at render time.
@@ -264,14 +313,17 @@ def recent_activity(project=None, limit=8):
                 'time': _relative_time(created, day_only=True),
             })
         if i.completed_at:
-            events.append({
+            item = {
                 'sort': i.completed_at,
                 'icon': 'check',
                 'color': '#059669',
                 'text': f'{issue_ref(i)} moved to Done',
                 'detail': i.title,
                 'time': _relative_time(i.completed_at),
-            })
+            }
+            item['_dedup_key'] = issue_ref(i)
+            item['_completed'] = True
+            events.append(item)
     for c in comments:
         created = parse_any_date(c.created_at)
         issue = Issue.query.get(c.issue_id)
@@ -285,6 +337,40 @@ def recent_activity(project=None, limit=8):
                 'detail': comment_preview(c.body),
                 'time': _relative_time(created, day_only=True),
             })
+
+    # Status-change activities recorded by the application (existing Activity
+    # table). Rows without a real timestamp (seed rows) or that do not follow
+    # the 'moved <KEY> to <Status>' pattern are ignored. A real 'moved to
+    # Done' activity replaces the completed_at event for the same issue so the
+    # transition is only shown once.
+    done_keys = set()
+    for a in Activity.query.order_by(Activity.id).all():
+        key, status = _activity_issue_key(a.text)
+        if not key or status is None:
+            continue
+        ts = _activity_time(a.time)
+        if ts is None:
+            continue
+        issue = _issue_from_key(key)
+        if issue is None or (project is not None and issue.project_id != project.id):
+            continue
+        events.append({
+            'sort': ts,
+            'icon': a.icon or 'arrow',
+            'color': a.color or '#d97706',
+            'text': a.text[:240],
+            'detail': a.detail or issue.title,
+            'time': _relative_time(ts),
+        })
+        if status == 'done':
+            done_keys.add(key)
+
+    if done_keys:
+        events = [e for e in events
+                  if not (e.get('_completed') and e.get('_dedup_key') in done_keys)]
+    for e in events:
+        e.pop('_dedup_key', None)
+        e.pop('_completed', None)
 
     events.sort(key=lambda e: e['sort'], reverse=True)
     for idx, ev in enumerate(events[:limit]):
