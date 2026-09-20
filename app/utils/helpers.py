@@ -6,6 +6,8 @@ layer can import from here without circular imports.
 from datetime import datetime, timedelta
 import re
 
+from sqlalchemy import case, func
+
 from app.extensions import db
 from app.models import (
     Activity,
@@ -25,27 +27,151 @@ from app.models import (
 # Serializers
 # ---------------------------------------------------------------------------
 
-def user_dict(u):
+def user_dict(u, counts=None):
     now = datetime.utcnow()
     is_online = u.last_seen is not None and (now - u.last_seen) < timedelta(minutes=5)
+    if counts is None:
+        counts = member_counts([u.id]).get(u.id, {'projects': 0, 'tasks': 0})
     return {'id': u.id, 'name': u.name, 'initials': u.initials, 'role': u.role,
             'team': u.team, 'email': u.email, 'color': u.color, 'plan': u.plan,
-            'capacity': u.capacity, 'active_projects': u.active_projects,
-            'current_tasks': u.current_tasks, 'status': u.status,
+            'capacity': u.capacity, 'active_projects': counts['projects'],
+            'current_tasks': counts['tasks'], 'status': u.status,
             'is_online': is_online, 'last_seen': u.last_seen.isoformat() if u.last_seen else None,
             'created_at': u.created_at.isoformat() if u.created_at else None}
 
 
-def project_dict(p):
+def member_counts(user_ids=None):
+    """Real project-membership and issue-assignment counts per user id.
+
+    Projects come from the project_members join table (a member's "Projects"
+    number is their actual membership count). Tasks count DISTINCT issues the
+    user is assigned to — either as the primary assignee (issues.assignee_id)
+    or through the issue_assignees link table — so historical assignments of
+    deactivated members keep counting. Both are single aggregated queries (no
+    N+1 per user).
+
+    Returns {user_id: {'projects': int, 'tasks': int}}. When ``user_ids`` is
+    provided only those users are returned (defaulting to 0/0).
+    """
+    proj_rows = (db.session.query(
+        ProjectMembers.user_id,
+        func.count(ProjectMembers.id),
+    ).group_by(ProjectMembers.user_id).all())
+
+    assignment_union = db.union(
+        db.select(Issue.assignee_id.label('user_id'), Issue.id.label('issue_id'))
+        .where(Issue.assignee_id.isnot(None)),
+        db.select(IssueAssignees.user_id.label('user_id'),
+                  IssueAssignees.issue_id.label('issue_id')),
+    ).subquery()
+    task_rows = (db.session.query(
+        assignment_union.c.user_id,
+        func.count(func.distinct(assignment_union.c.issue_id)),
+    ).group_by(assignment_union.c.user_id).all())
+
+    out = {}
+    for uid, cnt in proj_rows:
+        out.setdefault(uid, {'projects': 0, 'tasks': 0})['projects'] = cnt or 0
+    for uid, cnt in task_rows:
+        out.setdefault(uid, {'projects': 0, 'tasks': 0})['tasks'] = cnt or 0
+
+    if user_ids is not None:
+        return {uid: out.get(uid, {'projects': 0, 'tasks': 0}) for uid in user_ids}
+    return out
+
+
+def project_progress_from_counts(total, completed):
+    """Derive the display percentage from raw counts (clamped to 0-100)."""
+    if not total:
+        return 0
+    return max(0, min(100, round(completed / total * 100)))
+
+
+def project_progress_stats(project_id):
+    """Project progress = completed TOP-LEVEL issues / total TOP-LEVEL issues.
+
+    Subtasks (issues with a parent_issue_id) never move the project progress
+    meter: only tasks without a parent count towards it. Completed status is
+    the app's canonical 'done' value. Both counts come straight from
+    PostgreSQL in two aggregate queries (no N+1 issue fetching).
+    """
+    total = db.session.query(func.count(Issue.id)).filter(
+        Issue.project_id == project_id,
+        Issue.parent_issue_id.is_(None),
+    ).scalar() or 0
+    completed = db.session.query(func.count(Issue.id)).filter(
+        Issue.project_id == project_id,
+        Issue.status == 'done',
+        Issue.parent_issue_id.is_(None),
+    ).scalar() or 0
+    percent = project_progress_from_counts(total, completed)
+    return {
+        'total_issues': total,
+        'completed_issues': completed,
+        'progress_percentage': percent,
+    }
+
+
+def project_progress_batch():
+    """Counts for every project in a single grouped query.
+
+    Counts TOP-LEVEL tasks only (parent_issue_id IS NULL), matching the
+    single project-progress rule. Subtasks are excluded so a project with ten
+    subtasks but five real tasks still reports 5 total.
+
+    Returns {project_id: {'total_issues': t, 'completed_issues': d}}.
+    """
+    rows = (db.session.query(
+        Issue.project_id,
+        func.count(Issue.id),
+        func.sum(case((Issue.status == 'done', 1), else_=0)),
+    ).filter(Issue.parent_issue_id.is_(None)).group_by(Issue.project_id).all())
+    out = {}
+    for pid, total, done in rows:
+        out[pid] = {
+            'total_issues': total or 0,
+            'completed_issues': int(done or 0),
+        }
+    return out
+
+
+def project_dict(p, progress_stats=None):
+    if progress_stats is None:
+        progress_stats = project_progress_stats(p.id)
+    total = progress_stats.get('total_issues', 0)
+    done = progress_stats.get('completed_issues', 0)
+    pct = progress_stats.get('progress_percentage')
+    if pct is None:
+        pct = project_progress_from_counts(total, done)
     return {
         'id': p.id, 'key': p.key, 'name': p.name, 'lead_id': p.lead_id,
         'lead_initials': p.lead_initials, 'color': p.color, 'status': p.status,
         'classification': p.classification or 'PROJECT',
-        'start_date': p.start_date, 'due_date': p.due_date, 'progress': p.progress,
+        'start_date': p.start_date, 'due_date': p.due_date,
+        'progress': pct,
+        'progress_percentage': pct,
+        'total_issues': total,
+        'done_issues': done,
         'description': p.description,
         'health': {'schedule': p.health_schedule, 'budget': p.health_budget,
                    'scope': p.health_scope, 'capacity': p.health_capacity},
     }
+
+
+def minutes_text(minutes):
+    """Format a positive minute count as 'Xh Ym'.
+
+    Returns None for missing/zero values so calling views can render an em
+    dash ('not recorded') instead of a fake '0h 00m' for tasks that have no
+    working hours.
+    """
+    if not minutes:
+        return None
+    minutes = int(minutes)
+    if minutes <= 0:
+        return None
+    h, m = divmod(minutes, 60)
+    return f'{h}h {m:02d}m'
 
 
 def issue_dict(i):
@@ -55,32 +181,106 @@ def issue_dict(i):
     if i.assignee_initials and i.assignee_initials not in [u.initials for u in assignee_users]:
         all_initials.append(i.assignee_initials)
     all_initials += [u.initials for u in assignee_users]
+
+    parent = None
+    if i.parent_issue_id is not None:
+        parent = Issue.query.get(i.parent_issue_id)
+    subtask_count = 0
+    completed_subtasks = 0
+    if i.parent_issue_id is None:
+        row = (db.session.query(func.count(Issue.id),
+                                func.sum(case((Issue.status == 'done', 1), else_=0)))
+               .filter(Issue.parent_issue_id == i.id).one())
+        subtask_count = row[0] or 0
+        completed_subtasks = int(row[1] or 0)
+
+    subtasks = []
+    if i.parent_issue_id is None:
+        child_rows = (Issue.query.filter_by(parent_issue_id=i.id)
+                      .order_by(Issue.subtask_order, Issue.position, Issue.id).all())
+        for j, c in enumerate(child_rows, start=1):
+            subtasks.append({
+                'id': c.id, 'number': c.number,
+                'key': f'{c.project.key}-{c.number}' if c.project else f'ECOM-{c.number}',
+                'title': c.title, 'status': c.status, 'points': c.points,
+                'priority': c.priority, 'priority_color': c.priority_color,
+                'type': c.issue_type, 'type_color': c.type_color,
+                'sprint': c.sprint.number if c.sprint else None,
+                'sprint_name': c.sprint.name if c.sprint else None,
+                'due': c.due_date, 'start': c.start_date,
+                'working_minutes': c.working_minutes,
+                'working_text': minutes_text(c.working_minutes) if c.status == 'done' else None,
+                'assignee': c.assignee_initials, 'assignee_color': c.assignee_color,
+                'assignee_name': c.assignee.name if c.assignee else None,
+                'is_subtask': True, 'parent_issue_id': i.id,
+                'parent_key': f'{i.project.key}-{i.number}' if i.project else str(i.number),
+                'subtask_order': c.subtask_order or j,
+            })
+
+    # Parent tasks with subtasks derive their Working Hours from the completed
+    # subtasks (never stored on the parent itself). A task without subtasks
+    # simply uses its own recorded minutes. This drives the derived totals on
+    # the Project Tasks page and the Task Details working-hours surface.
+    if i.parent_issue_id is None and subtask_count > 0:
+        _dwm = sum(int(c.get('working_minutes') or 0)
+                   for c in subtasks if c.get('status') == 'done')
+        derived_total_minutes = _dwm or None
+        derived_total_text = minutes_text(derived_total_minutes)
+    else:
+        derived_total_minutes = i.working_minutes
+        derived_total_text = minutes_text(i.working_minutes) if i.status == 'done' else None
+
     return {
         'id': i.id, 'project': i.project.key if i.project else 'ECOM',
         'number': i.number, 'key': f'{i.project.key}-{i.number}' if i.project else f'ECOM-{i.number}',
         'title': i.title, 'type': i.issue_type, 'type_color': i.type_color,
         'priority': i.priority, 'priority_color': i.priority_color, 'points': i.points,
         'assignee_id': i.assignee_id, 'assignee': i.assignee_initials,
+        'assignee_name': i.assignee.name if i.assignee else None,
         'assignee_color': i.assignee_color, 'assignee_initials_list': all_initials,
         'due': i.due_date, 'start': i.start_date,
         'labels': i.labels or [],
         'status': i.status, 'sprint': i.sprint.number if i.sprint else None,
+        'sprint_name': i.sprint.name if i.sprint else None,
         'description': i.description, 'acceptance_criteria': i.acceptance_criteria,
         'reporter': i.reporter_id, 'created': i.created_at,
+        'working_minutes': i.working_minutes,
+        'working_text': minutes_text(i.working_minutes) if i.status == 'done' else None,
+        'total_working_minutes': derived_total_minutes,
+        'total_working_text': derived_total_text,
+        'parent_issue_id': i.parent_issue_id,
+        'is_subtask': i.parent_issue_id is not None,
+        'subtask_order': i.subtask_order or 0,
+        'parent_key': (f'{parent.project.key}-{parent.number}'
+                       if parent is not None and parent.project else None),
+        'parent_title': parent.title if parent is not None else None,
+        'has_subtasks': subtask_count > 0,
+        'subtask_count': subtask_count,
+        'completed_subtasks': completed_subtasks,
+        'subtasks': subtasks,
     }
 
 
 def sprint_stats_dict(sprint, issues):
     """Build a sprint display dict with task/point stats computed from the
-    project's actual issues that belong to this sprint."""
+    project's actual issues that belong to this sprint.
+
+    A Sprint is a TIMEBOX. Work items counted here are TOP-LEVEL tasks only:
+    subtasks belong to their parent task and are never counted as independent
+    sprint items, so a parent + its subtasks are never double-counted.
+    (Subtask rows stay in the sprint container via their parent; the raw
+    ``tasks`` list below still exposes every issue in the sprint for tooling.)
+    """
     sp_issues = [i for i in issues if i.sprint_id == sprint.id]
-    story_points_total = sum(i.points or 0 for i in sp_issues)
-    story_points_done = sum((i.points or 0) for i in sp_issues if i.status == 'done')
-    backlog = sum(1 for i in sp_issues if i.status == 'backlog')
-    to_do = sum(1 for i in sp_issues if i.status == 'todo')
-    in_progress = sum(1 for i in sp_issues if i.status == 'in_progress')
-    in_review = sum(1 for i in sp_issues if i.status == 'in_review')
-    done = sum(1 for i in sp_issues if i.status == 'done')
+    # Top-level only for all task/point accounting (no double counting).
+    plan = [i for i in sp_issues if i.parent_issue_id is None]
+    story_points_total = sum(i.points or 0 for i in plan)
+    story_points_done = sum((i.points or 0) for i in plan if i.status == 'done')
+    backlog = sum(1 for i in plan if i.status == 'backlog')
+    to_do = sum(1 for i in plan if i.status == 'todo')
+    in_progress = sum(1 for i in plan if i.status == 'in_progress')
+    in_review = sum(1 for i in plan if i.status == 'in_review')
+    done = sum(1 for i in plan if i.status == 'done')
     total = backlog + to_do + in_progress + in_review + done
     return {
         'id': sprint.id,
@@ -383,8 +583,64 @@ def recent_activity(project=None, limit=8):
 # Context helpers (page rendering)
 # ---------------------------------------------------------------------------
 
-def context_project(key='ECOM'):
-    return Project.query.filter_by(key=key).first() or Project.query.first()
+SELECTED_PROJECT_SESSION_KEY = 'selected_project_id'
+SELECTED_PROJECT_LS_KEY = 'selectedProjectId'
+
+
+def _persisted_project_id():
+    """Read the persisted selected-project id (Flask session), or None."""
+    from flask import session
+    try:
+        pid = session.get(SELECTED_PROJECT_SESSION_KEY)
+        return int(pid) if pid not in (None, '') else None
+    except (TypeError, ValueError):
+        return None
+
+
+def resolve_selected_project(key=None):
+    """Resolve the canonical selected project (single source of truth).
+
+    Priority:
+      1. explicit project KEY from the URL (?project= or /kanban/<key>) —
+         authoritative for that page, persisted to the session;
+      2. the persisted selected_project_id in the authenticated Flask session;
+      3. the first accessible project — ONLY when nothing has ever been chosen.
+
+    The resolved project id is written back to the session so the selection
+    survives navigation, browser refresh and back/forward browsing. Falls back
+    gracefully (never crashes, never silently shows a random different project)
+    and removes invalid persisted ids per the requirement.
+    """
+    from flask import session
+
+    project = None
+    if key:
+        k = str(key).strip().upper()
+        if k:
+            project = Project.query.filter_by(key=k).first()
+
+    if project is None:
+        pid = _persisted_project_id()
+        if pid is not None:
+            project = Project.query.filter_by(id=pid).first()
+
+    if project is None:
+        project = Project.query.order_by(Project.id).first()
+
+    if project is not None:
+        session[SELECTED_PROJECT_SESSION_KEY] = project.id
+    return project
+
+
+def context_project(key=''):
+    """Project for a project-scoped page.
+
+    An explicit URL key is authoritative; otherwise the persisted selected
+    project is restored (session), falling back to the first project only when
+    no selection has ever been made. A missing/empty key is treated as "no
+    explicit choice", so navigation never silently resets to project #1.
+    """
+    return resolve_selected_project(key)
 
 
 def context_sprints(project):
@@ -393,6 +649,40 @@ def context_sprints(project):
 
 def context_issues(project):
     return Issue.query.filter_by(project_id=project.id).order_by(Issue.position).all()
+
+
+def issue_hierarchy(issues):
+    """Split a project's issues into top-level Tasks and their Subtasks.
+
+    Returns (top_level, children_map):
+      * top_level   — issues whose parent_issue_id is NULL, in list order.
+      * children_map— {parent_issue_id: [subtask Issue, ...]} ordered by
+                       (subtask_order, position, id). One level of nesting only,
+                       matching the single-level Subtask rule enforced by the
+                       service layer.
+    """
+    children_map = {}
+    top_level = []
+    for i in issues:
+        if i.parent_issue_id is not None:
+            children_map.setdefault(i.parent_issue_id, []).append(i)
+        else:
+            top_level.append(i)
+    for pid in children_map:
+        children_map[pid].sort(key=lambda c: (c.subtask_order or 0, c.position or 0, c.id))
+    return top_level, children_map
+
+
+def subtask_display_key(parent, index):
+    """Visual key for a subtask row: '<PARENT-KEY>-<n>' (display only).
+
+    The stored issue number/key is never rewritten; this only labels the
+    nested row alongside the parent, e.g. ECOM-142-1 for the first subtask.
+    """
+    if parent is None:
+        return str(index)
+    base = f'{parent.project.key}-{parent.number}' if parent.project else str(parent.number)
+    return f'{base}-{index}'
 
 
 def context_sprint_stats(project):

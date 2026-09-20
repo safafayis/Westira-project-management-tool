@@ -9,6 +9,9 @@
       <h1 class="text-[22px] font-bold text-[var(--wf-text)]">Team</h1>
       <p class="text-[13.5px] text-[var(--wf-text-secondary)] mt-1">People, roles, and workload across your access.</p>
     </div>
+    {% if can_manage %}
+    <button class="wf-btn wf-btn-primary wf-btn-sm" id="addMemberBtn"><i data-lucide="user-plus" style="width:14px;height:14px"></i> Add Member</button>
+    {% endif %}
   </div>
 
   <div class="wf-card">
@@ -21,7 +24,7 @@
     </div>
     <div class="overflow-x-auto">
       <table class="wf-table">
-        <thead><tr><th>Member</th><th>Role</th><th>Team</th><th>Projects</th><th>Tasks</th></tr></thead>
+        <thead><tr><th>Member</th><th>Role</th><th>Team</th><th>Projects</th><th>Tasks</th><th>Status</th>{% if can_manage %}<th class="text-right">Actions</th>{% endif %}</tr></thead>
         <tbody id="teamBody">
           {% for u in users %}
           <tr class="cursor-pointer hover:bg-[#fafafb]">
@@ -42,6 +45,23 @@
             <td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">{{ u.team }}</span></td>
             <td><span class="text-[12.5px] font-semibold text-[var(--wf-text)]">{{ u.active_projects }}</span></td>
             <td><span class="text-[12.5px] font-semibold {{ 'text-[var(--wf-error)]' if u.current_tasks > 12 else 'text-[var(--wf-text)]' }}">{{ u.current_tasks }}</span></td>
+            <td>
+              <span class="wf-badge {{ 'wf-badge-soft-green' if u.status == 'Active' else 'wf-badge-soft-gray' }}" style="opacity:{{ '1' if u.status == 'Active' else '.65' }}">
+                {{ u.status or 'Active' }}
+              </span>
+            </td>
+            {% if can_manage %}
+            <td class="text-right">
+              <div class="flex items-center justify-end gap-1" onclick="event.stopPropagation()">
+                <button class="wf-icon-btn" title="Edit" onclick="TM.openEdit({{ u.id }})"><i data-lucide="pencil" style="width:13px;height:13px"></i></button>
+                {% if u.status == 'Active' or not u.status %}
+                <button class="wf-icon-btn" title="Deactivate" onclick="TM.setStatus({{ u.id }}, 'Inactive')"><i data-lucide="user-x" style="width:13px;height:13px;color:var(--wf-error)"></i></button>
+                {% else %}
+                <button class="wf-icon-btn" title="Reactivate" onclick="TM.setStatus({{ u.id }}, 'Active')"><i data-lucide="user-check" style="width:13px;height:13px;color:var(--wf-success)"></i></button>
+                {% endif %}
+              </div>
+            </td>
+            {% endif %}
           </tr>
           {% endfor %}
         </tbody>
@@ -54,7 +74,7 @@
     <div class="p-5">
       {% set roles = {} %}
       {% for u in users %}{% set _ = roles.update({u.role: roles.get(u.role, []) + [u]}) %}{% endfor %}
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="teamRoleGrid">
         {% for role, members in roles.items() %}
         <div class="rounded-lg border border-[var(--wf-border)] p-3.5">
           <div class="flex items-center justify-between mb-2.5">
@@ -72,6 +92,8 @@
     </div>
   </div>
 </div>
+
+<div id="tmModals"></div>
 
 <style>
   #roleMenu .wf-menu-item.is-selected { color: var(--wf-primary); font-weight: 600; background: var(--wf-primary-50); }
@@ -96,6 +118,7 @@
   var teamRoles = null;
   var lastMembers = null;
   var openMenu = null;
+  var canManage = {{ 'true' if can_manage else 'false' }};
 
   /* Mirrors the Jinja badge logic used for the statically rendered rows. */
   function roleBadgeClass(role) {
@@ -110,6 +133,18 @@
 
   function rowHtml(u) {
     var taskClass = Number(u.current_tasks) > 12 ? 'text-[var(--wf-error)]' : 'text-[var(--wf-text)]';
+    var active = !u.status || String(u.status).toLowerCase() === 'active';
+    var statusBadge = '<span class="wf-badge ' + (active ? 'wf-badge-soft-green' : 'wf-badge-soft-gray') + '" style="opacity:' + (active ? '1' : '.65') + '">' + esc(active ? 'Active' : u.status) + '</span>';
+    var actions = '';
+    if (canManage) {
+      var toggleAct = active
+        ? '<button class="wf-icon-btn" title="Deactivate" onclick="TM.setStatus(' + u.id + ',\'Inactive\')"><i data-lucide="user-x" style="width:13px;height:13px;color:var(--wf-error)"></i></button>'
+        : '<button class="wf-icon-btn" title="Reactivate" onclick="TM.setStatus(' + u.id + ',\'Active\')"><i data-lucide="user-check" style="width:13px;height:13px;color:var(--wf-success)"></i></button>';
+      actions = '<td class="text-right"><div class="flex items-center justify-end gap-1" onclick="event.stopPropagation()">' +
+        '<button class="wf-icon-btn" title="Edit" onclick="TM.openEdit(' + u.id + ')"><i data-lucide="pencil" style="width:13px;height:13px"></i></button>' +
+        toggleAct +
+        '</div></td>';
+    }
     return '<tr class="cursor-pointer hover:bg-[#fafafb]">' +
       '<td><div class="flex items-center gap-3 min-w-[170px]">' +
         '<span class="wf-avatar" style="background:' + esc(u.color) + '">' + esc(u.initials) + '</span>' +
@@ -122,11 +157,13 @@
       '<td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">' + esc(u.team) + '</span></td>' +
       '<td><span class="text-[12.5px] font-semibold text-[var(--wf-text)]">' + esc(u.active_projects) + '</span></td>' +
       '<td><span class="text-[12.5px] font-semibold ' + taskClass + '">' + esc(u.current_tasks) + '</span></td>' +
+      '<td>' + statusBadge + '</td>' +
+      actions +
     '</tr>';
   }
 
   function emptyRow() {
-    return '<tr data-empty-row="1"><td colspan="5">' +
+    return '<tr data-empty-row="1"><td colspan="' + (canManage ? 7 : 6) + '">' +
       '<div class="wf-empty py-8">' +
         '<i data-lucide="users" style="width:26px;height:26px;margin:0 auto 8px;color:var(--wf-text-tertiary)"></i>' +
         '<div class="text-[14px] font-semibold text-[var(--wf-text)]">No members found</div>' +
@@ -136,7 +173,7 @@
   }
 
   function loadingRow() {
-    return '<tr data-empty-row="1"><td colspan="5">' +
+    return '<tr data-empty-row="1"><td colspan="' + (canManage ? 7 : 6) + '">' +
       '<div class="flex items-center justify-center gap-2 py-8 text-[13px] text-[var(--wf-text-secondary)]">' +
         '<i data-lucide="loader-2" style="width:15px;height:15px"></i> Loading members…' +
       '</div>' +
@@ -146,7 +183,35 @@
   function renderMembers(members) {
     lastMembers = members;
     body.innerHTML = members.length ? members.map(rowHtml).join('') : emptyRow();
+    renderRoleGrid(members);
     if (window.lucide) lucide.createIcons({ nodes: [body] });
+  }
+
+  function renderRoleGrid(members) {
+    var grid = document.getElementById('teamRoleGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    var byRole = {};
+    (members || []).forEach(function (u) {
+      if (!byRole[u.role]) byRole[u.role] = [];
+      byRole[u.role].push(u);
+    });
+    Object.keys(byRole).sort().forEach(function (role) {
+      var list = byRole[role];
+      var avatars = list.map(function (m) {
+        return '<span class="wf-avatar" style="background:' + esc(m.color) + '" title="' + esc(m.name) + '">' + esc(m.initials) + '</span>';
+      }).join('');
+      var card = document.createElement('div');
+      card.className = 'rounded-lg border border-[var(--wf-border)] p-3.5';
+      card.innerHTML = '' +
+        '<div class="flex items-center justify-between mb-2.5">' +
+        '<span class="text-[12.5px] font-semibold text-[var(--wf-text)]">' + esc(role) + '</span>' +
+        '<span class="wf-badge wf-badge-soft-gray">' + list.length + '</span>' +
+        '</div>' +
+        '<div class="wf-avatar-group">' + avatars + '</div>';
+      grid.appendChild(card);
+    });
+    if (window.lucide) lucide.createIcons({ nodes: [grid] });
   }
 
   function setLoading(on) {
@@ -280,6 +345,367 @@
     .then(function (r) { return r.json(); })
     .then(function (roles) { teamRoles = Array.isArray(roles) ? roles : []; })
     .catch(function () { toast('Could not load roles.', 'error'); });
+
+  /* ------------------------------------------------------------------ *
+   *  Member management: Add / Edit / Activate / Deactivate (manager-only,
+   *  enforced by the Flask backend which returns 403 for everyone else).
+   *  Every mutation is persisted to PostgreSQL first; the table, role grid
+   *  and role counts are then reconciled from the server response so the
+   *  UI stays in sync WITHOUT a full-page reload.
+   * ------------------------------------------------------------------ */
+
+  var DEFAULT_ROLES = ['Project Manager', 'Product Manager', 'Frontend Developer',
+                       'Backend Developer', 'UI/UX Designer', 'QA Engineer', 'DevOps Engineer'];
+  var DEFAULT_TEAMS = ['Platform', 'Checkout', 'Quality', 'Product',
+                       'Infrastructure', 'Storefront', 'General'];
+
+  /* Role and Team selects are data-driven from the members already present,
+     falling back to the project defaults (config-driven, no magic strings). */
+  function dataDrivenOptions(defaults, memberKey) {
+    var out = defaults.slice();
+    if (lastMembers && lastMembers.length) {
+      (lastMembers || []).forEach(function (u) {
+        var val = String(u[memberKey] || '').trim();
+        if (val && out.indexOf(val) === -1) out.push(val);
+      });
+    }
+    return out.sort();
+  }
+
+  function manageRoleSelect(selected) {
+    var roles = dataDrivenOptions(DEFAULT_ROLES, 'role');
+    if (selected && roles.indexOf(selected) === -1) roles.push(selected);
+    return selectHtml('tm-role', roles, selected, 'Select a role');
+  }
+
+  function manageTeamSelect(selected) {
+    var teams = dataDrivenOptions(DEFAULT_TEAMS, 'team');
+    if (selected && teams.indexOf(selected) === -1) teams.push(selected);
+    return selectHtml('tm-team', teams, selected, 'Select a team');
+  }
+
+  function manageStatusSelect(selected) {
+    return selectHtml('tm-status', [['Active', 'Active'], ['Inactive', 'Inactive']], selected || 'Active', '');
+  }
+
+  function clearFieldErrors(ids) {
+    (ids || []).forEach(function (id) {
+      var p = document.getElementById(id + '-err');
+      var input = document.getElementById(id);
+      if (input) input.classList.remove('is-invalid');
+      if (p) { p.textContent = ''; p.style.display = 'none'; }
+    });
+  }
+
+  function setFieldError(id, msg) {
+    var p = document.getElementById(id + '-err');
+    var input = document.getElementById(id);
+    if (input) input.classList.add('is-invalid');
+    if (p) { p.textContent = msg; p.style.display = 'block'; }
+  }
+
+  function fieldHtml(label, id, inputHtml, full, required) {
+    return '<div class="wf-field' + (full ? ' md:col-span-2' : '') + '">' +
+      '<label class="wf-label" for="' + id + '">' + label + (required ? ' <span class="req">*</span>' : '') + '</label>' +
+      inputHtml +
+      '<p class="wf-help wf-field-err" id="' + id + '-err" style="color:var(--wf-error);display:none"></p>' +
+    '</div>';
+  }
+
+  function setManageBusy(on, busyText, idleText) {
+    var btn = document.getElementById('tmModals-save');
+    if (!btn) return;
+    btn.disabled = on;
+    btn.innerHTML = on
+      ? '<span class="inline-flex items-center gap-2"><i data-lucide="loader-2" style="width:15px;height:15px" class="animate-spin"></i> ' + esc(busyText) + '…</span>'
+      : '<i data-lucide="' + (idleText.indexOf('Add') === 0 ? 'user-plus' : 'check') + '" style="width:14px;height:14px"></i> ' + esc(idleText);
+    if (window.lucide) lucide.createIcons({ nodes: [btn] });
+  }
+
+  function selectHtml(id, options, selected, placeholder) {
+    var html = '<select class="wf-select" id="' + id + '">';
+    if (placeholder) html += '<option value="">' + esc(placeholder) + '</option>';
+    options.forEach(function (o) {
+      var val = Array.isArray(o) ? o[0] : o;
+      var lbl = Array.isArray(o) ? o[1] : o;
+      html += '<option value="' + esc(val) + '"' + (String(val) === String(selected) ? ' selected' : '') + '>' + esc(lbl) + '</option>';
+    });
+    return html + '</select>';
+  }
+
+  function closeManageModal() {
+    var root = document.getElementById('tmModals');
+    if (root) root.innerHTML = '';
+    document.body.style.overflow = '';
+  }
+
+  function openMemberModal(user) {
+    var editing = !!user;
+    closeManageModal();
+    var root = document.getElementById('tmModals');
+    if (!root) return;
+
+    var roles = manageRoleSelect(editing ? user.role : '');
+    var teams = manageTeamSelect(editing ? user.team : '');
+    var status = manageStatusSelect(editing ? (user.status || 'Active') : 'Active');
+
+    root.innerHTML = '' +
+      '<div class="wf-modal-backdrop" id="tmBackdrop">' +
+        '<div class="wf-modal" style="max-width:560px">' +
+          '<div class="flex items-center justify-between px-6 py-4 border-b border-[var(--wf-border-soft)]">' +
+            '<div>' +
+              '<h2 class="text-[16px] font-bold text-[var(--wf-text)]">' + (editing ? 'Edit Team Member' : 'Add Team Member') + '</h2>' +
+              '<p class="text-[12px] text-[var(--wf-text-secondary)]">' + (editing ? 'Update the details for ' + esc(user.name) + '.' : 'Add a new member to your team.') + '</p>' +
+            '</div>' +
+            '<button type="button" class="wf-icon-btn" data-tm-close><i data-lucide="x" style="width:16px;height:16px"></i></button>' +
+          '</div>' +
+          '<div class="px-6 py-5">' +
+            '<div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">' +
+              fieldHtml('Full Name', 'tm-name', '<input class="wf-input" id="tm-name" type="text" maxlength="120" placeholder="e.g. John Smith"' + (editing ? ' value="' + esc(user.name) + '"' : '') + '>', true, true) +
+              fieldHtml('Email', 'tm-email', '<input class="wf-input" id="tm-email" type="email" placeholder="john@example.com"' + (editing ? ' value="' + esc(user.email) + '"' : '') + '>', true, true) +
+              fieldHtml('Role', 'tm-role', roles, false, true) +
+              fieldHtml('Team', 'tm-team', teams, false, false) +
+              fieldHtml('Status', 'tm-status', status, false, false) +
+            '</div>' +
+            '<input type="hidden" id="tm-member-id" value="' + (editing ? user.id : '') + '">' +
+          '</div>' +
+          '<div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--wf-border-soft)] bg-[#fafafb]">' +
+            '<button class="wf-btn wf-btn-secondary" data-tm-close>Cancel</button>' +
+            '<button class="wf-btn wf-btn-primary" id="tmModals-save"><i data-lucide="user-plus" style="width:14px;height:14px"></i> ' + (editing ? 'Save Changes' : 'Add Member') + '</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    document.body.style.overflow = 'hidden';
+    if (window.lucide) lucide.createIcons({ nodes: [root] });
+    root.querySelectorAll('[data-tm-close]').forEach(function (b) { b.addEventListener('click', closeManageModal); });
+    root.querySelector('#tmBackdrop').addEventListener('click', function (e) { if (e.target.id === 'tmBackdrop') closeManageModal(); });
+    root.querySelector('#tmModals-save').addEventListener('click', submitMemberForm);
+    root.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        var saveBtn = document.getElementById('tmModals-save');
+        if (saveBtn && !saveBtn.disabled) { e.preventDefault(); submitMemberForm(); }
+      }
+    });
+    var first = document.getElementById('tm-name');
+    if (first) first.focus();
+  }
+
+  function submitMemberForm() {
+    var idEl = document.getElementById('tm-member-id');
+    var nameEl = document.getElementById('tm-name');
+    var emailEl = document.getElementById('tm-email');
+    var roleEl = document.getElementById('tm-role');
+    if (!idEl || !nameEl || !emailEl || !roleEl) return;
+
+    var editing = !!idEl.value;
+    var payload = {
+      name: nameEl.value.trim(),
+      email: emailEl.value.trim(),
+      role: roleEl.value,
+      team: (document.getElementById('tm-team').value || '').trim() || 'General',
+      status: document.getElementById('tm-status').value || 'Active'
+    };
+
+    var errs = {};
+    if (!payload.name) errs['tm-name'] = 'Full name is required.';
+    else if (payload.name.length > 120) errs['tm-name'] = 'Full name is too long.';
+    if (!payload.email) errs['tm-email'] = 'Email is required.';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) errs['tm-email'] = 'Enter a valid email address.';
+    if (!payload.role) errs['tm-role'] = 'Role is required.';
+
+    clearFieldErrors(['tm-name', 'tm-email', 'tm-role']);
+    if (Object.keys(errs).length) {
+      for (var k in errs) { if (Object.prototype.hasOwnProperty.call(errs, k)) setFieldError(k, errs[k]); }
+      toast('Please correct the highlighted fields.', 'error');
+      return;
+    }
+
+    var idleText = editing ? 'Save Changes' : 'Add Member';
+    var busyText = editing ? 'Saving' : 'Adding';
+    setManageBusy(true, busyText, idleText);
+
+    fetch(editing ? '/api/v1/users/' + encodeURIComponent(idEl.value) : '/api/v1/users', {
+      method: editing ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+      .then(function (r) {
+        return r.text().then(function (text) {
+          var data = null;
+          try { data = text ? JSON.parse(text) : null; } catch (e) { data = null; }
+          return { ok: r.ok, status: r.status, data: data };
+        });
+      })
+      .then(function (res) {
+        setManageBusy(false, busyText, idleText);
+        if (!res.ok) {
+          toast(errorMessageFor(res.status, res.data && res.data.error, editing ? 'edit' : 'add'), 'error');
+          return;
+        }
+        closeManageModal();
+        toast(editing ? 'Member updated.' : 'Member added.', 'success');
+        refreshMembers();
+      })
+      .catch(function () {
+        setManageBusy(false, busyText, idleText);
+        toast('Network error, please retry.', 'error');
+      });
+  }
+
+  function errorMessageFor(status, serverMsg, kind) {
+    if (serverMsg) return serverMsg;
+    switch (status) {
+      case 400: return 'Please check the entered information.';
+      case 401: return 'Your session has expired. Please sign in again.';
+      case 403: return 'Only Pro Project Managers can manage team members.';
+      case 404: return kind === 'edit' ? 'Member not found.' : 'Cannot find user.';
+      case 409: return 'A user with that email already exists.';
+      case 422: return 'Please correct the highlighted fields.';
+      case 500: return 'Server error. Please try again later.';
+      default: return 'Unable to ' + (kind === 'edit' ? 'update' : 'add') + ' team member. Please try again.';
+    }
+  }
+
+  /* Deactivate uses a confirmation modal; activation happens immediately. */
+  function openConfirmModal(opts) {
+    closeManageModal();
+    var root = document.getElementById('tmModals');
+    if (!root) return;
+    root.innerHTML = '' +
+      '<div class="wf-modal-backdrop" id="tmBackdrop">' +
+        '<div class="wf-modal" style="max-width:440px">' +
+          '<div class="px-6 pt-6 pb-2 text-center">' +
+            '<div class="mx-auto grid place-items-center w-10 h-10 rounded-full ' + (opts.danger ? 'bg-[#fef2f2]' : 'bg-[#f0fdf4]') + ' mb-3">' +
+              '<i data-lucide="' + (opts.danger ? 'user-x' : 'user-check') + '" style="width:18px;height:18px;color:' + (opts.danger ? 'var(--wf-error)' : 'var(--wf-success)') + '"></i>' +
+            '</div>' +
+            '<h2 class="text-[16px] font-bold text-[var(--wf-text)]">' + esc(opts.title) + '</h2>' +
+            '<p class="text-[13px] text-[var(--wf-text-secondary)] mt-1">' + esc(opts.message) + '</p>' +
+          '</div>' +
+          '<div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--wf-border-soft)] mt-4">' +
+            '<button class="wf-btn wf-btn-secondary" data-tm-close>Cancel</button>' +
+            '<button class="wf-btn ' + (opts.danger ? 'wf-btn-danger' : 'wf-btn-primary') + '" id="tmConfirmBtn">' + esc(opts.confirmLabel) + '</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    document.body.style.overflow = 'hidden';
+    if (window.lucide) lucide.createIcons({ nodes: [root] });
+    root.querySelectorAll('[data-tm-close]').forEach(function (b) { b.addEventListener('click', closeManageModal); });
+    root.querySelector('#tmBackdrop').addEventListener('click', function (e) { if (e.target.id === 'tmBackdrop') closeManageModal(); });
+    var confirmBtn = document.getElementById('tmConfirmBtn');
+    confirmBtn.addEventListener('click', function () {
+      confirmBtn.disabled = true;
+      confirmBtn.innerHTML = '<span class="inline-flex items-center gap-2"><i data-lucide="loader-2" style="width:15px;height:15px" class="animate-spin"></i> ' + esc(opts.busyLabel || opts.confirmLabel) + '…</span>';
+      if (window.lucide) lucide.createIcons({ nodes: [confirmBtn] });
+      opts.onConfirm();
+    });
+  }
+
+  function toggleMemberStatus(userId, status) {
+    fetch('/api/v1/users/' + encodeURIComponent(userId), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: status })
+    })
+      .then(function (r) {
+        return r.text().then(function (text) {
+          var data = null;
+          try { data = text ? JSON.parse(text) : null; } catch (e) { data = null; }
+          return { ok: r.ok, status: r.status, data: data };
+        });
+      })
+      .then(function (res) {
+        if (!res.ok) {
+          toast(res.data && res.data.error ? res.data.error : errorMessageFor(res.status, null, 'edit'), 'error');
+          closeManageModal();
+          return;
+        }
+        closeManageModal();
+        toast(status === 'Inactive' ? 'Member deactivated.' : 'Member activated.', 'success');
+        refreshMembers();
+      })
+      .catch(function () {
+        closeManageModal();
+        toast('Network error, please retry.', 'error');
+      });
+  }
+
+  function refreshMembers() {
+    var url = state.role ? '/api/v1/users?role=' + encodeURIComponent(state.role) : '/api/v1/users';
+    fetch(url)
+      .then(function (r) { return r.json(); })
+      .then(function (members) {
+        renderMembers(Array.isArray(members) ? members : []);
+        runSearch();
+      })
+      .catch(function () {
+        toast('Could not refresh team members.', 'error');
+        if (lastMembers) { renderMembers(lastMembers); runSearch(); }
+      });
+    fetch('/api/v1/team/roles')
+      .then(function (r) { return r.json(); })
+      .then(function (roles) { if (Array.isArray(roles)) teamRoles = roles; })
+      .catch(function () { /* role counts are non-critical */ });
+  }
+
+  var TM = {
+    openAdd: function () { openMemberModal(null); },
+
+    openEdit: function (userId) {
+      fetch('/api/v1/users/' + encodeURIComponent(userId))
+        .then(function (r) {
+          return r.text().then(function (text) {
+            var data = null;
+            try { data = text ? JSON.parse(text) : null; } catch (e) { data = null; }
+            return { ok: r.ok, status: r.status, data: data };
+          });
+        })
+        .then(function (res) {
+          if (!res.ok || !res.data) {
+            toast('Could not load member details.', 'error');
+            return;
+          }
+          openMemberModal(res.data);
+        })
+        .catch(function () { toast('Network error, please retry.', 'error'); });
+    },
+
+    setStatus: function (userId, status) {
+      var activating = status === 'Active';
+      var memberName = '';
+      if (lastMembers) {
+        (lastMembers || []).forEach(function (m) {
+          if (Number(m.id) === Number(userId)) memberName = m.name || '';
+        });
+      }
+      if (!activating) {
+        openConfirmModal({
+          danger: true,
+          title: 'Deactivate Team Member?',
+          message: (memberName ? memberName + ' ' : 'This member ') + 'will no longer be an active team member.',
+          confirmLabel: 'Deactivate',
+          busyLabel: 'Deactivating',
+          onConfirm: function () { toggleMemberStatus(userId, 'Inactive'); }
+        });
+        return;
+      }
+      toggleMemberStatus(userId, 'Active');
+    }
+  };
+
+  window.TM = TM;
+
+  var addBtn = document.getElementById('addMemberBtn');
+  if (addBtn) addBtn.addEventListener('click', function (e) { e.stopPropagation(); TM.openAdd(); });
+
+  /* Seed the working copy so the Add/Edit Role & Team selects are data-driven
+     from existing members even before any filter is applied. */
+  if (canManage) {
+    fetch('/api/v1/users')
+      .then(function (r) { return r.json(); })
+      .then(function (members) { if (Array.isArray(members)) lastMembers = members; })
+      .catch(function () { /* non-fatal */ });
+  }
 })();
 </script>
 {% endblock %}

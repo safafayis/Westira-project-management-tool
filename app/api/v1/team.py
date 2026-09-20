@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 
 from app.services import team_service
-from app.utils.decorators import pro_required
+from app.utils.decorators import team_manager_required
 from swagger_spec import _err, _ok, _p, _q, api_doc
 
 users_bp = Blueprint('users', __name__, url_prefix='/users')
@@ -36,20 +36,22 @@ def get_user(user_id):
 
 @users_bp.post('')
 @login_required
-@pro_required
-@api_doc('Create user (pro plan only)', ['Users & Team'],
+@team_manager_required
+@api_doc('Create user (Pro Project Manager only)', ['Users & Team'],
+    desc='Only a Pro Project Manager can add team members. Password is optional; '
+         'when omitted a random credential is generated.',
     req={'type': 'object',
-         'required': ['name', 'email', 'password', 'role'],
+         'required': ['name', 'email', 'role'],
          'properties': {
              'name':     {'type': 'string'},
              'email':    {'type': 'string', 'format': 'email'},
-             'password': {'type': 'string', 'minLength': 6},
+             'password': {'type': 'string', 'description': 'Optional; auto-generated when omitted'},
              'role':     {'type': 'string'},
              'plan':     {'type': 'string', 'enum': ['pro', 'plus', 'lite'], 'default': 'lite'},
              'team':     {'type': 'string', 'default': 'General'},
-             'status':   {'type': 'string', 'default': 'Active'},
+             'status':   {'type': 'string', 'enum': ['Active', 'Inactive'], 'default': 'Active'},
          }},
-    resp={'201': _ok('#/components/schemas/User', 'Created'), **_err([400, 403])})
+    resp={'201': _ok('#/components/schemas/User', 'Created'), **_err([400, 403, 409])})
 def create_user():
     data = request.get_json(silent=True) or {}
     resp, status = team_service.create_user(data)
@@ -58,8 +60,9 @@ def create_user():
 
 @users_bp.put('/<int:user_id>')
 @login_required
-@pro_required
-@api_doc('Update user (pro plan only)', ['Users & Team'],
+@team_manager_required
+@api_doc('Update user (Pro Project Manager only)', ['Users & Team'],
+    desc='Only a Pro Project Manager can edit or activate/deactivate team members.',
     params=[_p('user_id', {'type': 'integer'}, 'User ID')],
     req={'type': 'object',
          'description': 'Any subset of user fields',
@@ -69,11 +72,11 @@ def create_user():
              'role':     {'type': 'string'},
              'team':     {'type': 'string'},
              'plan':     {'type': 'string'},
-             'status':   {'type': 'string'},
+             'status':   {'type': 'string', 'enum': ['Active', 'Inactive']},
              'capacity': {'type': 'integer'},
              'color':    {'type': 'string'},
          }},
-    resp={'200': _ok('#/components/schemas/User'), **_err([400, 403])})
+    resp={'200': _ok('#/components/schemas/User'), **_err([400, 403, 404, 409])})
 def update_user(user_id):
     data = request.get_json(silent=True) or {}
     resp, status = team_service.update_user(user_id, data)
@@ -82,8 +85,8 @@ def update_user(user_id):
 
 @users_bp.delete('/<int:user_id>')
 @login_required
-@pro_required
-@api_doc('Delete user (pro plan only)', ['Users & Team'],
+@team_manager_required
+@api_doc('Delete user (Pro Project Manager only)', ['Users & Team'],
     params=[_p('user_id', {'type': 'integer'}, 'User ID')],
     req={'type': 'object',
          'required': ['confirm_email'],
