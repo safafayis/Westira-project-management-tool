@@ -9,8 +9,52 @@
     <p class="text-[13.5px] text-[var(--wf-text-secondary)] mt-1">Track project health, delivery performance, sprint progress, velocity, workload, and team performance.</p>
   </div>
 
+  {# ---------------- Report filters ---------------- #}
+  <div class="wf-card mb-6" id="reportFilters">
+    <div class="p-4 flex flex-wrap items-center gap-3 border-b border-[var(--wf-border-soft)]">
+      <select class="wf-select" id="project_id" style="width:auto;min-width:170px;padding:6px 10px;font-size:12.5px" onchange="ReportApp.onProjectChange(this)">
+        <option value="">All Projects</option>
+        {% for p in projects %}
+        <option value="{{ p.id }}">{{ p.key }} — {{ p.name }}</option>
+        {% endfor %}
+      </select>
+      <select class="wf-select" id="sprint_id" style="width:auto;min-width:170px;padding:6px 10px;font-size:12.5px">
+        <option value="">All Sprints</option>
+        {% for s in sprints %}
+        <option value="{{ s.id }}" data-owner="{{ s.project_id }}">#{{ s.number }} {{ s.name }}</option>
+        {% endfor %}
+      </select>
+      <select class="wf-select" id="assignee_id" style="width:auto;min-width:160px;padding:6px 10px;font-size:12.5px">
+        <option value="">All Assignees</option>
+        {% for u in users %}
+        <option value="{{ u.id }}">{{ u.name }}</option>
+        {% endfor %}
+      </select>
+      <select class="wf-select" id="status" style="width:auto;min-width:140px;padding:6px 10px;font-size:12.5px">
+        <option value="">All Statuses</option>
+        <option value="backlog">Backlog</option>
+        <option value="todo">To Do</option>
+        <option value="in_progress">In Progress</option>
+        <option value="in_review">In Review</option>
+        <option value="done">Done</option>
+      </select>
+      <input type="date" class="wf-input" id="start_date" style="width:auto;padding:6px 10px;font-size:12.5px" title="Created on/after">
+      <span class="text-[12px] text-[var(--wf-text-tertiary)]">→</span>
+      <input type="date" class="wf-input" id="end_date" style="width:auto;padding:6px 10px;font-size:12.5px" title="Created on/before">
+      <button class="wf-btn wf-btn-primary wf-btn-sm" onclick="ReportApp.applyFilters()">
+        <i data-lucide="filter" style="width:14px;height:14px"></i> Apply
+      </button>
+      <button class="wf-btn wf-btn-secondary wf-btn-sm" onclick="ReportApp.clearFilters()">
+        <i data-lucide="rotate-ccw" style="width:14px;height:14px"></i> Reset
+      </button>
+      <span class="wf-chip hidden sm:inline-flex"><i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Auto-refreshed</span>
+    </div>
+  </div>
+
   {# ---------------- KPI cards ---------------- #}
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="kpiGrid">
+  <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 mb-6" id="kpiGrid">
+    <div class="wf-card p-5 animate-pulse-soft"><div class="h-9 w-9 rounded-lg bg-gray-200"></div><div class="mt-3 h-6 w-16 bg-gray-200 rounded"></div></div>
+    <div class="wf-card p-5 animate-pulse-soft"><div class="h-9 w-9 rounded-lg bg-gray-200"></div><div class="mt-3 h-6 w-16 bg-gray-200 rounded"></div></div>
     <div class="wf-card p-5 animate-pulse-soft"><div class="h-9 w-9 rounded-lg bg-gray-200"></div><div class="mt-3 h-6 w-16 bg-gray-200 rounded"></div></div>
     <div class="wf-card p-5 animate-pulse-soft"><div class="h-9 w-9 rounded-lg bg-gray-200"></div><div class="mt-3 h-6 w-16 bg-gray-200 rounded"></div></div>
     <div class="wf-card p-5 animate-pulse-soft"><div class="h-9 w-9 rounded-lg bg-gray-200"></div><div class="mt-3 h-6 w-16 bg-gray-200 rounded"></div></div>
@@ -37,6 +81,36 @@
       <span class="wf-chip" id="sprintChip">—</span>
     </div>
     <div class="overflow-x-auto" id="sprintWrap"><div class="wf-empty"><p class="text-[13px] text-[var(--wf-text-tertiary)]">Loading&hellip;</p></div></div>
+  </div>
+
+  {# ---------------- Task Distribution (donut) + Work Hours ---------------- #}
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+    <div class="wf-card">
+      <div class="wf-card-header">
+        <h2 class="text-[14px] font-bold text-[var(--wf-text)]">Task Distribution</h2>
+        <span class="wf-chip" id="tdChip">—</span>
+      </div>
+      <div class="p-5">
+        <div id="tdEmpty" class="wf-empty" style="display:block">
+          <span class="wf-kpi-icon" style="width:40px;height:40px;background:#eef2ff;color:#4f46e5"><i data-lucide="pie-chart" style="width:18px;height:18px"></i></span>
+          <p class="text-[13px] text-[var(--wf-text-secondary)]" id="tdMsg">Loading&hellip;</p>
+        </div>
+        <canvas id="chartTaskDist" style="display:none" height="220"></canvas>
+      </div>
+    </div>
+    <div class="wf-card">
+      <div class="wf-card-header">
+        <h2 class="text-[14px] font-bold text-[var(--wf-text)]">Work Hours</h2>
+        <span class="wf-chip" id="whChip">—</span>
+      </div>
+      <div class="p-5">
+        <div id="whEmpty" class="wf-empty" style="display:block">
+          <span class="wf-kpi-icon" style="width:40px;height:40px;background:#f0fdfa;color:#0d9488"><i data-lucide="timer" style="width:18px;height:18px"></i></span>
+          <p class="text-[13px] text-[var(--wf-text-secondary)]" id="whMsg">Loading&hellip;</p>
+        </div>
+        <canvas id="chartWorkHours" style="display:none" height="220"></canvas>
+      </div>
+    </div>
   </div>
 
   {# ---------------- Completed Work Over Time ---------------- #}
@@ -93,6 +167,7 @@
       <h2 class="text-[14px] font-bold text-[var(--wf-text)]">Team Performance</h2>
       <span class="wf-chip" id="teamChip">—</span>
     </div>
+    <div id="topContribWrap"></div>
     <div class="overflow-x-auto" id="teamWrap"><div class="wf-empty"><p class="text-[13px] text-[var(--wf-text-tertiary)]">Loading&hellip;</p></div></div>
   </div>
 </div>
@@ -108,7 +183,7 @@
     return (window.Wexira && Wexira.escapeHtml) ? Wexira.escapeHtml(s) : s;
   };
 
-  let charts = { completed: null };
+  let charts = { completed: null, taskDist: null, workHours: null };
 
   Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
   Chart.defaults.font.size = 11;
@@ -117,30 +192,97 @@
   const tooltipStyle = { backgroundColor: '#111827', padding: 10, cornerRadius: 8, titleFont: { weight: '600' } };
   const grid = { color: '#f0f1f4', drawBorder: false };
 
+  /* ---------------- Fetch cache (60s TTL) + in-flight dedup ---------------- */
+  const cache = new Map();
+  const inflight = new Map();
+
   async function api(path) {
-    const res = await fetch(path);
-    if (!res.ok) {
-      let msg = 'Request failed (' + res.status + ')';
-      try {
-        const body = await res.json();
-        if (body && body.error) msg = body.error;
-      } catch (e) { /* ignore */ }
-      throw new Error(msg);
-    }
-    return res.json();
+    const now = Date.now();
+    const hit = cache.get(path);
+    if (hit && now - hit.t < 60000) return hit.p;
+    if (inflight.has(path)) return inflight.get(path);
+    const p = fetch(path).then(async res => {
+      if (!res.ok) {
+        let msg = 'Request failed (' + res.status + ')';
+        try {
+          const body = await res.json();
+          if (body && body.error) msg = body.error;
+        } catch (e) { /* ignore */ }
+        throw new Error(msg);
+      }
+      return res.json();
+    }).finally(() => { inflight.delete(path); });
+    inflight.set(path, p);
+    cache.set(path, { t: now, p });
+    return p;
   }
 
   function fail(msg) {
     if (window.Wexira && Wexira.showToast) Wexira.showToast(msg || 'Failed to load report data.', 'error');
   }
 
+  /* ---------------- Filters ---------------- */
+  const FILTER_KEYS = ['project_id', 'sprint_id', 'assignee_id', 'status', 'start_date', 'end_date'];
+
+  function filtersFromUrl() {
+    const p = new URLSearchParams(window.location.search);
+    const f = {};
+    FILTER_KEYS.forEach(k => { const v = p.get(k); if (v) f[k] = v; });
+    return f;
+  }
+
+  function filtersFromForm() {
+    const f = {};
+    FILTER_KEYS.forEach(k => {
+      const el = $(k);
+      if (el && el.value) f[k] = el.value;
+    });
+    return f;
+  }
+
+  function applyFiltersToForm(f) {
+    Object.keys(f).forEach(k => {
+      const el = $(k);
+      if (el) el.value = f[k];
+    });
+  }
+
+  function updateUrl(f) {
+    const p = new URLSearchParams(f);
+    const s = p.toString();
+    const url = window.location.pathname + (s ? '?' + s : '');
+    try { history.replaceState(null, '', url); } catch (e) { /* noop */ }
+  }
+
+  function filterSprints() {
+    const projectVal = $('project_id').value;
+    const sprintEl = $('sprint_id');
+    Array.from(sprintEl.options).forEach(o => {
+      const owner = o.getAttribute('data-owner');
+      o.hidden = !!projectVal && !!owner && owner !== projectVal;
+    });
+    if (projectVal) {
+      const sel = sprintEl.options[sprintEl.selectedIndex];
+      if (sel && sel.hidden) sprintEl.value = '';
+    }
+  }
+
+  function buildUrl(path) {
+    const p = new URLSearchParams();
+    const f = filtersFromForm();
+    Object.keys(f).forEach(k => { if (f[k]) p.set(k, f[k]); });
+    const s = p.toString();
+    return path + (s ? '?' + s : '');
+  }
+
+  /* ---------------- Shared render helpers ---------------- */
   function healthBadge(h) {
     const map = {
       Healthy: { bg: '#ecfdf5', fg: '#059669', icon: 'circle-check' },
-      'At Risk': { bg: '#fffbeb', fg: '#d97706', icon: 'alert-triangle' },
+      Warning: { bg: '#fffbeb', fg: '#d97706', icon: 'alert-triangle' },
       Critical: { bg: '#fef2f2', fg: '#dc2626', icon: 'octagon-alert' }
     };
-    const c = map[h] || map.Healthy;
+    const c = map[h] || map.Warning;
     return '<span class="wf-badge" style="background:' + c.bg + ';color:' + c.fg + '"><i data-lucide="' + c.icon + '" style="width:12px;height:12px"></i>' + esc(h) + '</span>';
   }
 
@@ -149,6 +291,13 @@
     return '<div class="flex items-center gap-2 min-w-[100px]">' +
       '<div class="wf-progress-track" style="height:7px"><div class="wf-progress-bar" style="width:' + pct + '%;background:' + (color || 'var(--wf-primary)') + '"></div></div>' +
       '<span class="text-[12px] font-semibold text-[var(--wf-text-secondary)]">' + pct + '%</span></div>';
+  }
+
+  function errorHtml(msg) {
+    return '<div class="wf-empty"><span class="wf-kpi-icon" style="width:40px;height:40px;background:#fef2f2;color:#dc2626"><i data-lucide="triangle-alert" style="width:18px;height:18px"></i></span>' +
+      '<p class="text-[13px] text-[var(--wf-text-secondary)]">' + esc(msg || 'Failed to load data.') + '</p>' +
+      '<button class="wf-btn wf-btn-secondary wf-btn-sm mt-2" onclick="ReportApp.retry()">' +
+      '<i data-lucide="refresh-cw" style="width:14px;height:14px"></i> Retry</button></div>';
   }
 
   function taskRow(t) {
@@ -184,12 +333,14 @@
     const cards = [
       { label: 'Projects', value: d.projects, icon: 'folder-kanban', color: '#4f46e5', bg: '#eef2ff', click: null },
       { label: 'Total Tasks', value: d.total_tasks, icon: 'list-checks', color: '#0891b2', bg: '#ecfeff', click: null },
-      { label: 'Completed', value: d.completed_tasks, icon: 'check-circle-2', color: '#059669', bg: '#ecfdf5', click: null },
+      { label: 'Completed', value: d.completed_tasks, icon: 'check-circle-2', color: '#059669', bg: '#ecfdf5', click: () => openOverlay({ type: 'status', status: 'done', title: 'Tasks by Status' }) },
       { label: 'In Progress', value: d.in_progress, icon: 'loader-circle', color: '#0891b2', bg: '#ecfeff', click: () => openOverlay({ type: 'in_progress', title: 'In Progress Tasks' }) },
       { label: 'Overdue', value: d.overdue, icon: 'alert-triangle', color: '#dc2626', bg: '#fef2f2', click: () => openOverlay({ type: 'overdue', title: 'Overdue Tasks' }) },
-      { label: 'Sprint Progress', value: d.sprint_progress + '%', icon: 'gauge', color: '#7c3aed', bg: '#f5f3ff', sub: d.sprint_progress_text, click: null },
+      { label: 'Sprint Completion', value: d.sprint_completion + '%', icon: 'gauge', color: '#7c3aed', bg: '#f5f3ff', sub: d.sprint_completion_text, click: null },
       { label: 'Avg Velocity', value: d.average_velocity, icon: 'trending-up', color: '#0d9488', bg: '#f0fdfa', sub: d.velocity_count ? d.velocity_count + ' sprint' + (d.velocity_count === 1 ? '' : 's') + ' · ' + d.velocity_total + ' pts' : (d.velocity_message || ''), click: null },
       { label: 'Team Workload', value: String(d.team_workload).indexOf('.') >= 0 ? d.team_workload.toFixed(1) : d.team_workload, icon: 'users', color: '#d97706', bg: '#fffbeb', sub: d.team_workload_open + ' open / ' + d.team_workload_members + ' members', click: null },
+      { label: 'Productivity', value: String(d.productivity).indexOf('.') >= 0 ? d.productivity.toFixed(1) : d.productivity, icon: 'rocket', color: '#db2777', bg: '#fdf2f8', sub: d.productivity_text, click: null },
+      { label: 'Working Hours', value: d.working_hours, icon: 'timer', color: '#0d9488', bg: '#f0fdfa', sub: d.working_minutes + ' min recorded', click: null },
     ];
     $('kpiGrid').innerHTML = cards.map(k => {
       const sub = k.sub ? '<div class="text-[11px] text-[var(--wf-text-tertiary)] mt-0.5 truncate">' + esc(k.sub) + '</div>' : '';
@@ -209,10 +360,11 @@
 
   function openOverlay(p) {
     const opts = {};
+    const form = filtersFromForm();
+    ['project_id', 'sprint_id', 'assignee_id'].forEach(k => { if (form[k]) opts[k] = form[k]; });
     if (p.type) opts.type = p.type;
     if (p.status) opts.status = p.status;
     if (p.sprint_id) opts.sprint_id = p.sprint_id;
-    if (p.assignee_id) opts.assignee_id = p.assignee_id;
     fetch('/api/v1/reports/drilldown' + queryFor(opts)).then(r => r.json()).then(data => {
       if (!data.tasks) { if (window.Wexira) Wexira.showToast(data.error || 'No data.', 'error'); return; }
       renderOverlay(p.title + ' (' + data.count + ')', data.tasks);
@@ -248,7 +400,7 @@
   function renderHealth(projects) {
     const total = projects.length;
     const crit = projects.filter(p => p.health === 'Critical').length;
-    const risk = projects.filter(p => p.health === 'At Risk').length;
+    const risk = projects.filter(p => p.health === 'Warning').length;
     $('healthSummary').textContent = total + ' project' + (total === 1 ? '' : 's') + ' · ' + crit + ' critical · ' + risk + ' at risk';
     $('cardHealth').style.display = '';
     if (!total) {
@@ -257,7 +409,7 @@
     }
     $('healthWrap').innerHTML =
       '<table class="wf-table"><thead><tr>' +
-      '<th>Project</th><th>Status</th><th>Health</th><th>Progress</th><th>Tasks</th><th>Overdue</th><th>Current sprint</th><th>Sprint progress</th><th>Target</th>' +
+      '<th>Project</th><th>Status</th><th>Health</th><th>Progress</th><th>Tasks</th><th>Overdue</th><th>Current sprint</th><th>Sprint progress</th><th>Working hours</th><th>Target</th>' +
       '</tr></thead><tbody>' +
       projects.map(p =>
         '<tr class="cursor-pointer" onclick="location=\'/project/' + encodeURIComponent(p.key) + '\'">' +
@@ -269,6 +421,7 @@
         '<td>' + (p.overdue ? '<span class="wf-badge" style="background:#fef2f2;color:#dc2626">' + esc(p.overdue) + '</span>' : '<span class="text-[12.5px] text-[var(--wf-text-tertiary)]">0</span>') + '</td>' +
         '<td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">' + esc(p.current_sprint || '—') + '</span></td>' +
         '<td>' + (p.current_sprint ? progressBar(p.current_sprint_progress, '#7c3aed') : '<span class="text-[12.5px] text-[var(--wf-text-tertiary)]">—</span>') + '</td>' +
+        '<td><span class="text-[12.5px] text-[var(--wf-text-secondary)] whitespace-nowrap">' + esc(p.working_hours || '—') + '</span></td>' +
         '<td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">' + esc(p.due_date || '—') + '</span></td>' +
         '</tr>').join('') +
       '</tbody></table>';
@@ -277,7 +430,8 @@
   /* ---------------- Sprint Analytics ---------------- */
   function renderSprints(data) {
     $('cardSprints').style.display = '';
-    $('sprintChip').textContent = data.total_committed + ' committed / ' + data.total_completed + ' completed pts';
+    $('sprintChip').textContent = data.total_committed + ' committed / ' + data.total_completed + ' completed pts' +
+      (data.total_working_minutes ? ' · ' + data.total_working_hours + ' logged' : '');
     const rows = data.sprints;
     if (!rows.length) {
       $('sprintWrap').innerHTML = '<div class="wf-empty"><p class="text-[13px] text-[var(--wf-text-tertiary)]">No sprints found.</p></div>';
@@ -286,7 +440,7 @@
     const statusStyle = { Active: 'wf-badge-soft-blue', Planned: 'wf-badge-soft-gray', Completed: 'wf-badge-soft-green' };
     $('sprintWrap').innerHTML =
       '<table class="wf-table"><thead><tr>' +
-      '<th>Sprint</th><th>Status</th><th>Dates</th><th>Tasks</th><th>Story points</th><th>Progress</th>' +
+      '<th>Sprint</th><th>Status</th><th>Dates</th><th>Duration</th><th>Tasks</th><th>Story points</th><th>Working hours</th><th>Progress</th>' +
       '</tr></thead><tbody>' +
       rows.map(s => {
         const badge = statusStyle[s.status] || 'wf-badge-soft-gray';
@@ -295,19 +449,88 @@
           '<td><div class="min-w-[150px]"><div class="text-[13px] font-semibold text-[var(--wf-text)] leading-tight">' + esc(s.name) + '</div>' + (s.goal ? '<div class="text-[11px] text-[var(--wf-text-tertiary)] truncate max-w-[220px]">' + esc(s.goal) + '</div>' : '') + '</div></td>' +
           '<td><span class="wf-badge ' + badge + '">' + esc(s.status) + '</span></td>' +
           '<td><span class="text-[12px] text-[var(--wf-text-secondary)] whitespace-nowrap">' + esc(s.start_date || '—') + ' → ' + esc(s.end_date || '—') + '</span></td>' +
+          '<td><span class="text-[12px] text-[var(--wf-text-secondary)] whitespace-nowrap">' + (s.duration_days != null ? s.duration_days + 'd' : '—') + '</span></td>' +
           '<td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">' + esc(s.total_tasks) + ' <span class="text-[var(--wf-text-tertiary)]">· ' + esc(s.completed_tasks) + ' done · ' + esc(s.remaining_tasks) + ' left</span></span></td>' +
           '<td><span class="text-[12.5px] text-[var(--wf-text-secondary)] whitespace-nowrap">' + esc(s.completed_points) + ' / ' + esc(s.committed_points) + ' pts</span></td>' +
+          '<td><span class="text-[12.5px] text-[var(--wf-text-secondary)] whitespace-nowrap">' + esc(s.working_hours || '—') + '</span></td>' +
           '<td>' + progressBar(s.progress, s.status === 'Completed' ? '#059669' : s.status === 'Active' ? '#0891b2' : '#9ca3af') + '</td>' +
         '</tr>';
       }).join('') +
       '</tbody></table>';
   }
 
+  /* ---------------- Task Distribution donut ---------------- */
+  function renderTaskDist(data) {
+    const el = $('chartTaskDist'), empty = $('tdEmpty'), msg = $('tdMsg');
+    $('tdChip').textContent = data.total + ' tasks';
+    const statuses = data.statuses || [];
+    if (!statuses.length) {
+      msg.textContent = 'No issues in scope.';
+      empty.style.display = '';
+      el.style.display = 'none';
+      return;
+    }
+    empty.style.display = 'none';
+    el.style.display = '';
+    if (charts.taskDist) charts.taskDist.destroy();
+    charts.taskDist = new Chart(el, {
+      type: 'doughnut',
+      data: {
+        labels: statuses.map(s => s.label),
+        datasets: [{
+          data: statuses.map(s => s.count),
+          backgroundColor: statuses.map(s => s.color),
+          borderWidth: 2,
+          borderColor: '#ffffff'
+        }]
+      },
+      options: {
+        cutout: '68%',
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 10, padding: 14, usePointStyle: true } },
+          tooltip: { ...tooltipStyle, callbacks: { label: (ctx) => ' ' + ctx.label + ': ' + ctx.raw + ' task' + (ctx.raw === 1 ? '' : 's') } }
+        }
+      }
+    });
+  }
+
+  /* ---------------- Work Hours chart ---------------- */
+  function renderWorkHours(data) {
+    const el = $('chartWorkHours'), empty = $('whEmpty'), msg = $('whMsg');
+    $('whChip').textContent = data.has_working_data ? data.working_total_hours + ' logged' : 'No hours recorded';
+    if (!data.has_working_data || !(data.series || []).length) {
+      msg.textContent = data.message || 'No working hours recorded yet.';
+      empty.style.display = '';
+      el.style.display = 'none';
+      return;
+    }
+    empty.style.display = 'none';
+    el.style.display = '';
+    if (charts.workHours) charts.workHours.destroy();
+    charts.workHours = new Chart(el, {
+      type: 'bar',
+      data: {
+        labels: data.series.map(s => s.label),
+        datasets: [{
+          label: 'Work hours logged',
+          data: data.series.map(s => Math.round((s.working_minutes || 0) / 60 * 10) / 10),
+          backgroundColor: '#0d9488',
+          borderRadius: 6,
+          barThickness: 20
+        }]
+      },
+      options: {
+        scales: { y: { beginAtZero: true, grid, ticks: { precision: 0 } }, x: { grid: { display: false } } },
+        plugins: { tooltip: tooltipStyle, legend: { display: false } }
+      }
+    });
+  }
+
   /* ---------------- Completed Work Over Time ---------------- */
   function renderCompleted(data) {
     const el = $('chartCompleted'), empty = $('completedEmpty');
     $('completedChip').textContent = data.has_completion_data
-      ? data.done_total + ' done · ' + data.total_points + ' pts'
+      ? data.done_total + ' done · ' + data.total_points + ' pts' + (data.has_working_data ? ' · ' + data.working_total_hours + ' logged' : '')
       : (data.done_total ? 'No completion timestamps' : 'No completed tasks');
     if (!data.has_completion_data) {
       $('completedMsg').textContent = data.done_total
@@ -378,16 +601,37 @@
   }
 
   /* ---------------- Team Performance ---------------- */
+  function renderTopContributors(list) {
+    const wrap = $('topContribWrap');
+    if (!list || !list.length) { wrap.innerHTML = ''; return; }
+    const max = Math.max.apply(null, list.map(m => m.completed)) || 1;
+    wrap.innerHTML =
+      '<div class="px-5 pt-5 pb-1">' +
+      '<div class="text-[11.5px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide mb-2.5">Top contributors</div>' +
+      '<div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2.5">' +
+      list.map(m =>
+        '<div class="rounded-xl border border-[var(--wf-border-soft)] p-3 cursor-pointer hover:bg-[#fafafb] transition-colors" onclick="openOverlay({ type: \'in_progress\', assignee_id: ' + m.user_id + ', title: \'' + esc(m.name || '') + ' — in progress\' }); return false;">' +
+        '<div class="flex items-center gap-2"><span class="wf-avatar wf-avatar-sm" style="background:' + esc(m.color) + '">' + esc(m.initials) + '</span>' +
+        '<div class="min-w-0"><div class="text-[12.5px] font-semibold text-[var(--wf-text)] leading-tight truncate">' + esc(m.name) + '</div>' +
+        '<div class="text-[10.5px] text-[var(--wf-text-tertiary)]">' + esc(m.role || '') + '</div></div></div>' +
+        '<div class="flex items-center gap-2 mt-2"><div class="wf-progress-track" style="height:6px;flex:1"><div class="wf-progress-bar" style="width:' + Math.round(m.completed / max * 100) + '%;background:#059669"></div></div>' +
+        '<span class="text-[12px] font-semibold text-[var(--wf-text-secondary)]">' + m.completed + ' done</span></div>' +
+        '<div class="text-[10.5px] text-[var(--wf-text-tertiary)] mt-1">' + esc(m.working_hours || '0h 00m') + ' logged</div>' +
+        '</div>').join('') +
+      '</div></div>';
+  }
+
   function renderTeam(data) {
     $('cardTeam').style.display = '';
     $('teamChip').textContent = data.total_members + ' members · ' + data.total_assigned + ' assignments';
+    renderTopContributors(data.top_contributors || []);
     if (!data.members.length) {
       $('teamWrap').innerHTML = '<div class="wf-empty"><p class="text-[13px] text-[var(--wf-text-tertiary)]">No assigned work.</p></div>';
       return;
     }
     $('teamWrap').innerHTML =
       '<table class="wf-table"><thead><tr>' +
-      '<th>Member</th><th>Assigned</th><th>Completed</th><th>In progress</th><th>Overdue</th><th>Completion</th><th>Points</th>' +
+      '<th>Member</th><th>Assigned</th><th>Completed</th><th>In progress</th><th>Overdue</th><th>Completion</th><th>Points</th><th>Working hours</th>' +
       '</tr></thead><tbody>' +
       data.members.map(m => {
         const pct = m.assigned ? Math.round(m.completed / m.assigned * 100) : 0;
@@ -399,34 +643,67 @@
           '<td>' + (m.overdue ? '<span class="wf-badge" style="background:#fef2f2;color:#dc2626">' + m.overdue + '</span>' : '<span class="text-[12.5px] text-[var(--wf-text-tertiary)]">0</span>') + '</td>' +
           '<td>' + progressBar(pct, '#059669') + '</td>' +
           '<td><span class="text-[12.5px] text-[var(--wf-text-secondary)] whitespace-nowrap">' + m.completed_points + ' / ' + m.allocated_points + ' pts</span></td>' +
+          '<td><span class="text-[12.5px] text-[var(--wf-text-secondary)] whitespace-nowrap">' + esc(m.working_hours) + '</span></td>' +
         '</tr>';
       }).join('') +
       '</tbody></table>';
   }
 
+  /* ---------------- Loading / error states ---------------- */
+  function setLoading() {
+    $('kpiGrid').innerHTML = '<div class="wf-card p-5 md:col-span-3 xl:col-span-5"><div class="wf-empty"><p class="text-[13px] text-[var(--wf-text-tertiary)]">Loading reports&hellip;</p></div></div>';
+    $('cardHealth').style.display = '';
+    $('healthWrap').innerHTML = '<div class="wf-empty"><p class="text-[13px] text-[var(--wf-text-tertiary)]">Loading&hellip;</p></div>';
+    $('cardSprints').style.display = '';
+    $('sprintWrap').innerHTML = '<div class="wf-empty"><p class="text-[13px] text-[var(--wf-text-tertiary)]">Loading&hellip;</p></div>';
+    const te = $('tdEmpty'), we = $('whEmpty'), ce = $('completedEmpty');
+    te.style.display = ''; $('tdMsg').textContent = 'Loading&hellip;'; $('chartTaskDist').style.display = 'none';
+    we.style.display = ''; $('whMsg').textContent = 'Loading&hellip;'; $('chartWorkHours').style.display = 'none';
+    ce.style.display = ''; $('completedMsg').textContent = 'Loading&hellip;'; $('chartCompleted').style.display = 'none';
+    $('cardOverdue').style.display = '';
+    $('overdueWrap').innerHTML = '<div class="wf-empty"><p class="text-[13px] text-[var(--wf-text-tertiary)]">Loading&hellip;</p></div>';
+    $('upcomingWrap').innerHTML = '<div class="wf-empty"><p class="text-[13px] text-[var(--wf-text-tertiary)]">Loading&hellip;</p></div>';
+    $('cardTeam').style.display = '';
+    $('teamWrap').innerHTML = '<div class="wf-empty"><p class="text-[13px] text-[var(--wf-text-tertiary)]">Loading&hellip;</p></div>';
+    $('topContribWrap').innerHTML = '';
+  }
+
   /* ---------------- Load ---------------- */
   async function loadAll() {
-    try {
-      const [summary, health, sprints, overdue, completed, team] = await Promise.all([
-        api('/api/v1/reports/summary'),
-        api('/api/v1/reports/project-health'),
-        api('/api/v1/reports/sprint-analytics'),
-        api('/api/v1/reports/overdue'),
-        api('/api/v1/reports/completed-over-time'),
-        api('/api/v1/reports/team-performance')
-      ]);
-      renderKpis(summary);
-      renderHealth(health.projects);
-      renderSprints(sprints);
-      renderOverdue(overdue);
-      renderCompleted(completed);
-      renderTeam(team);
-    } catch (err) {
-      fail(err.message || 'Failed to load report data.');
-    }
+    setLoading();
+    const sections = [
+      { url: '/api/v1/reports/summary', render: renderKpis, fail: 'KPIs' },
+      { url: '/api/v1/reports/project-health', render: (d) => renderHealth(d.projects), fail: 'Project Health' },
+      { url: '/api/v1/reports/sprint-analytics', render: renderSprints, fail: 'Sprint Analytics' },
+      { url: '/api/v1/reports/status-distribution', render: renderTaskDist, fail: 'Task Distribution' },
+      { url: '/api/v1/reports/completed-over-time', render: renderCompleted, fail: 'Completed Work Over Time' },
+      { url: '/api/v1/reports/completed-over-time', render: renderWorkHours, fail: 'Work Hours' },
+      { url: '/api/v1/reports/overdue', render: renderOverdue, fail: 'Overdue Analytics' },
+      { url: '/api/v1/reports/team-performance', render: renderTeam, fail: 'Team Performance' },
+    ];
+    const results = await Promise.allSettled(sections.map(s => api(buildUrl(s.url))));
+    results.forEach((r, i) => {
+      const s = sections[i];
+      if (r.status === 'fulfilled') {
+        try { s.render(r.value); } catch (e) { fail('Rendering ' + s.fail + ' failed: ' + (e && e.message)); }
+      } else {
+        fail(s.fail + ': ' + ((r.reason && r.reason.message) || 'failed to load'));
+        if (s.fail === 'KPIs') $('kpiGrid').innerHTML = errorHtml(r.reason && r.reason.message);
+        if (s.fail === 'Project Health') $('healthWrap').innerHTML = errorHtml(r.reason && r.reason.message);
+        if (s.fail === 'Sprint Analytics') $('sprintWrap').innerHTML = errorHtml(r.reason && r.reason.message);
+        if (s.fail === 'Task Distribution') { $('tdEmpty').style.display = ''; $('tdMsg').innerHTML = (r.reason && r.reason.message) || 'Failed to load.'; }
+        if (s.fail === 'Work Hours') { $('whEmpty').style.display = ''; $('whMsg').innerHTML = (r.reason && r.reason.message) || 'Failed to load.'; }
+        if (s.fail === 'Completed Work Over Time') { $('completedEmpty').style.display = ''; $('completedMsg').innerHTML = (r.reason && r.reason.message) || 'Failed to load.'; }
+        if (s.fail === 'Overdue Analytics') { $('overdueWrap').innerHTML = errorHtml(r.reason && r.reason.message); }
+        if (s.fail === 'Team Performance') { $('teamWrap').innerHTML = errorHtml(r.reason && r.reason.message); }
+      }
+    });
+    refreshIcons();
   }
 
   async function init() {
+    applyFiltersToForm(filtersFromUrl());
+    filterSprints();
     await loadAll();
   }
 
@@ -434,7 +711,24 @@
     kpiClick: (i) => {
       const fn = (window._reportKpiClicks || [])[i];
       if (fn) fn();
-    }
+    },
+    onProjectChange: () => filterSprints(),
+    applyFilters: () => {
+      const f = filtersFromForm();
+      if (f.start_date && f.end_date && f.start_date > f.end_date) {
+        if (window.Wexira) Wexira.showToast('Start date must be on or before end date.', 'error');
+        return;
+      }
+      updateUrl(f);
+      loadAll();
+    },
+    clearFilters: () => {
+      FILTER_KEYS.forEach(k => { const el = $(k); if (el) el.value = ''; });
+      filterSprints();
+      updateUrl({});
+      loadAll();
+    },
+    retry: () => loadAll()
   };
 
   /* expose overlay for inline handlers */
