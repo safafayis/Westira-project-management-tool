@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 
 from app.models import Issue, Project, Sprint, User
+from app.utils.helpers import project_progress_stats
 from swagger_spec import api_doc
 
 ai_bp = Blueprint('ai', __name__, url_prefix='/ai')
@@ -31,7 +32,7 @@ def ai():
     me = current_user
     issues = Issue.query.all()
     active_sprint = Sprint.query.filter_by(status='Active').first()
-    project = Project.query.first()
+    project = Project.query.order_by(Project.id).first()
 
     def _overdue():
         out = []
@@ -64,9 +65,11 @@ def ai():
                         f"Sprint goal: _{s.goal}_"})
 
     if 'project' in message or 'e-commerce' in message or 'ecom' in message or 'summar' in message:
+        prog = project_progress_stats(project.id)
         return jsonify({
             'type': 'project_summary',
-            'response': f"**{project.name}** is currently **{project.progress}% complete**.\n\n"
+            'response': f"**{project.name}** is currently **{prog['progress_percentage']}% complete**"
+                        f" ({prog['completed_issues']} of {prog['total_issues']} issues completed).\n\n"
                         f"**{active_sprint.name if active_sprint else 'Sprint'}: {active_sprint.in_progress if active_sprint else 12} tasks in progress**, "
                         f"**{active_sprint.in_review if active_sprint else 7} in review**, "
                         f"**{active_sprint.done if active_sprint else 42} completed**.\n\n"

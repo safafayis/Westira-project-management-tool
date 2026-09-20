@@ -868,6 +868,48 @@ def ensure_settings_for_user(user):
         db.session.add(UserNotificationPreferences(user_id=user.id))
 
 
+# ---------------------------------------------------------------------------
+# Sidebar section mapping
+# ---------------------------------------------------------------------------
+# Maps every HTML page endpoint to the sidebar section that must stay active
+# while that page (or any of its child/detail routes) is open. Matching uses
+# the Flask endpoint name (the route identity), so it works for direct URLs,
+# refreshes, Back/Forward navigation and query-string variants alike, and it
+# cannot collide like raw path prefixes (/project vs /projects).
+#
+# A section stays active across its whole subtree:
+#   Projects  -> /projects, /project, /project/<key>, /issue, /issue/<id>
+#   Kanban    -> /kanban, /kanban/<key>
+#   Backlog   -> /backlog, /backlog/<key>
+#   Sprints   -> /sprints, /sprints/<key>
+#   Team      -> /team, /people-hub
+SIDEBAR_SECTION_BY_ENDPOINT = {
+    'dashboard': 'dashboard',
+    'projects': 'projects',
+    'project_overview': 'projects',
+    'issue_detail': 'projects',
+    'issue_default': 'projects',
+    'my_work': 'my_work',
+    'kanban': 'kanban',
+    'backlog': 'backlog',
+    'sprints': 'sprints',
+    'ai_assistant': 'ai-assistant',
+    'reports': 'reports',
+    'team': 'team',
+    'people_hub': 'team',
+    'notifications': 'notifications',
+}
+
+
+def active_section_for(endpoint):
+    """Return the sidebar section (nav key) active for a page endpoint.
+
+    Returns ``None`` for endpoints with no sidebar representation (auth,
+    static, swagger, redirects) so exactly one nav item is active at a time.
+    """
+    return SIDEBAR_SECTION_BY_ENDPOINT.get(endpoint)
+
+
 def seed_settings_defaults():
     """Idempotent seed for workspace defaults (runs at startup).
 

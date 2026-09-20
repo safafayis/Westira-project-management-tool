@@ -59,11 +59,12 @@
               </div>
             </td>
             <td>
+              {% set p_prog = projects_progress.get(p.id, 0) %}
               <div class="flex items-center gap-2 min-w-[100px]">
                 <div class="wf-progress-track" style="height:7px">
-                  <div class="wf-progress-bar" style="width:{{ p.progress }}%;background:{{ p.color }}"></div>
+                  <div class="wf-progress-bar" style="width:{{ p_prog }}%;background:{{ p.color }}"></div>
                 </div>
-                <span class="text-[12px] font-semibold text-[var(--wf-text-secondary)]">{{ p.progress }}%</span>
+                <span class="text-[12px] font-semibold text-[var(--wf-text-secondary)]">{{ p_prog }}%</span>
               </div>
             </td>
             <td><span class="text-[12.5px] text-[var(--wf-text-secondary)]" data-sortval="start">{{ p.start_date }}</span></td>

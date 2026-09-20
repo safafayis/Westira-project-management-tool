@@ -1265,6 +1265,8 @@ body:not(.is-dashboard) .wf-navbar {
       </button>
     </div>
 
+    {% set sidebar_active = active_section|default(active_page, true) %}
+
     <nav class="wf-nav">
       <div class="wf-nav-section">Workspace</div>
 
@@ -1274,7 +1276,7 @@ body:not(.is-dashboard) .wf-navbar {
         ('my_work', 'My Work', 'briefcase-business', '/my-work'),
       ] %}
       {% for key, label, icon, href in nav_items %}
-      <a href="{{ href }}" class="wf-nav-item {{ 'is-active' if active_page == key else '' }}" data-nav-label="{{ label }}">
+      <a href="{{ href }}" class="wf-nav-item {{ 'is-active' if sidebar_active == key else '' }}" data-nav-label="{{ label }}">
         <i data-lucide="{{ icon }}" style="width:18px;height:18px"></i>
         <span class="wf-nav-label">{{ label }}</span>
       </a>
@@ -1290,7 +1292,7 @@ body:not(.is-dashboard) .wf-navbar {
         ('team', 'Team', 'users', '/team', ''),
       ] %}
       {% for key, label, icon, href, badge in nav_manage %}
-      <a href="{{ href }}" class="wf-nav-item {{ 'is-active' if active_page == key else '' }}">
+      <a href="{{ href }}" class="wf-nav-item {{ 'is-active' if sidebar_active == key else '' }}">
         <i data-lucide="{{ icon }}" style="width:18px;height:18px"></i>
         <span class="wf-nav-label">{{ label }}</span>
         {% if badge %}<span class="wf-nav-badge">{{ badge }}</span>{% endif %}
@@ -1302,7 +1304,7 @@ body:not(.is-dashboard) .wf-navbar {
         ('notifications', 'Notifications', 'bell', '/notifications'),
       ] %}
       {% for key, label, icon, href in nav_system %}
-      <a href="{{ href }}" class="wf-nav-item {{ 'is-active' if active_page == key else '' }}">
+      <a href="{{ href }}" class="wf-nav-item {{ 'is-active' if sidebar_active == key else '' }}">
         <i data-lucide="{{ icon }}" style="width:18px;height:18px"></i>
         <span class="wf-nav-label">{{ label }}</span>
       </a>
@@ -1706,6 +1708,9 @@ function openCreateModal(opts) {
   const submitLabel = opts.submitLabel || 'Create';
   const projectBounds = opts.projectBounds || null;
   const boundsProject = opts.boundsProject || null;
+  const presetParent = opts.parent || null;
+  const parentLocked = presetParent !== null;
+  const presetSprint = opts.presetSprint || null;
 
   const modalRoot = document.getElementById('modalRoot');
 
@@ -1749,6 +1754,12 @@ function openCreateModal(opts) {
               <label class="wf-label">Summary <span class="req">*</span></label>
               <input class="wf-input" id="ci-summary" placeholder="What needs to be done?" value="" maxlength="240">
             </div>
+            <div class="wf-field md:col-span-2">
+              <label class="wf-label">Parent Task</label>
+              <select class="wf-select" id="ci-parent">
+                <option value="0" selected>None (top-level Task)</option>
+              </select>
+            </div>
             <div class="wf-field">
               <label class="wf-label">Assignee</label>
               <select class="wf-select" id="ci-assignee">
@@ -1774,6 +1785,11 @@ function openCreateModal(opts) {
                 <option value="in_review">In Review</option>
                 <option value="done">Done</option>
               </select>
+            </div>
+            <div class="wf-field">
+              <label class="wf-label">Working Hours</label>
+              <input class="wf-input" id="ci-working" placeholder="HH:MM (e.g. 04:30)" inputmode="numeric" disabled>
+              <p class="wf-help" id="ci-working-hint">Required when the task is marked Done.</p>
             </div>
             <div class="wf-field">
               <label class="wf-label">Start Date</label>
@@ -1814,7 +1830,36 @@ function openCreateModal(opts) {
 
   initAssigneeSelect();
 
+  if (parentLocked) {
+    var _ciProjectSel = document.getElementById('ci-project');
+    var _ciParentSel = document.getElementById('ci-parent');
+    if (_ciProjectSel) _ciProjectSel.disabled = true;
+    if (_ciParentSel) _ciParentSel.disabled = true;
+  }
+
+  var _ciParentBox = document.getElementById('ci-parent');
+  if (_ciParentBox) loadParentTasks(project, presetParent, parentLocked);
+
+  const ciWmEl = document.getElementById('ci-working');
+  const ciWmHint = document.getElementById('ci-working-hint');
+  function ciSyncWorkingHours() {
+    const done = document.getElementById('ci-status').value === 'done';
+    ciWmEl.disabled = !done;
+    if (done) {
+      ciWmEl.placeholder = 'e.g. 04:30';
+      ciWmHint.textContent = 'Working hours recorded for this completed task.';
+    } else {
+      ciWmEl.value = '';
+      ciWmEl.placeholder = 'HH:MM (e.g. 04:30)';
+      ciWmHint.textContent = 'Required when the task is marked Done.';
+    }
+  }
+  document.getElementById('ci-status').addEventListener('change', ciSyncWorkingHours);
+
+  var ciSubmitting = false;
+
   document.getElementById('ci-submit').addEventListener('click', () => {
+    if (ciSubmitting) return;
     const summaryEl = document.getElementById('ci-summary');
     const summary = summaryEl.value.trim();
     if (!summary) {
@@ -1889,6 +1934,28 @@ function openCreateModal(opts) {
 
     const sprintNumber = document.getElementById('ci-sprint').value;
 
+    let workingMinutes = null;
+    if (issueStatus === 'done') {
+      const wmRaw = document.getElementById('ci-working').value.trim();
+      if (!wmRaw) {
+        showToast('Working hours are required when the task is marked Done. Enter the total time spent (e.g. 04:30).', 'error');
+        document.getElementById('ci-working').focus();
+        return;
+      }
+      const wmMatch = /^(\d{1,3}):([0-5]?\d)$/.exec(wmRaw) || /^(\d{1,4})$/.exec(wmRaw);
+      if (!wmMatch) {
+        showToast('Invalid working hours. Use HH:MM (e.g. 04:30).', 'error');
+        document.getElementById('ci-working').focus();
+        return;
+      }
+      workingMinutes = parseInt(wmMatch[1], 10) * 60 + (wmMatch[2] ? parseInt(wmMatch[2], 10) : 0);
+      if (workingMinutes <= 0) {
+        showToast('Working hours must be greater than zero.', 'error');
+        document.getElementById('ci-working').focus();
+        return;
+      }
+    }
+
     const labels = Array.from(new Set(
       document.getElementById('ci-labels').value.split(',').map(s => s.trim()).filter(Boolean)
     ));
@@ -1909,6 +1976,20 @@ function openCreateModal(opts) {
       acceptance_criteria: document.getElementById('ci-acceptance').value.trim(),
     };
     payload.assignees = assigneeId ? [assigneeId] : [];
+    if (workingMinutes !== null) payload.working_minutes = workingMinutes;
+
+    var parentSel = document.getElementById('ci-parent');
+    if (parentSel) {
+      var parentId = parseInt(parentSel.value, 10) || 0;
+      payload.parent_issue_id = parentId ? parentId : 0;
+    } else {
+      payload.parent_issue_id = 0;
+    }
+
+    ciSubmitting = true;
+    const ciSubmitBtn = document.getElementById('ci-submit');
+    const ciSubmitLabel = ciSubmitBtn ? ciSubmitBtn.textContent : '';
+    if (ciSubmitBtn) { ciSubmitBtn.disabled = true; ciSubmitBtn.textContent = 'Creating…'; }
 
     fetch('/api/v1/issues', {
       method: 'POST',
@@ -1918,15 +1999,26 @@ function openCreateModal(opts) {
       .then(r => r.json().then(d => ({ ok: r.ok, d })))
       .then(({ ok, d }) => {
         if (!ok) {
+          if (ciSubmitBtn) { ciSubmitBtn.disabled = false; ciSubmitBtn.textContent = ciSubmitLabel; }
+          ciSubmitting = false;
           showToast(d.error || 'Could not create the entry.', 'error');
           return;
         }
         close();
+        ciSubmitting = false;
         showToast(`Issue ${d.number} created successfully.`, 'success', opts.toastTitle || 'Created');
         const path = window.location.pathname;
-        if (path.startsWith('/kanban') || path.startsWith('/backlog') || path.startsWith('/project') || path.startsWith('/projects')) location.reload();
+        const handled = typeof window.WT_AFTER_ISSUE_CREATE === 'function'
+          && window.WT_AFTER_ISSUE_CREATE(d, payload.parent_issue_id, opts.project) === true;
+        if (!handled) {
+          if (path.startsWith('/kanban') || path.startsWith('/backlog') || path.startsWith('/project') || path.startsWith('/projects')) location.reload();
+        }
       })
-      .catch(() => showToast('Could not create the entry.', 'error'));
+      .catch(() => {
+        if (ciSubmitBtn) { ciSubmitBtn.disabled = false; ciSubmitBtn.textContent = ciSubmitLabel; }
+        ciSubmitting = false;
+        showToast('Could not create the entry.', 'error');
+      });
   });
 
   function initAssigneeSelect() {
@@ -1946,20 +2038,72 @@ function openCreateModal(opts) {
       .catch(function () {});
   }
 
-  function loadSprints(projectKey, select) {
+  function loadSprints(projectKey, select, defaultNumber) {
     if (!select) return;
     select.innerHTML = '<option value="">No Sprint</option>';
     fetch('/api/v1/sprints?project=' + encodeURIComponent(projectKey))
       .then(function (r) { return r.json(); })
       .then(function (list) {
+        var appliedDefault = false;
         list.forEach(function (s) {
           var opt = document.createElement('option');
           opt.value = s.number;
           opt.textContent = 'Sprint ' + s.number + (s.name ? ' — ' + s.name : '') + (String(s.status || '').toLowerCase() === 'completed' ? ' (Completed)' : '');
+          if (defaultNumber && Number(s.number) === Number(defaultNumber)) { opt.selected = true; appliedDefault = true; }
           select.appendChild(opt);
         });
+        if (defaultNumber && !appliedDefault && String(defaultNumber) !== '0') {
+          var ph = document.createElement('option');
+          ph.value = String(defaultNumber);
+          ph.textContent = 'Sprint ' + defaultNumber;
+          ph.selected = true;
+          select.appendChild(ph);
+        }
       })
       .catch(function () {});
+  }
+
+  function loadParentTasks(projectKey, preset, locked) {
+    var select = document.getElementById('ci-parent');
+    if (!select) return;
+    select.innerHTML = '<option value="0"' + (preset ? '' : ' selected') + '>None (top-level Task)</option>';
+    if (!projectKey) return;
+    fetch('/api/v1/issues?project=' + encodeURIComponent(projectKey) + '&top_level=1')
+      .then(function (r) { return r.json(); })
+      .then(function (list) {
+        (list || []).forEach(function (iss) {
+          var label = iss.key + ' — ' + esc(iss.title);
+          var isPreset = preset && Number(iss.id) === Number(preset);
+          if (isPreset) label += ' (locked)';
+          var opt = document.createElement('option');
+          opt.value = iss.id;
+          opt.textContent = label;
+          if (isPreset) opt.selected = true;
+          select.appendChild(opt);
+        });
+        if (preset) {
+          var found = (list || []).some(function (s) { return Number(s.id) === Number(preset); });
+          var existing = null;
+          for (var i = 0; i < select.options.length; i++) {
+            if (select.options[i].value === String(preset)) { existing = select.options[i]; break; }
+          }
+          if (!found && !existing) {
+            var ph = document.createElement('option');
+            ph.value = preset;
+            ph.textContent = 'Parent task #' + preset + ' (locked)';
+            ph.selected = true;
+            select.appendChild(ph);
+          }
+          select.value = String(preset);
+          if (locked) select.disabled = true;
+        }
+      })
+      .catch(function () {
+        if (preset) {
+          select.value = String(preset);
+          if (locked) select.disabled = true;
+        }
+      });
   }
 
   var ciProjectSel = document.getElementById('ci-project');
@@ -1983,7 +2127,10 @@ function openCreateModal(opts) {
           opts = '<option value="' + esc(defaultKey) + '" selected>' + esc(defaultKey) + ' (' + esc(defaultKey) + ')</option>' + opts;
         }
         ciProjectSel.innerHTML = opts || '<option value="" selected>No projects available</option>';
-        if (ciSprintSel) loadSprints(ciProjectSel.value, ciSprintSel);
+        if (ciSprintSel) loadSprints(ciProjectSel.value, ciSprintSel, presetSprint);
+        if (document.getElementById('ci-parent')) {
+          loadParentTasks(ciProjectSel.value, presetParent, parentLocked);
+        }
       })
       .catch(function () {
         ciProjectSel.innerHTML = project
@@ -1997,20 +2144,228 @@ function openCreateModal(opts) {
     if (ciSprintSel) {
       ciProjectSel.addEventListener('change', function () {
         loadSprints(ciProjectSel.value, ciSprintSel);
+        if (document.getElementById('ci-parent')) {
+          loadParentTasks(ciProjectSel.value, presetParent, parentLocked);
+        }
       });
     }
   }
 }
 
-function openCreateIssue(project = 'ECOM', bounds) {
+function openCreateIssue(project = 'ECOM', bounds, parent, presetSprint) {
+  const isSubtask = parent !== undefined && parent !== null;
   openCreateModal({
     project,
-    title: 'Create Issue',
-    subtitle: 'Create an issue for your project',
+    title: isSubtask ? 'Create Subtask' : 'Create Issue',
+    subtitle: isSubtask ? 'Nest this item under the selected task (single level)' : 'Create an issue for your project',
     submitLabel: 'Create',
-    toastTitle: 'Issue created',
+    toastTitle: isSubtask ? 'Subtask created' : 'Issue created',
     projectBounds: bounds || null,
     boundsProject: project,
+    parent: parent || null,
+    presetSprint: presetSprint || null,
+  });
+}
+
+function openCreateSubtask(opts) {
+  const parentId = opts.parentId || null;
+  if (!parentId) return;
+  const projectKey = opts.projectKey || 'ECOM';
+  const bounds = opts.bounds || null;
+
+  const modalRoot = document.getElementById('modalRoot');
+  function closeCs() {
+    modalRoot.innerHTML = '';
+    document.body.style.overflow = '';
+  }
+  function esc(v) { return escapeHtml(v || ''); }
+
+  modalRoot.innerHTML = `
+    <div class="wf-modal-backdrop" id="csBackdrop">
+      <div class="wf-modal" style="max-width:620px">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-[var(--wf-border-soft)]">
+          <div>
+            <h2 class="text-[16px] font-bold text-[var(--wf-text)]">Create Subtask</h2>
+            <p class="text-[12px] text-[var(--wf-text-secondary)]" id="cs-subtitle">Loading parent…</p>
+          </div>
+          <button type="button" class="wf-icon-btn" data-close-cs><i data-lucide="x" style="width:16px;height:16px"></i></button>
+        </div>
+        <div class="px-6 py-5">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+            <div class="wf-field md:col-span-2">
+              <label class="wf-label">Summary <span class="req">*</span></label>
+              <input class="wf-input" id="cs-summary" placeholder="What needs to be done?" value="" maxlength="240">
+            </div>
+            <div class="wf-field">
+              <label class="wf-label">Assignee</label>
+              <select class="wf-select" id="cs-assignee">
+                <option value="">Unassigned</option>
+              </select>
+            </div>
+            <div class="wf-field">
+              <label class="wf-label">Priority <span class="req">*</span></label>
+              <select class="wf-select" id="cs-priority">
+                <option>Highest</option><option>High</option><option selected>Medium</option>
+                <option>Low</option><option>Lowest</option>
+              </select>
+            </div>
+            <div class="wf-field">
+              <label class="wf-label">Status <span class="req">*</span></label>
+              <select class="wf-select" id="cs-status">
+                <option value="backlog" selected>Backlog</option>
+                <option value="todo">To Do</option>
+                <option value="in_progress">In Progress</option>
+                <option value="in_review">In Review</option>
+                <option value="done">Done</option>
+              </select>
+            </div>
+            <div class="wf-field">
+              <label class="wf-label">Story Points</label>
+              <input class="wf-input" id="cs-points" type="number" min="0" step="1" placeholder="0">
+            </div>
+            <div class="wf-field">
+              <label class="wf-label">Target Date</label>
+              <input class="wf-input" id="cs-target" type="date">
+            </div>
+            <div class="wf-field md:col-span-2">
+              <label class="wf-label">Description</label>
+              <textarea class="wf-textarea" id="cs-description" rows="3" placeholder="Describe the subtask..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--wf-border-soft)] bg-[#fafafb]">
+          <button class="wf-btn wf-btn-secondary" data-close-cs>Cancel</button>
+          <button class="wf-btn wf-btn-primary" id="cs-submit">Create Subtask</button>
+        </div>
+      </div>
+    </div>`;
+
+  lucide.createIcons({ nodes: [modalRoot] });
+  modalRoot.querySelectorAll('[data-close-cs]').forEach(b => b.addEventListener('click', closeCs));
+  document.getElementById('csBackdrop').addEventListener('click', e => {
+    if (e.target.id === 'csBackdrop') closeCs();
+  });
+
+  function loadCsParentsAndAssignees() {
+    fetch('/api/v1/issues/' + parentId)
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('bad status')))
+      .then(function (parent) {
+        const subEl = document.getElementById('cs-subtitle');
+        if (subEl) subEl.textContent = 'Under ' + parent.key + ' — ' + esc(parent.title)
+          + (parent.sprint ? '  ·  Sprint ' + parent.sprint : '');
+      })
+      .catch(function () {});
+    const assigneeSel = document.getElementById('cs-assignee');
+    if (!assigneeSel) return;
+    fetch('/api/v1/projects?q=' + encodeURIComponent(projectKey))
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('bad status')))
+      .then(function (projects) {
+        const target = projects.find(function (p) { return p.key === projectKey; });
+        if (!target) return;
+        return fetch('/api/v1/projects/' + target.id + '/members').then(r => r.json());
+      })
+      .then(function (members) {
+        if (!members) return;
+        members.forEach(function (u) {
+          if (u.status && String(u.status).toLowerCase() !== 'active') return;
+          const opt = document.createElement('option');
+          opt.value = u.id;
+          opt.textContent = (u.name || u.initials) + ' (' + u.initials + ')';
+          assigneeSel.appendChild(opt);
+        });
+      })
+      .catch(function () {});
+  }
+
+  loadCsParentsAndAssignees();
+
+  let csSubmitting = false;
+  document.getElementById('cs-submit').addEventListener('click', () => {
+    if (csSubmitting) return;
+    const summaryEl = document.getElementById('cs-summary');
+    const summary = summaryEl.value.trim();
+    if (!summary) { showToast('Summary is required.', 'error'); summaryEl.focus(); return; }
+    if (summary.length > 240) {
+      showToast('Summary must be 240 characters or fewer.', 'error');
+      summaryEl.focus();
+      return;
+    }
+    const target = document.getElementById('cs-target').value;
+    if (target) {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(target);
+      if (!m) { showToast('Invalid target date.', 'error'); return; }
+      const td = new Date(+m[1], +m[2] - 1, +m[3]);
+      if (bounds) {
+        const s = bounds.start ? new Date(bounds.start) : null;
+        const e = bounds.target ? new Date(bounds.target) : null;
+        if (s && !isNaN(s.getTime()) && td < s) {
+          showToast('Target Date cannot be earlier than the project start date.', 'error');
+          return;
+        }
+        if (e && !isNaN(e.getTime()) && td > e) {
+          showToast('Target Date cannot be later than the project target date.', 'error');
+          return;
+        }
+      }
+    }
+    const csStatus = document.getElementById('cs-status').value;
+    if (!csStatus) { showToast('Status is required.', 'error'); return; }
+
+    const pointsVal = document.getElementById('cs-points').value.trim();
+    let points = 0;
+    if (pointsVal !== '') {
+      if (!/^\d+$/.test(pointsVal)) { showToast('Story points must be a number.', 'error'); return; }
+      points = parseInt(pointsVal, 10);
+      if (points < 0) { showToast('Story points cannot be negative.', 'error'); return; }
+    }
+
+    const assigneeId = parseInt(document.getElementById('cs-assignee').value, 10);
+    const payload = {
+      summary: summary,
+      project: projectKey,
+      parent_issue_id: parentId,
+      priority: document.getElementById('cs-priority').value,
+      status: csStatus,
+      points: points,
+      target_date: target || null,
+      description: document.getElementById('cs-description').value.trim(),
+    };
+    payload.assignees = assigneeId ? [assigneeId] : [];
+
+    csSubmitting = true;
+    const csBtn = document.getElementById('cs-submit');
+    const csLabel = csBtn ? csBtn.textContent : '';
+    if (csBtn) { csBtn.disabled = true; csBtn.textContent = 'Creating…'; }
+
+    fetch('/api/v1/issues', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+      .then(r => r.json().then(d => ({ ok: r.ok, d })))
+      .then(({ ok, d }) => {
+        if (!ok) {
+          if (csBtn) { csBtn.disabled = false; csBtn.textContent = csLabel; }
+          csSubmitting = false;
+          showToast(d.error || 'Could not create the subtask.', 'error');
+          return;
+        }
+        closeCs();
+        csSubmitting = false;
+        showToast(`Subtask ${d.key} created successfully.`, 'success', 'Subtask created');
+        const handled = typeof window.WT_AFTER_ISSUE_CREATE === 'function'
+          && window.WT_AFTER_ISSUE_CREATE(d, parentId, opts.projectKey || projectKey) === true;
+        if (!handled) {
+          const path = window.location.pathname;
+          if (path.startsWith('/kanban') || path.startsWith('/backlog')
+              || path.startsWith('/project') || path.startsWith('/projects')) location.reload();
+        }
+      })
+      .catch(() => {
+        if (csBtn) { csBtn.disabled = false; csBtn.textContent = csLabel; }
+        csSubmitting = false;
+        showToast('Could not create the subtask.', 'error');
+      });
   });
 }
 
@@ -2441,7 +2796,7 @@ function openCreateProject() {
   }
 }
 
-window.Wexira = { showToast, openCreateIssue, openCreateProject, formatAiText, escapeHtml, deleteUser };
+window.Wexira = { showToast, openCreateIssue, openCreateSubtask, openCreateProject, formatAiText, escapeHtml, deleteUser };
 
 /* ------------------------------------------------------------------
    Project Selector (Dashboard)

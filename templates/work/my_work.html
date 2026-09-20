@@ -21,9 +21,12 @@
   <div class="wf-tab-panel" data-wf-panel="assigned">
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
       {% for t in my_tasks %}
-      <a href="/issue/{{ t.id }}" class="wf-card p-4 hover:shadow-md hover:border-[#d1d5db] transition-shadow cursor-pointer block">
+      <div class="wf-card p-4 hover:shadow-md hover:border-[#d1d5db] transition-shadow cursor-pointer block" onclick="window.location='/issue/{{ t.id }}'">
         <div class="flex items-center justify-between mb-2">
           <span class="issue-id">{{ t.number }}</span>
+          {% if t.parent_issue_id %}
+          <span class="wf-badge issue-subtask-chip" title="Subtask of {{ t.project.key }}-{{ t.parent_issue.number }}">Subtask {{ t.project.key }}-{{ t.parent_issue.number }}</span>
+          {% endif %}
           <span class="wf-badge {{ 'wf-prio-' ~ t.priority|lower }}" style="font-size:10.5px;padding:1px 8px">{{ t.priority }}</span>
         </div>
         <div class="text-[13.5px] font-semibold text-[var(--wf-text)] mb-3 leading-snug">{{ t.title }}</div>
@@ -42,7 +45,7 @@
           </span>
           <span class="wf-avatar wf-avatar-sm" style="background:var(--wf-primary)">{{ current_user.initials }}</span>
         </div>
-      </a>
+      </div>
       {% else %}
       <div class="col-span-full wf-empty text-[var(--wf-text-tertiary)]"><i data-lucide="inbox" style="width:30px;height:30px"></i><div>No tasks here.</div></div>
       {% endfor %}
@@ -57,7 +60,9 @@
         <tbody>
           {% for t in my_tasks [:4] %}
           <tr class="cursor-pointer" onclick="location='/issue/{{ t.id }}'">
-            <td><span class="font-semibold text-[var(--wf-text)]">{{ t.title }}</span></td>
+            <td><span class="font-semibold text-[var(--wf-text)]">{{ t.title }}</span>
+              {% if t.parent_issue_id %}<span class="wf-badge issue-subtask-chip ml-1" title="Subtask of {{ t.project.key }}-{{ t.parent_issue.number }}">Subtask {{ t.project.key }}-{{ t.parent_issue.number }}</span>{% endif %}
+            </td>
             <td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">{{ t.project.name[:16] }}</span></td>
             <td><span class="wf-prio-{{ t.priority|lower }} wf-badge" style="font-size:10.5px;padding:1px 8px">{{ t.priority }}</span></td>
             <td>
@@ -90,6 +95,9 @@
         <a href="/issue/{{ t.id }}" class="wf-card p-4 hover:shadow-md hover:border-[#d1d5db] transition-shadow cursor-pointer block">
           <div class="flex items-center justify-between mb-2">
             <span class="issue-id">{{ t.number }}</span>
+            {% if t.parent_issue_id %}
+            <span class="wf-badge issue-subtask-chip" title="Subtask of {{ t.project.key }}-{{ t.parent_issue.number }}">Subtask {{ t.project.key }}-{{ t.parent_issue.number }}</span>
+            {% endif %}
             <span class="wf-status wf-status-done" style="padding:1px 8px"><span class="dot"></span>Done</span>
           </div>
           <div class="text-[13.5px] font-semibold text-[var(--wf-text)] mb-3 leading-snug">{{ t.title }}</div>
@@ -119,4 +127,19 @@
     });
   });
 </script>
+
+<style>
+  .issue-subtask-chip {
+    background: #ecfdf5;
+    color: #047857;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    white-space: nowrap;
+  }
+</style>
 {% endblock %}

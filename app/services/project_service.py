@@ -9,9 +9,17 @@ from app.models import (
     ProjectMembers,
     Sprint,
     User,
+    WorkLog,
 )
 from app.services import notification_service
-from app.utils.helpers import determine_classification, format_date, project_dict, user_dict
+from app.utils.helpers import (
+    determine_classification,
+    format_date,
+    project_dict,
+    project_progress_batch,
+    project_progress_stats,
+    user_dict,
+)
 from app.utils.validators import validate_project_dates
 
 
@@ -26,30 +34,26 @@ def list_projects(status=None, search=''):
             Project.key.ilike(like),
         ))
     projects = q.order_by(Project.name).all()
+    batch = project_progress_batch()
+    empty = {'total_issues': 0, 'completed_issues': 0}
     result = []
     for p in projects:
-        d = project_dict(p)
+        d = project_dict(p, batch.get(p.id) or empty)
         members = ProjectMembers.query.filter_by(project_id=p.id).all()
         member_users = [User.query.get(m.user_id) for m in members if User.query.get(m.user_id)]
         d['members'] = [user_dict(u) for u in member_users]
         d['member_count'] = len(member_users)
-        issues = Issue.query.filter_by(project_id=p.id).all()
-        d['total_issues'] = len(issues)
-        d['done_issues'] = sum(1 for i in issues if i.status == 'done')
         result.append(d)
     return result
 
 
 def get_project(project_id):
     project = Project.query.get_or_404(project_id)
-    d = project_dict(project)
+    d = project_dict(project, project_progress_stats(project.id))
     members = ProjectMembers.query.filter_by(project_id=project.id).all()
     member_users = [User.query.get(m.user_id) for m in members if User.query.get(m.user_id)]
     d['members'] = [user_dict(u) for u in member_users]
     d['member_count'] = len(member_users)
-    issues = Issue.query.filter_by(project_id=project.id).all()
-    d['total_issues'] = len(issues)
-    d['done_issues'] = sum(1 for i in issues if i.status == 'done')
     return d
 
 
@@ -68,6 +72,7 @@ def delete_project(project_id):
         Notification.query.filter_by(project_id=project.id).delete(synchronize_session='fetch')
     Sprint.query.filter_by(project_id=project.id).delete()
     ProjectMembers.query.filter_by(project_id=project.id).delete()
+    WorkLog.query.filter_by(project_id=project.id).delete()
     db.session.delete(project)
     db.session.commit()
     return {'ok': True}

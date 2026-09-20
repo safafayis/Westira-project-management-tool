@@ -5,6 +5,8 @@ from app.models.notification import Notification
 from app.models.project import Project, ProjectMembers
 from app.models.sprint import Sprint
 from app.models.user import User, UserNotificationPreferences
+from app.models.worklog import WorkLog
+from app.models.worktimer import WorkTimer
 from app.models.workspace import WorkspaceSettings
 
 __all__ = [
@@ -18,5 +20,7 @@ __all__ = [
     'Sprint',
     'User',
     'UserNotificationPreferences',
+    'WorkLog',
+    'WorkTimer',
     'WorkspaceSettings',
 ]

@@ -72,11 +72,12 @@
             <td><span class="wf-badge wf-badge-soft-gray">{{ p.key }}</span></td>
             <td><span class="inline-flex items-center gap-2"><span class="wf-avatar wf-avatar-sm" style="background:{{ p.lead.color if p.lead else p.color }}">{{ p.lead_initials }}</span><span class="text-[13px]">{{ p.lead.name if p.lead else p.lead_initials }}</span></span></td>
             <td>
+              {% set p_prog = projects_progress.get(p.id, 0) %}
               <div class="flex items-center gap-2 min-w-[90px]">
                 <div class="wf-progress-track" style="height:6px">
-                  <div class="wf-progress-bar" style="width:{{ p.progress }}%;background:{{ p.color }}"></div>
+                  <div class="wf-progress-bar" style="width:{{ p_prog }}%;background:{{ p.color }}"></div>
                 </div>
-                <span class="text-[12px] font-semibold text-[var(--wf-text-secondary)]">{{ p.progress }}%</span>
+                <span class="text-[12px] font-semibold text-[var(--wf-text-secondary)]">{{ p_prog }}%</span>
               </div>
             </td>
             <td><span class="text-[12.5px] text-[var(--wf-text-secondary)]">{{ p.due_date }}</span></td>

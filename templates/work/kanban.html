@@ -70,6 +70,9 @@
             <span class="issue-id">{{ i.number }}</span>
             <div class="flex items-center gap-2">
               <span class="wf-badge wf-badge-soft-gray" style="padding:1px 7px;font-size:11px">{{ i.issue_type }}</span>
+              {% if i.parent_issue_id %}
+              <span class="wf-badge issue-subtask-chip" title="Subtask of {{ i.project.key }}-{{ i.parent_issue.number }}"><i data-lucide="corner-down-right" style="width:11px;height:11px"></i>{{ i.parent_issue.number }}</span>
+              {% endif %}
               <span class="issue-prio-dot" title="{{ i.priority }}" style="background:{{ i.priority_color }}"></span>
             </div>
           </div>
@@ -220,13 +223,33 @@
   }
 
   function persistMove(issueId, status, position) {
+    sendMove(issueId, status, position, false);
+  }
+
+  function sendMove(issueId, status, position, confirmed) {
+    var payload = { status: status, position: position || 0 };
+    if (confirmed) payload.confirm_incomplete = true;
     fetch('/api/v1/issues/' + issueId + '/move', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: status, position: position || 0 }),
+      body: JSON.stringify(payload),
     })
-      .then(function (r) { return r.json(); })
-      .then(function () {
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok && res.d.needs_confirmation) {
+          var msg = res.d.error || 'This task has incomplete subtasks.';
+          if (confirm(msg + '\n\nThe subtasks will not be changed.')) {
+            sendMove(issueId, status, position, true);
+            return;
+          }
+          location.reload();
+          return;
+        }
+        if (!res.ok) {
+          Wexira.showToast(res.d.error || 'Could not update the issue status.', 'error');
+          location.reload();
+          return;
+        }
         applyFilters();
         var card = document.querySelector('[data-issue-id="' + issueId + '"] .issue-id');
         if (card) Wexira.showToast(card.textContent + ' moved to ' + status.replace('_', ' '), 'success');
@@ -804,10 +827,10 @@
     .wf-column { min-width: 300px; }
   }
 
-  .issue-sprint-badge {
+.issue-sprint-badge {
     background: #eef2ff;
     border-radius: 4px;
-    padding: 1px 6px;
+    padding: 1px 7px;
     font-size: 10.5px;
     font-weight: 600;
     color: #4f46e5;
@@ -815,5 +838,17 @@
     white-space: nowrap;
   }
   .issue-sprint-badge.is-none { background: #f3f4f6; color: #6b7280; }
+  .issue-subtask-chip {
+    background: #ecfdf5;
+    color: #047857;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+  }
 </style>
 {% endblock %}

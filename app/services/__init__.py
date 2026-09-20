@@ -6,4 +6,5 @@ from app.services import (  # noqa: F401
     report_service,
     sprint_service,
     team_service,
+    worklog_service,
 )

@@ -22,6 +22,7 @@ def _actor():
         _q('assignee_id', {'type': 'integer'}, 'Assignee user ID'),
         _q('sprint',      {'type': 'integer'}, 'Sprint number'),
         _q('sprint_id',   {'type': 'integer'}, 'Sprint ID'),
+        _q('top_level',   {'type': 'boolean'}, 'Only top-level tasks (exclude subtasks)'),
         _q('q',           {'type': 'string'},  'Search term (title, description, labels)'),
     ],
     resp={'200': {'description': 'Array of issues',
@@ -58,9 +59,12 @@ def get_issue(issue_id):
             'labels':               {'type': 'array', 'items': {'type': 'string'}},
             'description':          {'type': 'string'},
             'acceptance_criteria':  {'type': 'string'},
+            'parent_issue_id':      {'type': 'integer', 'description': 'Parent issue ID (omit/0 for a top-level Task; a Subtask is created when set). Parent must be a top-level task of the same project.'},
+            'working_minutes':      {'type': 'integer', 'description': 'Task Working Hours in integer minutes (or "HH:MM"). Only accepted when status=done and must be positive; supplying it for a non-done task is rejected.'},
         },
     },
-    resp={'201': _ok('#/components/schemas/Issue', 'Created'), **_err([400])})
+    resp={'201': _ok('#/components/schemas/Issue', 'Created'),
+          **_err([400, 401, 403])})
 def create_issue():
     data = request.get_json(silent=True) or {}
     resp, status = issue_service.create_issue(data, _actor())
@@ -84,13 +88,15 @@ def create_issue():
             'points':             {'type': 'integer'},
             'start_date':         {'type': 'string'},
             'due_date':           {'type': 'string'},
-            'labels':             {'type': 'array', 'items': {'type': 'string'}},
-            'description':        {'type': 'string'},
-            'acceptance_criteria':{'type': 'string'},
-            'sprint':             {'type': 'integer'},
-        },
+'labels':             {'type': 'array', 'items': {'type': 'string'}},
+                'description':        {'type': 'string'},
+                'acceptance_criteria':{'type': 'string'},
+                'sprint':             {'type': 'integer'},
+                'parent_issue_id':    {'type': 'integer', 'description': 'Move the task under a parent (0/null promotes it to a top-level Task). Parent must be a top-level task of the same project.'},
+                'working_minutes':    {'type': 'integer', 'description': 'Task Working Hours in integer minutes (or "HH:MM"). Only accepted when the resulting status is done and must be positive. Reopening a done task (status left done) clears its working hours.'},
+            },
     },
-    resp={'200': _ok('#/components/schemas/Issue'), **_err([400, 404])})
+    resp={'200': _ok('#/components/schemas/Issue'), **_err([400, 401, 403, 404])})
 def update_issue(issue_id):
     data = request.get_json(silent=True) or {}
     resp, status = issue_service.update_issue(issue_id, data, _actor())
@@ -103,21 +109,41 @@ def update_issue(issue_id):
     req={'type': 'object',
          'required': ['status'],
          'properties': {'status': {'type': 'string', 'enum': ['backlog', 'todo', 'in_progress', 'in_review', 'done']}}},
-    resp={'200': _ok('#/components/schemas/Issue'), **_err([400, 404])})
+    resp={'200': _ok('#/components/schemas/Issue'), **_err([400, 401, 403, 404])})
 def move_issue(issue_id):
     data = request.get_json(silent=True) or {}
     resp, status = issue_service.move_issue(issue_id, data, _actor())
     return jsonify(resp), status
 
 
+@issues_bp.post('/<int:issue_id>/reorder')
+@api_doc('Reorder a subtask (Move Up / Move Down)', ['Issues'],
+    params=[_p('issue_id', {'type': 'integer'}, 'Issue ID')],
+    req={'type': 'object',
+         'description': 'Pass direction ("up" | "down") to swap with the adjacent sibling, '
+                        'or an absolute 1-based subtask_order. A top-level task cannot be reordered this way.',
+         'properties': {'direction': {'type': 'string', 'enum': ['up', 'down']},
+                        'subtask_order': {'type': 'integer'}}},
+    resp={'200': _ok('#/components/schemas/Issue'), **_err([400, 401, 403, 404])})
+def reorder_issue(issue_id):
+    data = request.get_json(silent=True) or {}
+    resp, status = issue_service.reorder_subtask(issue_id, data, _actor())
+    return jsonify(resp), status
+
+
 @issues_bp.delete('/<int:issue_id>')
 @api_doc('Delete issue', ['Issues'],
     params=[_p('issue_id', {'type': 'integer'}, 'Issue ID')],
+    req={'type': 'object',
+         'description': 'Optional body. Deleting a parent whose subtasks exist requires confirm_subtasks=true; otherwise it responds 400 with needs_confirmation.',
+         'properties': {'confirm_subtasks': {'type': 'boolean', 'description': 'Delete a parent task and all of its subtasks.'}}},
     resp={'200': {'description': 'Deleted',
                   'content': {'application/json': {'schema': {'type': 'object', 'properties': {'ok': {'type': 'boolean'}}}}}},
-          **_err([404])})
+          **_err([400, 401, 403, 404])})
 def delete_issue(issue_id):
-    return jsonify(issue_service.delete_issue(issue_id))
+    data = request.get_json(silent=True) or {}
+    resp, status = issue_service.delete_issue(issue_id, _actor(), data)
+    return jsonify(resp), status
 
 
 @issues_bp.get('/<int:issue_id>/comments')

@@ -200,7 +200,7 @@ def _report_velocity(scope, sprints=None):
     }
 
 
-def _project_health(project, total, completed, overdue, sprint_progress):
+def _project_health(project, total, completed, overdue, sprint_progress, progress):
     """Derive a project health rating from real task data.
 
     Healthy  -> no overdue work and sprint/deadline on track
@@ -219,7 +219,7 @@ def _project_health(project, total, completed, overdue, sprint_progress):
             return 'At Risk'
     if overdue > 0:
         return 'At Risk'
-    if project.status and project.status.lower() != 'completed' and project.progress < 100:
+    if project.status and project.status.lower() != 'completed' and progress < 100:
         due = parse_any_date(project.due_date)
         if due:
             days_left = (due.date() - datetime.utcnow().date()).days
@@ -310,7 +310,7 @@ def project_health(scope):
         completed = sum(1 for i in p_issues if i.status == 'done')
         in_progress = sum(1 for i in p_issues if i.status == 'in_progress')
         overdue = len(_report_overdue_issues(p_issues))
-        progress = round(completed / total * 100) if total else (project.progress or 0)
+        progress = round(completed / total * 100) if total else 0
 
         active_sprint = None
         for sprint in sprints:
@@ -336,7 +336,7 @@ def project_health(scope):
             'current_sprint': active_sprint.name if active_sprint else None,
             'current_sprint_progress': sprint_progress if active_sprint else None,
             'due_date': format_date(project.due_date),
-            'health': _project_health(project, total, completed, overdue, sprint_progress),
+            'health': _project_health(project, total, completed, overdue, sprint_progress, progress),
         })
 
     return {'projects': rows}

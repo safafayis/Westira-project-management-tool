@@ -38,13 +38,13 @@ def seed():
         users_data = [
             # name, initials, email, role, plan, team, cap, ap, ct, color
             ('Alex Morgan', 'AM', 'alex@abc.io', 'Project Manager', 'pro', 'Platform', 85, 3, 8, '#4f46e5'),
-            ('Sarah Chen', 'SC', 'sarah@wexira.io', 'Frontend Developer', 'pro', 'Checkout', 90, 2, 12, '#0891b2'),
-            ('Marcus Johnson', 'MJ', 'marcus@wexira.io', 'Backend Developer', 'plus', 'Platform', 75, 2, 10, '#059669'),
-            ('Priya Sharma', 'PS', 'priya@wexira.io', 'UI/UX Designer', 'plus', 'Checkout', 60, 2, 6, '#d97706'),
-            ('David Kim', 'DK', 'david@wexira.io', 'QA Engineer', 'lite', 'Quality', 95, 1, 15, '#7c3aed'),
-            ('Emily Rodriguez', 'ER', 'emily@wexira.io', 'Product Manager', 'lite', 'Product', 50, 1, 4, '#dc2626'),
-            ('James Wilson', 'JW', 'james@wexira.io', 'DevOps Engineer', 'lite', 'Infrastructure', 45, 2, 7, '#0d9488'),
-            ('Olivia Brown', 'OB', 'olivia@wexira.io', 'Frontend Developer', 'plus', 'Storefront', 70, 1, 5, '#db2777'),
+            ('Sarah Chen', 'SC', 'sarah@abc.io', 'Frontend Developer', 'pro', 'Checkout', 90, 2, 12, '#0891b2'),
+            ('Marcus Johnson', 'MJ', 'marcus@abc.io', 'Backend Developer', 'plus', 'Platform', 75, 2, 10, '#059669'),
+            ('Priya Sharma', 'PS', 'priya@abc.io', 'UI/UX Designer', 'plus', 'Checkout', 60, 2, 6, '#d97706'),
+            ('David Kim', 'DK', 'david@abc.io', 'QA Engineer', 'lite', 'Quality', 95, 1, 15, '#7c3aed'),
+            ('Emily Rodriguez', 'ER', 'emily@abc.io', 'Product Manager', 'lite', 'Product', 50, 1, 4, '#dc2626'),
+            ('James Wilson', 'JW', 'james@abc.io', 'DevOps Engineer', 'lite', 'Infrastructure', 45, 2, 7, '#0d9488'),
+            ('Olivia Brown', 'OB', 'olivia@abc.io', 'Frontend Developer', 'plus', 'Storefront', 70, 1, 5, '#db2777'),
         ]
         users = {}
         now = datetime.utcnow()

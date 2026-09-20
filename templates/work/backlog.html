@@ -54,6 +54,9 @@
           <span class="issue-id">{{ i.number }}</span>
           <div class="flex items-center gap-2">
             <span class="wf-badge wf-badge-soft-gray" style="padding:1px 7px;font-size:11px">{{ i.issue_type }}</span>
+            {% if i.parent_issue_id %}
+            <span class="wf-badge issue-subtask-chip" title="Subtask of {{ i.project.key }}-{{ i.parent_issue.number }}"><i data-lucide="corner-down-right" style="width:11px;height:11px"></i>{{ i.parent_issue.number }}</span>
+            {% endif %}
             <span class="issue-prio-dot" title="{{ i.priority }}" style="background:{{ i.priority_color }}"></span>
           </div>
         </div>
@@ -171,6 +174,17 @@
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 12px;
     align-content: start;
+  }
+  .issue-subtask-chip {
+    background: #ecfdf5;
+    color: #047857;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
   }
 </style>
 {% endblock %}

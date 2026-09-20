@@ -3,6 +3,21 @@
 {% block title %}{{ project.name }}{% endblock %}
 
 {% block content %}
+<style>
+  .wt-task-summary { font-size: 11.5px; color: var(--wf-text-tertiary); }
+  .pt-sprint-badge {
+    display: inline-flex;
+    align-items: center;
+    background: #eef2ff;
+    color: #4f46e5;
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    line-height: 1.5;
+  }
+</style>
 <div class="wf-fade-up">
   {# ---------------- PROJECT HEADER ---------------- #}
   <div class="wf-card p-6 mb-4">
@@ -65,46 +80,23 @@
         <span class="text-[13px] font-bold text-[var(--wf-text)]">{{ project_progress }}%</span>
         <span class="text-[12px] text-[var(--wf-text-secondary)]">complete</span>
       </div>
+      <span class="text-[11.5px] text-[var(--wf-text-tertiary)] whitespace-nowrap">{{ progress_completed }} of {{ progress_total }} issues completed</span>
     </div>
   </div>
 
-  {# ---------------- HEALTH + SPRINT ---------------- #}
+  {# ---------------- TEAM WORK TIME + SPRINT ---------------- #}
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
     <div class="wf-card lg:col-span-2">
       <div class="wf-card-header">
         <div>
-          <h2 class="text-[15px] font-bold text-[var(--wf-text)]">Project Health</h2>
+          <h2 class="text-[15px] font-bold text-[var(--wf-text)]">Team Work Time</h2>
+          <p class="text-[12px] text-[var(--wf-text-secondary)]">Working hours recorded against completed tasks on {{ project.name }}</p>
         </div>
-        {% if health_overall == 'Healthy' %}<span class="wf-badge wf-badge-soft-green">Healthy</span>
-        {% elif health_overall == 'Critical' %}<span class="wf-badge wf-badge-soft-red">Critical</span>
-        {% else %}<span class="wf-badge wf-badge-soft-amber">{{ health_overall }}</span>{% endif %}
       </div>
-      <div class="p-5 grid grid-cols-2 md:grid-cols-4 gap-3">
-        {% set health = [
-          ('Schedule','schedule','calendar-check','#059669',health_schedule),
-          ('Budget','budget','wallet','#6b7280',health_budget),
-          ('Scope','scope','target','#d97706',health_scope),
-          ('Team Capacity','capacity','gauge','#059669',health_capacity),
-        ] %}
-        {% for name,key,icon,hue,v in health %}
-        <div class="rounded-lg border border-[var(--wf-border)] p-3.5">
-          <div class="flex items-center gap-2 mb-2">
-            <span class="w-7 h-7 rounded-lg grid place-items-center" style="background:{{ hue }}1a;color:{{ hue }}">
-              <i data-lucide="{{ icon }}" style="width:14px;height:14px"></i>
-            </span>
-            <span class="text-[11.5px] font-semibold text-[var(--wf-text-secondary)]">{{ name }}</span>
-          </div>
-          <div class="flex items-center gap-1.5">
-            {% if v == 'Not available' %}
-            <span class="w-2 h-2 rounded-full" style="background:var(--wf-text-tertiary)"></span>
-            <span class="text-[13px] font-bold text-[var(--wf-text-tertiary)]">{{ v }}</span>
-            {% else %}
-            <span class="w-2 h-2 rounded-full" style="background:{{ 'var(--wf-success)' if v == 'On Track' or v == 'Good' else 'var(--wf-error)' if v == 'Critical' else 'var(--wf-warning)' }}"></span>
-            <span class="text-[13px] font-bold text-[var(--wf-text)]">{{ v }}</span>
-            {% endif %}
-          </div>
+      <div class="p-5" id="teamWorkTimeBody">
+        <div class="flex items-center gap-3 text-[13px] text-[var(--wf-text-secondary)] animate-pulse-soft">
+          <i data-lucide="timer" style="width:16px;height:16px"></i> Loading team work time…
         </div>
-        {% endfor %}
       </div>
     </div>
 
@@ -193,19 +185,69 @@
         <h2 class="text-[15px] font-bold text-[var(--wf-text)]">Project Tasks</h2>
         <p class="text-[12px] text-[var(--wf-text-secondary)]">Tasks and milestones for {{ project.name }}</p>
       </div>
-      <button class="wf-btn wf-btn-primary wf-btn-sm" onclick="Wexira.openCreateIssue(PROJECT_KEY, PROJECT_BOUNDS)"><i data-lucide="plus" style="width:14px;height:14px"></i> Create Issue</button>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-[11.5px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide">Sprint</span>
+        <select id="ptSprintSelect" class="wf-select" style="width:auto;min-width:150px" onchange="ptChangeSprint(this)">
+          <option value="0" {{ 'selected' if no_sprint_view and not selected_sprint }}>No Sprint</option>
+          {% for s in sprints %}
+          <option value="{{ s.id }}" {{ 'selected' if selected_sprint and selected_sprint.id == s.id }}>Sprint {{ s.number }}{% if s.name %} — {{ s.name }}{% endif %}{% if s.status == 'Active' %} (Active){% endif %}{% if s.status == 'Completed' %} (Completed){% endif %}</option>
+          {% endfor %}
+        </select>
+        {% if selected_sprint or no_sprint_view %}
+        <span class="text-[12px] font-semibold text-[var(--wf-text-secondary)]" id="ptTaskCount">{{ sprint_task_count }} task{{ '' if sprint_task_count == 1 else 's' }}</span>
+        {% endif %}
+        <button class="wf-btn wf-btn-primary wf-btn-sm" onclick="Wexira.openCreateIssue(PROJECT_KEY, PROJECT_BOUNDS, null, {{ selected_sprint.number if selected_sprint else 0 }})"><i data-lucide="plus" style="width:14px;height:14px"></i> Create Issue</button>
+      </div>
     </div>
     <div class="overflow-x-auto">
       <table class="wf-table">
         <thead><tr>
-          <th>Objective</th><th>Start Date</th><th>End Date</th><th>Task Status</th><th>Commands</th>
+          <th>Task</th><th>Priority</th><th>Sprint</th><th>Assignee</th><th>Start Date</th><th>End Date</th><th>Task Status</th><th>Working Hours</th><th>Commands</th>
         </tr></thead>
-        <tbody>
+        <tbody id="ptTasksBody">
           {% for i in issues %}
-          <tr class="cursor-pointer hover:bg-[#fafafb]" data-id="{{ i.id }}">
+          {% set sc = subtask_counts.get(i.id) or {'count': 0, 'done': 0, 'working': 0} %}
+          <tr class="cursor-pointer hover:bg-[#fafafb] pt-task-row" data-id="{{ i.id }}">
             <td class="cursor-pointer" onclick="location='/issue/{{ i.id }}'">
-              <div class="font-medium text-[var(--wf-text)]">{{ i.number }}</div>
-              <div class="text-[13px] text-[var(--wf-text-secondary)]">{{ i.title }}</div>
+              <div class="flex items-center gap-2">
+                <button type="button" class="pt-expand-toggle" data-pt-row="{{ i.id }}"
+                        aria-expanded="false" aria-label="Expand subtasks"
+                        onclick="event.stopPropagation(); ptToggleTask({{ i.id }})">
+                  <i data-lucide="chevron-right" class="pt-chevron" style="width:14px;height:14px"></i>
+                </button>
+                <div class="min-w-0">
+                  <div class="font-medium text-[var(--wf-text)]">{{ i.number }}</div>
+                  <div class="text-[13px] text-[var(--wf-text-secondary)]">{{ i.title }}</div>
+                  {% if sc['count'] %}
+                  <div class="pt-count-text text-[11.5px] text-[var(--wf-text-tertiary)]">{{ sc['count'] }} subtask{{ 's' if sc['count'] != 1 }} · {{ sc['done'] }} completed</div>
+                  {% else %}
+                  <div class="pt-count-text text-[11.5px] text-[var(--wf-text-tertiary)]">No subtasks</div>
+                  {% endif %}
+                </div>
+              </div>
+            </td>
+            <td><span class="{{ 'wf-prio-' ~ i.priority|lower }} wf-badge" style="padding:2px 9px">{{ i.priority }}</span></td>
+            <td>
+              {% if i.sprint %}
+              <span class="pt-sprint-badge" title="Sprint {{ i.sprint.number }}{% if i.sprint.name and i.sprint.name != 'Sprint ' ~ i.sprint.number %} — {{ i.sprint.name }}{% endif %}">Sprint {{ i.sprint.number }}</span>
+              {% else %}
+              <span class="text-[var(--wf-text-tertiary)]">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if i.assignee %}
+              <div class="flex items-center gap-1.5">
+                <span class="wf-avatar wf-avatar-sm" style="background:{{ i.assignee_color or i.assignee.color }}" title="{{ i.assignee.name or i.assignee_initials }}">{{ i.assignee_initials or i.assignee.initials }}</span>
+                <span class="text-[12.5px] text-[var(--wf-text)] whitespace-nowrap">{{ i.assignee.name or i.assignee_initials }}</span>
+              </div>
+              {% elif i.assignee_id %}
+              <div class="flex items-center gap-1.5">
+                <span class="wf-avatar wf-avatar-sm" style="background:{{ i.assignee_color or '#9ca3af' }}" title="{{ i.assignee_initials }}">{{ i.assignee_initials }}</span>
+                <span class="text-[12.5px] text-[var(--wf-text-secondary)]">{{ i.assignee_initials }}</span>
+              </div>
+              {% else %}
+              <span class="text-[12.5px] text-[var(--wf-text-tertiary)]">Unassigned</span>
+              {% endif %}
             </td>
             <td class="text-[12.5px] text-[var(--wf-text-secondary)]">{{ i.start_date or i.created_at or '—' }}</td>
             <td class="text-[12.5px] text-[var(--wf-text-secondary)]">{{ i.due_date or '—' }}</td>
@@ -216,8 +258,21 @@
               {% elif i.status == 'todo' %}<span class="wf-status wf-status-todo"><span class="dot"></span>To Do</span>
               {% else %}<span class="wf-status wf-status-todo"><span class="dot"></span>Backlog</span>{% endif %}
             </td>
+            <td class="text-[12.5px] tabular-nums">
+              {% if sc['count'] %}
+              {% if sc['working'] %}
+              <span class="wf-badge wf-badge-soft-blue">{{ minutes_text(sc['working']) }}</span>
+              {% else %}
+              <span class="text-[var(--wf-text-tertiary)]">—</span>
+              {% endif %}
+              {% elif i.status == 'done' and i.working_minutes %}
+              <span class="wf-badge wf-badge-soft-blue">{{ minutes_text(i.working_minutes) }}</span>
+              {% else %}
+              <span class="text-[var(--wf-text-tertiary)]">—</span>
+              {% endif %}
+            </td>
             <td>
-              <div class="flex items-center gap-1.5" onclick="event.stopPropagation()">
+              <div class="flex items-center gap-1.5 flex-wrap" onclick="event.stopPropagation()">
                 <button class="wf-icon-btn" title="View" onclick="location='/issue/{{ i.id }}'"><i data-lucide="eye" style="width:14px;height:14px"></i></button>
                 <button class="wf-icon-btn" title="Edit Task" onclick="editTask({{ i.id }})"><i data-lucide="pencil" style="width:14px;height:14px"></i></button>
                 <button class="wf-icon-btn" title="Delete" onclick="deleteTaskFrom(this)"><i data-lucide="trash-2" style="width:14px;height:14px;color:var(--wf-error)"></i></button>
@@ -225,7 +280,11 @@
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="5" class="text-center text-[var(--wf-text-tertiary)] py-8">No tasks yet. Create one to get started.</td></tr>
+          {% if no_sprint_view %}
+          <tr><td colspan="9" class="text-center text-[var(--wf-text-tertiary)] py-8">No tasks in No Sprint. Create one to get started.</td></tr>
+          {% else %}
+          <tr><td colspan="9" class="text-center text-[var(--wf-text-tertiary)] py-8">No tasks in {{ selected_sprint.name or ('Sprint ' ~ selected_sprint.number) if selected_sprint else 'this sprint' }}. Create one to get started.</td></tr>
+          {% endif %}
           {% endfor %}
         </tbody>
       </table>
@@ -238,13 +297,60 @@
 <script>
   var PROJECT_KEY = {{ project.key|tojson }};
   var PROJECT_BOUNDS = { start: {{ project.start_date|tojson }}, target: {{ project.due_date|tojson }} };
+  var WT_PROJECT_ID = {{ project.id }};
+  var WT_PROJECT_KEY = {{ project.key|tojson }};
+  var WT_SUMMARY = null;
+  var WT_MEMBERS = [];
 
-  function deleteTaskFrom(btn) {
-    var tr = btn.closest('tr');
-    if (!confirm('Delete task permanently?')) return;
-    fetch('/api/v1/issues/' + tr.dataset.id, { method: 'DELETE' })
-      .then(r => r.json())
-      .then(() => {
+  function ptChangeSprint(sel) {
+    var val = sel && sel.value ? String(sel.value) : '0';
+    // Loading state: never show the previous sprint's tasks as the new sprint's.
+    var overlay = document.getElementById('ptLoading');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'ptLoading';
+      overlay.innerHTML = '<div class="flex items-center gap-3 justify-center py-8 text-[13px] text-[var(--wf-text-secondary)] animate-pulse-soft"><i data-lucide="loader-2" style="width:16px;height:16px" class="animate-spin"></i><span>Loading tasks&hellip;</span></div>';
+      var table = document.querySelector('#ptTasksBody');
+      if (table) table.innerHTML = '';
+      var wrap = document.querySelector('#ptTableBody');
+      if (wrap) wrap.appendChild(overlay);
+      try { lucide.createIcons({ nodes: [overlay] }); } catch (e) {}
+    }
+    var selNode = document.getElementById('ptSprintSelect');
+    if (selNode) { selNode.disabled = true; }
+    // Follow the server-rendered page model: navigate with the new sprint_id so
+    // the backend filters the tasks (project_id + sprint_id) and re-renders.
+    var url = new URL(window.location.href);
+    if (val !== '0') url.searchParams.set('sprint_id', val);
+    else url.searchParams.set('sprint_id', '0');
+    window.location.href = url.toString();
+  }
+
+  function deleteTaskFrom(btn, confirmed) {
+    var id = btn.dataset.id || (btn.closest('tr') ? btn.closest('tr').dataset.id : null);
+    if (!id) return;
+    if (!confirmed && !confirm('Delete task permanently?')) return;
+    var payload = {};
+    if (confirmed) payload = { confirm_subtasks: true };
+    fetch('/api/v1/issues/' + id, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+      .then(r => r.json().then(d => ({ ok: r.ok, d: d })))
+      .then(({ ok, d }) => {
+        if (!ok) {
+          if (d.needs_confirmation) {
+            var msg = d.error || 'This task has subtasks.';
+            var label = (d.subtask_count > 1) ? 'Delete Task and its Subtasks' : 'Delete Task and its Subtask';
+            if (confirm(msg + '\n\nThis also permanently deletes ' + d.subtask_count + ' subtask(s).')) {
+              deleteTaskFrom(btn, true);
+            }
+            return;
+          }
+          Wexira.showToast(d.error || 'Could not delete the task.', 'error');
+          return;
+        }
         Wexira.showToast('Task deleted.', 'success');
         setTimeout(() => location.reload(), 450);
       })
@@ -287,6 +393,9 @@
   function renderEditModal(id, d) {
     var root = document.getElementById('editTaskModal');
     if (!root) return;
+    // A subtask edited from this page refreshes its expanded parent subtree in
+    // place; a top-level edit never leaks a stale subtask parent context.
+    if (!d.is_subtask) window.PT_EDIT_PARENT_ID = null;
 
     var statusOpts = ET_STATUSES.map(function (s) {
       return '<option value="' + s[0] + '"' + (s[0] === d.status ? ' selected' : '') + '>' + s[1] + '</option>';
@@ -294,6 +403,29 @@
     var prioOpts = ET_PRIORITIES.map(function (p) {
       return '<option' + (p === d.priority ? ' selected' : '') + '>' + p + '</option>';
     }).join('');
+
+    var parentBlock = '';
+    var sprintFieldHtml = '' +
+      '        <div class="wf-field">' +
+      '          <label class="wf-label">Sprint</label>' +
+      '          <select class="wf-select" id="et-sprint"><option value="">No Sprint</option></select>' +
+      '        </div>';
+    if (d.is_subtask && d.parent_key) {
+      parentBlock = '' +
+        '        <div class="wf-field md:col-span-2">' +
+        '          <label class="wf-label">Parent Task</label>' +
+        '          <input class="wf-input" value="' + esc(d.parent_key) + ' — ' + esc(d.parent_title) + '" disabled readonly>' +
+        '        </div>';
+      // A subtask's Sprint follows its parent: never independently selectable.
+      sprintFieldHtml = '' +
+        '        <div class="wf-field">' +
+        '          <label class="wf-label">Sprint</label>' +
+        '          <input class="wf-input" id="et-sprint" value="' +
+        esc(d.sprint ? 'Inherited from parent — Sprint ' + d.sprint : 'Inherited from parent — No Sprint') +
+        '" disabled readonly>' +
+        '          <p class="wf-help">Sprint is inherited from the parent task.</p>' +
+        '        </div>';
+    }
 
     root.innerHTML = '' +
       '<div class="wf-modal-backdrop" id="etBackdrop">' +
@@ -305,10 +437,11 @@
       '      </div>' +
       '      <button type="button" class="wf-icon-btn" data-close><i data-lucide="x" style="width:16px;height:16px"></i></button>' +
       '    </div>' +
-      '    <div class="px-6 py-5">' +
-      '      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">' +
-      '        <div class="wf-field md:col-span-2">' +
-      '          <label class="wf-label">Objective <span class="req">*</span></label>' +
+'    <div class="px-6 py-5">' +
+    '      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">' +
+      parentBlock +
+    '        <div class="wf-field md:col-span-2">' +
+    '          <label class="wf-label">Objective <span class="req">*</span></label>' +
       '          <input class="wf-input" id="et-title" value="' + esc(d.title) + '" maxlength="240">' +
       '        </div>' +
       '        <div class="wf-field">' +
@@ -332,9 +465,11 @@
       '          <input class="wf-input" id="et-due" type="date" value="' + esc(d.due || '') + '">' +
       '        </div>' +
       '        <div class="wf-field">' +
-      '          <label class="wf-label">Sprint</label>' +
-      '          <select class="wf-select" id="et-sprint"><option value="">No Sprint</option></select>' +
+      '          <label class="wf-label">Working Hours</label>' +
+      '          <input class="wf-input" id="et-working" placeholder="e.g. 04:30" inputmode="numeric">' +
+      '          <p class="wf-help" id="et-working-hint"></p>' +
       '        </div>' +
+      sprintFieldHtml +
       '        <div class="wf-field md:col-span-2">' +
       '          <label class="wf-label">Labels</label>' +
       '          <input class="wf-input" id="et-labels" placeholder="e.g. frontend, urgent" value="' + esc((d.labels || []).join(', ')) + '">' +
@@ -357,40 +492,93 @@
       if (e.target.id === 'etBackdrop') closeEditModal();
     });
     document.addEventListener('keydown', editEscHandler);
+    var etWm = root.querySelector('#et-working');
+    if (etWm) {
+      if (d.status === 'done' && d.working_minutes) etWm.value = wmToHm(d.working_minutes);
+      // A task with subtasks never records its own hours: its Working Hours
+      // are derived from the completed subtasks, so manual entry is disabled.
+      if (!d.is_subtask && d.subtask_count > 0) etWm.setAttribute('data-derived', '1');
+      etSyncWorkingHours();
+      root.querySelector('#et-status').addEventListener('change', etSyncWorkingHours);
+    }
 
     var aSel = document.getElementById('et-assignee');
-    fetch('/api/v1/users')
+    fetch('/api/v1/projects/' + WT_PROJECT_ID + '/members')
       .then(function (r) { return r.json(); })
-      .then(function (users) {
-        users.forEach(function (u) {
+      .then(function (members) {
+        var found = false;
+        (members || []).forEach(function (u) {
           if (u.status && String(u.status).toLowerCase() !== 'active') return;
           var opt = document.createElement('option');
           opt.value = (u.initials || '').toUpperCase();
           opt.textContent = u.name + ' (' + u.initials + ')';
-          if (d.assignee && (u.initials || '').toUpperCase() === String(d.assignee).toUpperCase()) opt.selected = true;
+          if (d.assignee && (u.initials || '').toUpperCase() === String(d.assignee).toUpperCase()) { opt.selected = true; found = true; }
           aSel.appendChild(opt);
         });
+        // Legacy safety: keep an existing assignee who is no longer a project
+        // member selected so editing the task never silently unassigns them.
+        if (d.assignee && !found) {
+          var legacy = document.createElement('option');
+          legacy.value = String(d.assignee).toUpperCase();
+          legacy.textContent = String(d.assignee).toUpperCase() + ' (not a project member)';
+          legacy.selected = true;
+          aSel.appendChild(legacy);
+        }
       })
       .catch(function () {});
 
     var sSel = document.getElementById('et-sprint');
-    fetch('/api/v1/sprints?project=' + encodeURIComponent(PROJECT_KEY))
-      .then(function (r) { return r.json(); })
-      .then(function (list) {
-        list.forEach(function (s) {
-          var opt = document.createElement('option');
-          opt.value = s.id;
-          opt.textContent = 'Sprint ' + s.number + (s.name ? ' — ' + s.name : '');
-          if (d.sprint && Number(s.number) === Number(d.sprint)) opt.selected = true;
-          sSel.appendChild(opt);
-        });
-      })
-      .catch(function () {});
+    if (sSel && sSel.tagName === 'SELECT') {
+      fetch('/api/v1/sprints?project=' + encodeURIComponent(PROJECT_KEY))
+        .then(function (r) { return r.json(); })
+        .then(function (list) {
+          list.forEach(function (s) {
+            var opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = 'Sprint ' + s.number + (s.name ? ' — ' + s.name : '');
+            if (d.sprint && Number(s.number) === Number(d.sprint)) opt.selected = true;
+            sSel.appendChild(opt);
+          });
+        })
+        .catch(function () {});
+    }
 
-    document.getElementById('et-save').addEventListener('click', function () { saveEditTask(id); });
+    document.getElementById('et-save').addEventListener('click', function () { saveEditTask(id, d); });
   }
 
-  function saveEditTask(id) {
+  function wmToHm(minutes) {
+    if (!minutes || minutes <= 0) return '';
+    var h = Math.floor(minutes / 60), m = minutes % 60;
+    return h + ':' + (m < 10 ? '0' + m : m);
+  }
+
+  function etSyncWorkingHours() {
+    var st = document.getElementById('et-status');
+    var wm = document.getElementById('et-working');
+    var hint = document.getElementById('et-working-hint');
+    if (!st || !wm || !hint) return;
+    if (wm.getAttribute('data-derived') === '1') {
+      wm.disabled = true;
+      hint.textContent = 'Working hours are derived from this task\u2019s completed subtasks.';
+      hint.style.color = 'var(--wf-text-tertiary)';
+      return;
+    }
+    var done = st.value === 'done';
+    wm.disabled = !done;
+    if (done) {
+      hint.textContent = 'Enter the actual time spent on this completed task.';
+      hint.style.color = '';
+    } else {
+      wm.value = '';
+      hint.textContent = 'Working hours can only be recorded when the task is marked Done.';
+      hint.style.color = 'var(--wf-text-tertiary)';
+    }
+  }
+
+  function saveEditTask(id, d) {
+    d = d || {};
+    var origStatus = d.status || 'backlog';
+    var origHadHours = !!(d.working_minutes && Number(d.working_minutes) > 0);
     var titleEl = document.getElementById('et-title');
     var title = titleEl.value.trim();
     if (!title) { Wexira.showToast('Objective is required.', 'error'); titleEl.focus(); return; }
@@ -406,6 +594,33 @@
       if (!/^\d+$/.test(pointsVal)) { Wexira.showToast('Story points must be a number.', 'error'); pointsEl.focus(); return; }
       points = parseInt(pointsVal, 10);
       if (points < 0) { Wexira.showToast('Story points cannot be negative.', 'error'); pointsEl.focus(); return; }
+    }
+
+    var wmEl = document.getElementById('et-working');
+    var derivedParent = !!(wmEl && wmEl.getAttribute('data-derived') === '1');
+    var wmRaw = (!derivedParent && wmEl) ? wmEl.value.trim() : '';
+    var workingMinutes = null;
+    if (wmRaw !== '') {
+      var wmMatch = /^(\d{1,3}):([0-5]?\d)$/.exec(wmRaw) || /^(\d{1,4})$/.exec(wmRaw);
+      if (!wmMatch) {
+        Wexira.showToast('Invalid working hours. Use HH:MM (e.g. 04:30).', 'error');
+        if (wmEl) wmEl.focus();
+        return;
+      }
+      workingMinutes = parseInt(wmMatch[1], 10) * 60 + (wmMatch[2] ? parseInt(wmMatch[2], 10) : 0);
+      if (workingMinutes <= 0) { Wexira.showToast('Working hours must be greater than zero.', 'error'); if (wmEl) wmEl.focus(); return; }
+    }
+
+    var reopening = origStatus === 'done' && status !== 'done';
+    if (reopening && origHadHours) {
+      if (!confirm('This task has recorded working hours. Moving it out of Done will clear them. Continue?')) return;
+    }
+    // Completing a task requires its working hours to be recorded, unless the
+    // task's hours are derived from its subtasks (parents never hold their own).
+    if (status === 'done' && origStatus !== 'done' && workingMinutes === null && !derivedParent) {
+      Wexira.showToast('Working hours are required when completing a task. Enter the total time spent (e.g. 04:30).', 'error');
+      if (wmEl) wmEl.focus();
+      return;
     }
 
     var due = document.getElementById('et-due').value;
@@ -434,10 +649,19 @@
       priority: document.getElementById('et-priority').value,
       points: points,
       assignee: document.getElementById('et-assignee').value,
-      sprint_id: document.getElementById('et-sprint').value,
       labels: labels,
     };
+    // Subtasks inherit their parent's Sprint: never send an independent one.
+    var stSprintEl = document.getElementById('et-sprint');
+    if (!d.is_subtask && stSprintEl) payload.sprint_id = stSprintEl.value;
     if (due !== '') payload.due_date = due;
+    if (status === 'done' && !derivedParent) {
+      if (workingMinutes !== null) {
+        payload.working_minutes = workingMinutes;
+      } else if (origHadHours) {
+        payload.working_minutes = null;
+      }
+    }
 
     fetch('/api/v1/issues/' + id, {
       method: 'PATCH',
@@ -446,12 +670,53 @@
     })
       .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
       .then(function (res) {
-        if (!res.ok) { Wexira.showToast(res.d.error || 'Could not update the task.', 'error'); return; }
+        if (!res.ok) {
+          if (res.d.needs_confirmation) {
+            var msg = res.d.error || 'This task has incomplete subtasks.';
+            if (confirm(msg + '\n\nThe task will be marked done but the subtasks will not be changed.')) {
+              payload.confirm_incomplete = true;
+              fetch('/api/v1/issues/' + id, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              })
+                .then(function (r2) { return r2.json().then(function (d2) { return { ok: r2.ok, d: d2 }; }); })
+                .then(function (res2) {
+                  if (!res2.ok) { Wexira.showToast(res2.d.error || 'Could not update the task.', 'error'); return; }
+                  closeEditModal();
+                  Wexira.showToast('Task updated.', 'success');
+                  setTimeout(() => ptAfterSaveRefresh(id, res2.d ? res2.d : res2, window.PT_EDIT_PARENT_ID), 450);
+                })
+                .catch(function () { Wexira.showToast('Could not update the task.', 'error'); });
+            }
+            return;
+          }
+          Wexira.showToast(res.d.error || 'Could not update the task.', 'error');
+          return;
+        }
         closeEditModal();
         Wexira.showToast('Task updated.', 'success');
-        setTimeout(() => location.reload(), 450);
+        setTimeout(() => ptAfterSaveRefresh(id, res.d, window.PT_EDIT_PARENT_ID), 450);
       })
       .catch(function () { Wexira.showToast('Could not update the task.', 'error'); });
+  }
+
+  function ptAfterSaveRefresh(id, d, parentId) {
+    // A subtask edited from an expanded row updates in place via the already
+    // rendered subtree; the parent stays expanded. Top-level tasks simply
+    // reload (existing behavior, sprint filter stays server-authoritative).
+    if (parentId && PT_EXPANDED[parentId]) {
+      PT_LOADED[parentId] = null;
+      delete PT_LOADED[parentId];
+      var parent = d && d.parent_issue_id ? d : null;
+      if (parent) {
+        window.PT_EDIT_PARENT_ID = null;
+        return;
+      }
+      ptFetchSubtasks(parentId);
+      return;
+    }
+    location.reload();
   }
 
   function updateTaskRow(id, d) {
@@ -463,11 +728,451 @@
         '<div class="font-medium text-[var(--wf-text)]">' + esc(d.number) + '</div>' +
         '<div class="text-[13px] text-[var(--wf-text-secondary)]">' + esc(d.title) + '</div>';
     }
-    if (tds[2]) tds[2].textContent = d.due || '—';
+    if (tds[1]) {
+      tds[1].innerHTML = '<span class="' + ('wf-prio-' + String(d.priority || 'Medium').toLowerCase()) + ' wf-badge" style="padding:2px 9px">' + esc(d.priority || 'Medium') + '</span>';
+    }
+    if (tds[2]) {
+      tds[2].innerHTML = d.sprint
+        ? '<span class="pt-sprint-badge" title="' + esc('Sprint ' + d.sprint) + '">' + esc('Sprint ' + d.sprint) + '</span>'
+        : '<span class="text-[var(--wf-text-tertiary)]">—</span>';
+    }
     if (tds[3]) {
+      if (d.assignee_name) {
+        tds[3].innerHTML =
+          '<div class="flex items-center gap-1.5">' +
+          '  <span class="wf-avatar wf-avatar-sm" style="background:' + esc(d.assignee_color || '#9ca3af') + '" title="' + esc(d.assignee_name) + '">' + esc(d.assignee_initials || d.assignee || '--') + '</span>' +
+          '  <span class="text-[12.5px] whitespace-nowrap">' + esc(d.assignee_name) + '</span>' +
+          '</div>';
+      } else if (d.assignee) {
+        tds[3].innerHTML =
+          '<div class="flex items-center gap-1.5">' +
+          '  <span class="wf-avatar wf-avatar-sm" style="background:' + esc(d.assignee_color || '#9ca3af') + '" title="' + esc(d.assignee) + '">' + esc(d.assignee) + '</span>' +
+          '  <span class="text-[12.5px] text-[var(--wf-text-secondary)]">' + esc(d.assignee) + '</span>' +
+          '</div>';
+      } else {
+        tds[3].innerHTML = '<span class="text-[12.5px] text-[var(--wf-text-tertiary)]">Unassigned</span>';
+      }
+    }
+    if (tds[4]) {
+      tds[4].textContent = d.start_date || d.start || '—';
+    }
+    if (tds[5]) tds[5].textContent = d.due || '—';
+    if (tds[6]) {
       var cfg = ET_BADGES[d.status] || ET_BADGES.backlog;
-      tds[3].innerHTML = '<span class="wf-status ' + cfg[0] + '"><span class="dot"></span>' + cfg[1] + '</span>';
+      tds[6].innerHTML = '<span class="wf-status ' + cfg[0] + '"><span class="dot"></span>' + cfg[1] + '</span>';
+    }
+    if (tds[7]) {
+      var hasWm = d.total_working_minutes && d.total_working_text;
+      tds[7].innerHTML = hasWm
+        ? '<span class="wf-badge wf-badge-soft-blue">' + esc(d.total_working_text) + '</span>'
+        : '<span class="text-[var(--wf-text-tertiary)]">—</span>';
     }
   }
+</script>
+
+<script>
+  /* ============================================================
+     Expandable Task → Subtask hierarchy in the Project Tasks table.
+     Subtask rows are lazy-loaded (GET /api/v1/issues/{parent}) on
+     expand, so the initial page only ships aggregated counts (no N+1).
+     ============================================================ */
+  var PT_EXPANDED = {};
+  var PT_LOADED = {};
+  var PT_FETCHING = {};
+  window.PT_EDIT_PARENT_ID = null;
+
+  function ptTdStatus(status) {
+    if (status === 'done') return '<span class="wf-status wf-status-done"><span class="dot"></span>Done</span>';
+    if (status === 'in_progress') return '<span class="wf-status wf-status-progress"><span class="dot"></span>In Progress</span>';
+    if (status === 'in_review') return '<span class="wf-status wf-status-review"><span class="dot"></span>In Review</span>';
+    if (status === 'todo') return '<span class="wf-status wf-status-todo"><span class="dot"></span>To Do</span>';
+    return '<span class="wf-status wf-status-todo"><span class="dot"></span>Backlog</span>';
+  }
+
+  function ptPrioBadge(p) {
+    p = p || 'Medium';
+    return '<span class="' + ('wf-prio-' + String(p).toLowerCase()) + ' wf-badge" style="padding:2px 9px">' + esc(p) + '</span>';
+  }
+
+  function ptSprintBadge(s, name) {
+    if (!s) return '<span class="text-[var(--wf-text-tertiary)]">—</span>';
+    var title = 'Sprint ' + s + (name && name !== 'Sprint ' + s ? ' — ' + name : '');
+    return '<span class="pt-sprint-badge" title="' + esc(title) + '">' + esc('Sprint ' + s) + '</span>';
+  }
+
+  function ptAssignSubtd(s) {
+    if (s && s.assignee_name) {
+      var init = s.assignee_initials || null;
+      if (!init) {
+        init = String(s.assignee_name).split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).join('').toUpperCase().slice(0, 2);
+      }
+      return '<div class="flex items-center gap-1.5">' +
+        '  <span class="wf-avatar wf-avatar-sm" style="background:' + esc(s.assignee_color || '#9ca3af') + '" title="' + esc(s.assignee_name) + '">' + esc(init) + '</span>' +
+        '  <span class="text-[12.5px] whitespace-nowrap text-[var(--wf-text)]">' + esc(s.assignee_name) + '</span>' +
+        '</div>';
+    }
+    if (s && s.assignee) {
+      return '<div class="flex items-center gap-1.5">' +
+        '  <span class="wf-avatar wf-avatar-sm" style="background:' + esc(s.assignee_color || '#9ca3af') + '" title="' + esc(s.assignee) + '">' + esc(s.assignee) + '</span>' +
+        '  <span class="text-[12.5px] whitespace-nowrap text-[var(--wf-text)]">' + esc(s.assignee) + '</span>' +
+        '</div>';
+    }
+    return '<span class="text-[12.5px] text-[var(--wf-text-tertiary)]">Unassigned</span>';
+  }
+
+  function ptSubtreeRows(parentId) {
+    return document.querySelectorAll('tr[data-pt-parent="' + parentId + '"]');
+  }
+
+  function ptClearSubtree(parentId) {
+    ptSubtreeRows(parentId).forEach(function (r) { r.remove(); });
+  }
+
+  function ptAddRows(row, parentId, html) {
+    var frag = document.createDocumentFragment();
+    var tpl = document.createElement('tbody');
+    tpl.innerHTML = html;
+    while (tpl.firstChild) frag.appendChild(tpl.firstChild);
+    row.after(frag);
+    if (window.lucide) { try { lucide.createIcons({ nodes: [frag] }); } catch (e) {} }
+  }
+
+  function ptExpandRow(parentId) {
+    var row = document.querySelector('tr.pt-task-row[data-id="' + parentId + '"]');
+    if (!row) return;
+    PT_EXPANDED[parentId] = true;
+    var toggle = row.querySelector('.pt-expand-toggle');
+    if (toggle) toggle.setAttribute('aria-expanded', 'true');
+    row.classList.add('pt-row-open');
+    if (PT_LOADED[parentId]) {
+      // Already fetched: render from the cache instantly, no spinner, no refetch.
+      ptRenderSubtree(parentId, PT_LOADED[parentId]);
+      return;
+    }
+    ptFetchSubtasks(parentId);
+  }
+
+  function ptCollapseRow(parentId) {
+    PT_EXPANDED[parentId] = false;
+    var row = document.querySelector('tr.pt-task-row[data-id="' + parentId + '"]');
+    if (row) {
+      var toggle = row.querySelector('.pt-expand-toggle');
+      if (toggle) toggle.setAttribute('aria-expanded', 'false');
+      row.classList.remove('pt-row-open');
+    }
+    ptClearSubtree(parentId);
+  }
+
+  function ptToggleTask(parentId) {
+    if (PT_EXPANDED[parentId]) ptCollapseRow(parentId);
+    else ptExpandRow(parentId);
+  }
+
+  function ptSubtreeStateHtml(parentId) {
+    var msg = 'Loading subtasks…';
+    return '' +
+      '<tr class="pt-subtree-state" data-pt-parent="' + parentId + '">' +
+      '  <td colspan="9" class="pt-subcell">' +
+      '    <div class="flex items-center gap-2 py-2 pl-8 text-[12.5px] text-[var(--wf-text-secondary)]">' +
+      '      <i data-lucide="loader-2" style="width:13px;height:13px" class="animate-spin"></i> ' + esc(msg) +
+      '    </div>' +
+      '  </td>' +
+      '</tr>';
+  }
+
+  function ptSubtreeErrorHtml(parentId, msg) {
+    return '' +
+      '<tr class="pt-subtree-state pt-subtree-error" data-pt-parent="' + parentId + '">' +
+      '  <td colspan="9" class="pt-subcell">' +
+      '    <div class="flex items-center gap-2 py-2 pl-8 text-[12.5px] text-[var(--wf-text-secondary)]">' +
+      '      <i data-lucide="alert-triangle" style="width:13px;height:13px;color:var(--wf-error)"></i>' +
+      '      <span>' + esc(msg || 'Could not load subtasks.') + '</span>' +
+      '      <button type="button" class="wf-btn wf-btn-secondary wf-btn-sm" onclick="ptFetchSubtasks(' + parentId + ')">Retry</button>' +
+      '    </div>' +
+      '  </td>' +
+      '</tr>';
+  }
+
+  function ptSubheadHtml(parentId, count, done) {
+    var btn = '<button type="button" class="pt-add-sub-btn wf-btn wf-btn-secondary wf-btn-sm" onclick="event.stopPropagation(); ptOpenCreateSubtask(' + parentId + ')">' +
+      '<i data-lucide="plus" style="width:13px;height:13px"></i> Add Subtask</button>';
+    var note = count > 0
+      ? (count + ' subtask' + (count !== 1 ? 's' : '') + ' · ' + done + ' completed')
+      : 'No subtasks yet';
+    return '' +
+      '<tr class="pt-subtree-head" data-pt-parent="' + parentId + '">' +
+      '  <td colspan="9" class="pt-subcell">' +
+      '    <div class="flex items-center gap-2 py-1.5 pl-8 text-[12px] text-[var(--wf-text-secondary)]">' +
+      '      <span class="font-semibold text-[var(--wf-text)]">Subtasks</span>' +
+      '      <span class="pt-sub-count">' + esc(note) + '</span>' +
+      '      <span class="flex-1"></span>' + btn +
+      '    </div>' +
+      '  </td>' +
+      '</tr>';
+  }
+
+  function ptSubrowHtml(parentId, parentNumber, s, order) {
+    var displayKey = PROJECT_KEY + '-' + parentNumber + '-' + order;
+    var working = (s.status === 'done' && s.working_text)
+      ? '<span class="wf-badge wf-badge-soft-blue">' + esc(s.working_text) + '</span>'
+      : '<span class="text-[var(--wf-text-tertiary)]">—</span>';
+    var commands = '' +
+      '<div class="flex items-center gap-1.5 flex-wrap" onclick="event.stopPropagation()">' +
+      '  <button class="wf-icon-btn" title="View" onclick="location=\'/issue/' + s.id + '\'"><i data-lucide="eye" style="width:13px;height:13px"></i></button>' +
+      '  <button class="wf-icon-btn" title="Edit Subtask" onclick="ptEditSubtask(' + s.id + ',' + parentId + ')"><i data-lucide="pencil" style="width:13px;height:13px"></i></button>' +
+      '  <button class="wf-icon-btn" title="Delete Subtask" onclick="ptDeleteSubtask(' + s.id + ',' + parentId + ')"><i data-lucide="trash-2" style="width:13px;height:13px;color:var(--wf-error)"></i></button>' +
+      '</div>';
+    return '' +
+      '<tr class="pt-subtree-row" data-id="' + s.id + '" data-pt-parent="' + parentId + '">' +
+      '  <td class="pt-subcell">' +
+      '    <div class="flex items-start gap-2 pl-8">' +
+      '      <span class="pt-sub-rail"></span>' +
+      '      <div class="min-w-0">' +
+      '        <div class="font-medium text-[12.5px] text-[var(--wf-text)]">' + esc(displayKey) + '</div>' +
+      '        <div class="text-[12.5px] text-[var(--wf-text-secondary)] truncate">' + esc(s.title) + '</div>' +
+      '      </div>' +
+      '    </div>' +
+      '  </td>' +
+      '  <td>' + ptPrioBadge(s.priority) + '</td>' +
+      '  <td>' + ptSprintBadge(s.sprint, s.sprint_name) + '</td>' +
+      '  <td>' + ptAssignSubtd(s) + '</td>' +
+      '  <td class="text-[12.5px] text-[var(--wf-text-secondary)]">' + esc(s.start || '—') + '</td>' +
+      '  <td class="text-[12.5px] text-[var(--wf-text-secondary)]">' + esc(s.due || '—') + '</td>' +
+      '  <td>' + ptTdStatus(s.status) + '</td>' +
+      '  <td>' + working + '</td>' +
+      '  <td>' + commands + '</td>' +
+      '</tr>';
+  }
+
+  function ptRenderSubtree(parentId, parent) {
+    var row = document.querySelector('tr.pt-task-row[data-id="' + parentId + '"]');
+    if (!row) return;
+    // Always replace whatever is currently in this parent's subtree (the
+    // loading row, a stale error, or prior subtask rows) so the loading,
+    // success, empty and error states are mutually exclusive and no
+    // "Loading subtasks…" row can linger below loaded subtasks.
+    ptClearSubtree(parentId);
+    var subs = parent.subtasks || [];
+    var done = subs.filter(function (s) { return s.status === 'done'; }).length;
+    var html = ptSubheadHtml(parentId, subs.length, done);
+    if (subs.length) {
+      subs.forEach(function (s, idx) {
+        html += ptSubrowHtml(parentId, parent.number, s, s.subtask_order || (idx + 1));
+      });
+    }
+    ptAddRows(row, parentId, html);
+    ptUpdateCountText(parentId, parent);
+    ptUpdateParentWorkingCell(parentId, parent);
+  }
+
+  function ptFetchSubtasks(parentId) {
+    if (PT_FETCHING[parentId]) return;
+    PT_FETCHING[parentId] = true;
+    var row = document.querySelector('tr.pt-task-row[data-id="' + parentId + '"]');
+    if (!row) { PT_FETCHING[parentId] = false; return; }
+    ptClearSubtree(parentId);
+    ptAddRows(row, parentId, ptSubtreeStateHtml(parentId));
+    fetch('/api/v1/issues/' + parentId)
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        PT_FETCHING[parentId] = false;
+        var parent = res.d || {};
+        if (!res.ok || parent.error) {
+          // Collapsed while pending: keep it collapsed, do not paint UI.
+          if (!PT_EXPANDED[parentId]) return;
+          ptClearSubtree(parentId);
+          ptAddRows(row, parentId, ptSubtreeErrorHtml(parentId, parent.error || 'Could not load subtasks.'));
+          return;
+        }
+        // Cache regardless of the current expanded state so a later expand is
+        // served instantly; only render now when still expanded.
+        PT_LOADED[parentId] = parent;
+        if (PT_EXPANDED[parentId]) ptRenderSubtree(parentId, parent);
+      })
+      .catch(function () {
+        PT_FETCHING[parentId] = false;
+        if (!PT_EXPANDED[parentId]) return;
+        ptClearSubtree(parentId);
+        ptAddRows(row, parentId, ptSubtreeErrorHtml(parentId, 'Could not load subtasks.'));
+      });
+  }
+
+  function ptUpdateCountText(parentId, parent) {
+    parent = parent || PT_LOADED[parentId];
+    if (!parent) return;
+    var countEl = document.querySelector('tr.pt-task-row[data-id="' + parentId + '"] .pt-count-text');
+    if (!countEl) return;
+    var n = (parent.subtasks || []).length;
+    var done = (parent.subtasks || []).filter(function (s) { return s.status === 'done'; }).length;
+    countEl.textContent = n > 0
+      ? (n + ' subtask' + (n !== 1 ? 's' : '') + ' · ' + done + ' completed')
+      : 'No subtasks';
+  }
+
+  function ptParentWorkingHtml(parent) {
+    parent = parent || {};
+    var hasWm = parent.total_working_minutes && parent.total_working_text;
+    return hasWm
+      ? '<span class="wf-badge wf-badge-soft-blue">' + esc(parent.total_working_text) + '</span>'
+      : '<span class="text-[var(--wf-text-tertiary)]">—</span>';
+  }
+
+  // Keep the parent row's Working Hours cell in sync with its subtasks after
+  // an in-place refresh (subtask completed/edited/added), so the derived
+  // parent total updates without a browser reload.
+  function ptUpdateParentWorkingCell(parentId, parent) {
+    var cell = document.querySelector('tr.pt-task-row[data-id="' + parentId + '"] td:nth-child(8)');
+    if (cell) cell.innerHTML = ptParentWorkingHtml(parent);
+  }
+
+  function ptOpenCreateSubtask(parentId) {
+    Wexira.openCreateSubtask({
+      parentId: parentId,
+      projectKey: PROJECT_KEY,
+      bounds: PROJECT_BOUNDS,
+    });
+  }
+
+  function ptEditSubtask(id, parentId) {
+    window.PT_EDIT_PARENT_ID = parentId;
+    editTask(id);
+  }
+
+  function ptDeleteSubtask(id, parentId) {
+    if (!confirm('Delete subtask permanently?')) return;
+    fetch('/api/v1/issues/' + id, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok) { Wexira.showToast(res.d.error || 'Could not delete the subtask.', 'error'); return; }
+        PT_LOADED[parentId] = null;
+        delete PT_LOADED[parentId];
+        var subRow = document.querySelector('tr.pt-subtree-row[data-id="' + id + '"][data-pt-parent="' + parentId + '"]');
+        if (subRow) subRow.remove();
+        ptFetchSubtasks(parentId);
+        Wexira.showToast('Subtask deleted.', 'success');
+      })
+      .catch(function () { Wexira.showToast('Could not delete the subtask.', 'error'); });
+  }
+
+  window.WT_AFTER_ISSUE_CREATE = function (d, parentId, projectKey) {
+    if (String(projectKey) !== String(PROJECT_KEY)) return false;
+    if (!parentId) return false;
+    PT_LOADED[parentId] = null;
+    delete PT_LOADED[parentId];
+    if (PT_EXPANDED[parentId]) {
+      ptFetchSubtasks(parentId);
+    } else {
+      // Collapsed parent: just refresh the server-computed count text.
+      fetch('/api/v1/issues/' + parentId)
+        .then(function (r) { return r.json().then(function (d2) { return d2; }); })
+        .then(function (d2) { ptUpdateCountText(parentId, d2); })
+        .catch(function () {});
+    }
+    return true;
+  };
+</script>
+
+<script>
+  /* ============================================================
+     Team Work Time — project-scoped logged hours
+     ============================================================ */
+  var WT_ICONS_TRIED = false;
+
+  function wtIcons(root) {
+    try { lucide.createIcons({ nodes: root ? [root] : [] }); } catch (e) {}
+  }
+
+  function wtFormat(minutes) {
+    var min = parseInt(minutes || 0, 10);
+    if (min <= 0) return '0h 00m';
+    var h = Math.floor(min / 60);
+    var m = min % 60;
+    return h + 'h ' + (m < 10 ? '0' + m : m) + 'm';
+  }
+
+  function wtErrHtml(msg) {
+    return '' +
+      '<div class="py-8 text-center text-[13px] text-[var(--wf-text-secondary)]">' +
+      '  <i data-lucide="alert-triangle" style="width:30px;height:30px;color:var(--wf-error);display:block;margin:0 auto 10px"></i>' +
+      '  <div class="font-semibold text-[var(--wf-text)]">Could not load team work time</div>' +
+      '  <div class="mt-1">' + esc(msg || 'Failed to load data.') + '</div>' +
+      '  <button type="button" class="wf-btn wf-btn-secondary wf-btn-sm mt-4" onclick="loadTeamWorkTime()"><i data-lucide="refresh-cw" style="width:13px;height:13px"></i> Retry</button>' +
+      '</div>';
+  }
+
+  function loadTeamWorkTime() {
+    var body = document.getElementById('teamWorkTimeBody');
+    if (!body) return;
+    body.innerHTML = '' +
+      '<div class="flex items-center gap-3 text-[13px] text-[var(--wf-text-secondary)] animate-pulse-soft">' +
+      '  <i data-lucide="timer" style="width:16px;height:16px"></i> Loading team work time…' +
+      '</div>';
+    wtIcons(body);
+    fetch('/api/v1/worklogs/summary?project_id=' + WT_PROJECT_ID)
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.d || !res.d.ok) {
+          body.innerHTML = wtErrHtml((res.d && res.d.error) || 'Failed to load data.');
+          wtIcons(body);
+          return;
+        }
+        WT_SUMMARY = res.d;
+        WT_MEMBERS = res.d.members || [];
+        renderTeamWorkTime(body);
+      })
+      .catch(function () {
+        body.innerHTML = wtErrHtml('Failed to load data.');
+        wtIcons(body);
+      });
+  }
+
+  function renderTeamWorkTime(body) {
+    var rows = '';
+    (WT_SUMMARY.members || []).forEach(function (m) {
+      rows += '' +
+        '<div class="flex items-center gap-3 px-2.5 py-2 rounded-lg border border-[var(--wf-border)]">' +
+        '  <span class="wf-avatar wf-avatar-sm" style="background:' + (m.color || '#9ca3af') + '">' + esc(m.initials || '--') + '</span>' +
+        '  <div class="min-w-0 flex-1">' +
+        '    <div class="flex items-center gap-1.5">' +
+        '      <span class="text-[13px] font-semibold text-[var(--wf-text)] truncate">' + esc(m.name) + '</span>' +
+        (m.is_lead ? '<span class="shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full" style="color:var(--wf-primary);background:var(--wf-primary-50)">Lead</span>' : '') +
+        '    </div>' +
+        '    <div class="text-[11px] text-[var(--wf-text-tertiary)] truncate">' + esc(m.role || '') + '</div>' +
+        '  </div>' +
+        '  <div class="text-right text-[12px] font-medium text-[var(--wf-text-secondary)] w-20 tabular-nums">' + esc(m.today_text) + '</div>' +
+        '  <div class="text-right text-[13px] font-bold text-[var(--wf-primary)] w-24 tabular-nums">' + esc(m.total_text) + '</div>' +
+        '</div>';
+    });
+    if (!rows) {
+      rows = '<div class="wf-empty text-[var(--wf-text-tertiary)]"><i data-lucide="users" style="width:30px;height:30px"></i><div>No team members in this project yet.</div></div>';
+    }
+    var totals = WT_SUMMARY.totals || { today_text: '0h 00m', total_text: '0h 00m' };
+    body.innerHTML = '' +
+      '<div class="flex items-center px-3 pb-2">' +
+      '  <span class="text-[11px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide">Member</span>' +
+      '  <span class="min-w-0 flex-1"></span>' +
+      '  <span class="text-[11px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide text-right w-20">Today</span>' +
+      '  <span class="text-[11px] font-semibold text-[var(--wf-text-tertiary)] uppercase tracking-wide text-right w-24">Total</span>' +
+      '</div>' +
+      '<div class="flex flex-col gap-1.5">' + rows + '</div>' +
+      '<div class="flex items-center gap-3 px-2.5 py-2.5 mt-3 rounded-lg" style="background:#fafafb;border:1px solid var(--wf-border-soft)">' +
+      '  <span class="w-7 h-7 rounded-lg grid place-items-center" style="background:var(--wf-primary-50);color:var(--wf-primary)"><i data-lucide="clock" style="width:14px;height:14px"></i></span>' +
+      '  <div class="flex-1 min-w-0">' +
+      '    <div class="text-[13px] font-bold text-[var(--wf-text)]">Project Total</div>' +
+      '    <div class="text-[11px] text-[var(--wf-text-secondary)]">All working hours recorded against completed tasks for ' + esc(WT_PROJECT_KEY) + '</div>' +
+      '  </div>' +
+      '  <div class="text-right text-[12px] font-medium text-[var(--wf-text-secondary)] w-20 tabular-nums">' + esc(totals.today_text) + '</div>' +
+      '  <div class="text-right text-[13.5px] font-bold text-[var(--wf-primary)] w-24 tabular-nums">' + esc(totals.total_text) + '</div>' +
+      '</div>' +
+      '<p class="text-[11.5px] text-[var(--wf-text-tertiary)] mt-2">Working hours are recorded per completed task. Edit a done task to set its working hours.</p>';
+    wtIcons(body);
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    loadTeamWorkTime();
+  });
 </script>
 {% endblock %}

@@ -10,6 +10,10 @@
       <a href="/projects" class="hover:text-[var(--wf-primary)]">Projects</a>
       <i data-lucide="chevron-right" style="width:12px;height:12px"></i>
       <a href="/kanban" class="hover:text-[var(--wf-primary)]">{{ project.name }}</a>
+      {% if issue.parent_issue %}
+      <i data-lucide="chevron-right" style="width:12px;height:12px"></i>
+      <a href="/issue/{{ issue.parent_issue.id }}" class="hover:text-[var(--wf-primary)]">{{ project.key }}-{{ issue.parent_issue.number }}</a>
+      {% endif %}
       <i data-lucide="chevron-right" style="width:12px;height:12px"></i>
       <span class="text-[var(--wf-text)] font-medium">{{ issue.number }}</span>
     </nav>
@@ -23,6 +27,9 @@
           <span class="wf-badge {{ 'wf-badge-soft-red' if issue.issue_type == 'Bug' else 'wf-badge-soft-green' if issue.issue_type == 'Story' else 'wf-badge-soft-purple' if issue.issue_type == 'Epic' else 'wf-badge-soft-gray' }}" style="padding:4px 10px">
             {{ issue.issue_type }}
           </span>
+          {% if issue.parent_issue %}
+          <a href="/issue/{{ issue.parent_issue.id }}" class="wf-badge issue-subtask-chip" title="Subtask of {{ project.key }}-{{ issue.parent_issue.number }}" style="padding:4px 10px;text-decoration:none"><i data-lucide="corner-down-right" style="width:12px;height:12px"></i> Subtask of {{ project.key }}-{{ issue.parent_issue.number }}</a>
+          {% endif %}
           {% if issue.status == 'in_progress' %}<span class="wf-status wf-status-progress"><span class="dot"></span>In Progress</span>
           {% elif issue.status == 'in_review' %}<span class="wf-status wf-status-review"><span class="dot"></span>In Review</span>
           {% elif issue.status == 'done' %}<span class="wf-status wf-status-done"><span class="dot"></span>Done</span>
@@ -40,12 +47,132 @@
         </div>
       </div>
 
+      {% if subtask_nav %}
+      <div class="wf-card">
+        <div class="p-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2 text-[12.5px] text-[var(--wf-text-secondary)]">
+              <i data-lucide="list-tree" style="width:14px;height:14px;color:var(--wf-text-tertiary)"></i>
+              <span>Subtask <strong>{{ subtask_nav.index }}</strong> of <strong>{{ subtask_nav.total }}</strong> — {{ project.key }}-{{ issue.parent_issue.number }}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              {% if subtask_nav.prev %}
+              <a class="wf-btn wf-btn-sm wf-btn-outline" href="/issue/{{ subtask_nav.prev.id }}" title="{{ subtask_nav.prev.title }}"><i data-lucide="chevron-left" style="width:13px;height:13px"></i> Previous</a>
+              {% else %}
+              <button class="wf-btn wf-btn-sm wf-btn-outline" disabled title="First subtask"><i data-lucide="chevron-left" style="width:13px;height:13px"></i> Previous</button>
+              {% endif %}
+              {% if subtask_nav.next %}
+              <a class="wf-btn wf-btn-sm wf-btn-primary" href="/issue/{{ subtask_nav.next.id }}">Next: {{ subtask_nav.next.key }} <i data-lucide="chevron-right" style="width:13px;height:13px"></i></a>
+              {% else %}
+              <button class="wf-btn wf-btn-sm wf-btn-primary" disabled>Last subtask <i data-lucide="chevron-right" style="width:13px;height:13px"></i></button>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if issue.parent_issue_id and issue.status == 'done' %}
+      <div class="wf-card" style="border-color:#10b98155">
+        <div class="p-4 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-2 text-[13px] text-[var(--wf-text)]">
+            <i data-lucide="check-circle-2" style="width:16px;height:16px;color:#10b981"></i>
+            {% if subtask_nav.next %}
+            Subtask completed. Open the next subtask to keep going.
+            {% elif next_task %}
+            This was the last subtask in {{ project.key }}-{{ issue.parent_issue.number }}. Next task in the current Sprint: <a href="/issue/{{ next_task.id }}" class="font-semibold" style="color:var(--wf-primary)">{{ next_task.key }}</a>.
+            {% else %}
+            This was the last subtask. Mark <a href="/issue/{{ issue.parent_issue.id }}" class="font-semibold" style="color:var(--wf-primary)">{{ project.key }}-{{ issue.parent_issue.number }}</a> complete when ready.
+            {% endif %}
+          </div>
+          {% if subtask_nav.next %}
+          <a class="wf-btn wf-btn-sm wf-btn-outline" href="/issue/{{ subtask_nav.next.id }}" title="{{ subtask_nav.next.title }}"><i data-lucide="corner-down-right" style="width:13px;height:13px"></i> Open Next Subtask: {{ subtask_nav.next.key }}</a>
+          {% elif next_task %}
+          <a class="wf-btn wf-btn-sm wf-btn-primary" href="/issue/{{ next_task.id }}" title="{{ next_task.title }}"><i data-lucide="arrow-right" style="width:13px;height:13px"></i> Open Next Task: {{ next_task.key }}</a>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="wf-card">
+        <div class="p-5">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <span class="w-9 h-9 rounded-lg grid place-items-center" style="background:var(--wf-primary-50);color:var(--wf-primary)">
+                <i data-lucide="timer" style="width:18px;height:18px"></i>
+              </span>
+              <div>
+                <div class="text-[14px] font-bold text-[var(--wf-text)]">Working Hours</div>
+                <div class="text-[12px] text-[var(--wf-text-secondary)]">Total time recorded against <strong title="{{ project.key }}-{{ issue.number }}">{{ project.key }}-{{ issue.number }}</strong>.</div>
+              </div>
+            </div>
+            <div class="min-h-[34px] flex items-center">
+              {% if not issue.parent_issue_id and issue.subtasks|length and parent_working_minutes %}
+              <span class="wf-badge wf-badge-soft-blue" style="font-size:13px;padding:6px 12px">{{ parent_working_text }}</span>
+              {% elif issue.status == 'done' and issue.working_minutes and issue.working_minutes > 0 %}
+              <span class="wf-badge wf-badge-soft-blue" style="font-size:13px;padding:6px 12px">{{ minutes_text(issue.working_minutes) }}</span>
+              {% else %}
+              <span class="text-[12.5px] text-[var(--wf-text-tertiary)]">Not recorded</span>
+              {% endif %}
+            </div>
+          </div>
+          <p class="text-[11.5px] text-[var(--wf-text-tertiary)] mt-3 flex items-center gap-1.5"><i data-lucide="info" style="width:12px;height:12px"></i><span>Working hours are recorded against completed tasks. Edit the task to set or change them.</span></p>
+        </div>
+      </div>
+
       <div class="wf-card">
         <div class="wf-card-header">
           <h2 class="text-[15px] font-bold text-[var(--wf-text)] flex items-center gap-2"><i data-lucide="align-left" style="width:14px;height:14px;color:var(--wf-text-tertiary)"></i> Description</h2>
         </div>
         <div class="p-5 text-[13.5px] text-[var(--wf-text-secondary)] leading-relaxed whitespace-pre-line">{{ issue.description or 'No description provided.' }}</div>
       </div>
+
+      {% if not issue.parent_issue_id %}
+      <div class="wf-card">
+        <div class="wf-card-header">
+          <h2 class="text-[15px] font-bold text-[var(--wf-text)] flex items-center gap-2"><i data-lucide="list-tree" style="width:14px;height:14px;color:var(--wf-text-tertiary)"></i> Subtasks <span class="wf-badge wf-badge-soft-gray" id="subtask-count-badge">{{ issue.subtasks|length }}</span> <span class="text-[11px] font-normal text-[var(--wf-text-tertiary)]" id="subtask-progress-text">{{ issue.subtasks | selectattr('status','equalto','done') | list | length }} of {{ issue.subtasks|length }} completed</span></h2>
+          <button type="button" class="wf-btn wf-btn-sm wf-btn-secondary" id="addSubtaskBtn"><i data-lucide="plus" style="width:13px;height:13px"></i> Add Subtask</button>
+        </div>
+        <div class="p-5" id="subtask-card-body">
+          {% if issue.subtasks %}
+          <div class="flex flex-col divide-y divide-[var(--wf-border-soft)]" id="subtask-list">
+            {% for s in issue.subtasks %}
+            {% set order = s.subtask_order or loop.index %}
+            <div class="flex items-center gap-3 py-3" data-id="{{ s.id }}">
+              <span class="wf-badge wf-badge-soft-gray flex-none" title="Subtask order" style="min-width:24px;text-align:center;font-size:11px">{{ order }}</span>
+              <div class="flex-1 min-w-0">
+                <a href="/issue/{{ s.id }}" class="text-[13.5px] font-semibold text-[var(--wf-text)] hover:text-[var(--wf-primary)] truncate" style="text-decoration:none">{{ s.title }}</a>
+                <div class="text-[11.5px] text-[var(--wf-text-tertiary)]">Subtask {{ project.key }}-{{ issue.number }}-{{ order }}</div>
+              </div>
+              <div class="flex items-center gap-2 flex-none">
+                {% if s.assignee_initials %}
+                <span class="wf-avatar wf-avatar-sm" title="{{ s.assignee_initials }}" style="background:{{ s.assignee_color or '#9ca3af' }}">{{ s.assignee_initials }}</span>
+                {% endif %}
+                {% if s.status == 'done' %}<span class="wf-status wf-status-done"><span class="dot"></span>Done</span>
+                {% elif s.status == 'in_progress' %}<span class="wf-status wf-status-progress"><span class="dot"></span>In Progress</span>
+                {% elif s.status == 'in_review' %}<span class="wf-status wf-status-review"><span class="dot"></span>In Review</span>
+                {% elif s.status == 'todo' %}<span class="wf-status wf-status-todo"><span class="dot"></span>To Do</span>
+                {% else %}<span class="wf-status wf-status-todo"><span class="dot"></span>{{ s.status|capitalize }}</span>{% endif %}
+              </div>
+              <div class="flex items-center gap-1 flex-none" onclick="event.stopPropagation()">
+                <button class="wf-icon-btn" title="Move up" {% if loop.first %}disabled{% endif %} onclick="moveSubtask({{ s.id }}, 'up')"><i data-lucide="chevron-up" style="width:13px;height:13px"></i></button>
+                <button class="wf-icon-btn" title="Move down" {% if loop.last %}disabled{% endif %} onclick="moveSubtask({{ s.id }}, 'down')"><i data-lucide="chevron-down" style="width:13px;height:13px"></i></button>
+                <button class="wf-icon-btn" title="View" onclick="location='/issue/{{ s.id }}'"><i data-lucide="eye" style="width:13px;height:13px"></i></button>
+                <button class="wf-icon-btn" title="Edit Subtask" onclick="editSubtask({{ s.id }})"><i data-lucide="pencil" style="width:13px;height:13px"></i></button>
+                <button class="wf-icon-btn" title="Delete Subtask" data-id="{{ s.id }}" onclick="deleteSubtask(this)"><i data-lucide="trash-2" style="width:13px;height:13px;color:var(--wf-error)"></i></button>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="wf-empty text-[var(--wf-text-tertiary)]" style="padding:24px 0" id="subtask-empty">
+            <i data-lucide="list-tree" style="width:28px;height:28px;margin:0 auto 6px"></i>
+            <div>No subtasks yet. Break this task into smaller pieces.</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
 
       {% if issue.acceptance_criteria %}
       <div class="wf-card">
@@ -91,6 +218,79 @@
 </div>
 
 <script>
+  var ISSUE_BOUNDS = { start: {{ project.start_date|tojson }}, target: {{ project.due_date|tojson }} };
+
+  var addSubtaskBtn = document.getElementById('addSubtaskBtn');
+  if (addSubtaskBtn) {
+    addSubtaskBtn.addEventListener('click', function () {
+      Wexira.openCreateSubtask({
+        parentId: {{ issue.id }},
+        projectKey: '{{ project.key }}',
+        bounds: ISSUE_BOUNDS,
+      });
+    });
+  }
+
+  function stStatusChip(status) {
+    if (status === 'done') return '<span class="wf-status wf-status-done"><span class="dot"></span>Done</span>';
+    if (status === 'in_progress') return '<span class="wf-status wf-status-progress"><span class="dot"></span>In Progress</span>';
+    if (status === 'in_review') return '<span class="wf-status wf-status-review"><span class="dot"></span>In Review</span>';
+    if (status === 'todo') return '<span class="wf-status wf-status-todo"><span class="dot"></span>To Do</span>';
+    return '<span class="wf-status wf-status-todo"><span class="dot"></span>' + (String(status || 'backlog') + '').replace(/^./, function (c) { return c.toUpperCase(); }) + '</span>';
+  }
+
+  function refreshSubtaskPanel() {
+    fetch('/api/v1/issues/{{ issue.id }}')
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('bad status')))
+      .then(function (d) {
+        const countEl = document.getElementById('subtask-count-badge');
+        const progEl = document.getElementById('subtask-progress-text');
+        const bodyEl = document.getElementById('subtask-card-body');
+        const doneCount = (d.subtasks || []).filter(function (s) { return s.status === 'done'; }).length;
+        if (countEl) countEl.textContent = String(d.subtask_count || 0);
+        if (progEl) progEl.textContent = doneCount + ' of ' + (d.subtask_count || 0) + ' completed';
+        if (!bodyEl) return;
+        if (!(d.subtasks || []).length) {
+          bodyEl.innerHTML = '<div class="wf-empty text-[var(--wf-text-tertiary)]" style="padding:24px 0">' +
+            '<i data-lucide="list-tree" style="width:28px;height:28px;margin:0 auto 6px"></i>' +
+            '<div>No subtasks yet. Break this task into smaller pieces.</div></div>';
+        } else {
+          const rows = d.subtasks.map(function (s, j) {
+            const order = s.subtask_order || (j + 1);
+            const avatar = s.assignee
+              ? '<span class="wf-avatar wf-avatar-sm" title="' + Wexira.escapeHtml(s.assignee) + '" style="background:' + Wexira.escapeHtml(s.assignee_color || '#9ca3af') + '">' + Wexira.escapeHtml(s.assignee) + '</span>'
+              : '';
+            const prev = j === 0 ? 'disabled' : '';
+            const last = j === d.subtasks.length - 1 ? 'disabled' : '';
+            return '<div class="flex items-center gap-3 py-3" data-id="' + s.id + '">' +
+              '<span class="wf-badge wf-badge-soft-gray flex-none" title="Subtask order" style="min-width:24px;text-align:center;font-size:11px">' + order + '</span>' +
+              '<div class="flex-1 min-w-0">' +
+                '<a href="/issue/' + s.id + '" class="text-[13.5px] font-semibold text-[var(--wf-text)] hover:text-[var(--wf-primary)] truncate" style="text-decoration:none">' + Wexira.escapeHtml(s.title) + '</a>' +
+                '<div class="text-[11.5px] text-[var(--wf-text-tertiary)]">Subtask {{ project.key }}-{{ issue.number }}-' + order + '</div>' +
+              '</div>' +
+              '<div class="flex items-center gap-2 flex-none">' + avatar + stStatusChip(s.status) + '</div>' +
+              '<div class="flex items-center gap-1 flex-none" onclick="event.stopPropagation()">' +
+                '<button class="wf-icon-btn" title="Move up" ' + prev + ' onclick="moveSubtask(' + s.id + ', \'up\')"><i data-lucide="chevron-up" style="width:13px;height:13px"></i></button>' +
+                '<button class="wf-icon-btn" title="Move down" ' + last + ' onclick="moveSubtask(' + s.id + ', \'down\')"><i data-lucide="chevron-down" style="width:13px;height:13px"></i></button>' +
+                '<button class="wf-icon-btn" title="View" onclick="location=\'/issue/' + s.id + '\'"><i data-lucide="eye" style="width:13px;height:13px"></i></button>' +
+                '<button class="wf-icon-btn" title="Edit Subtask" onclick="editSubtask(' + s.id + ')"><i data-lucide="pencil" style="width:13px;height:13px"></i></button>' +
+                '<button class="wf-icon-btn" title="Delete Subtask" data-id="' + s.id + '" onclick="deleteSubtask(this)"><i data-lucide="trash-2" style="width:13px;height:13px;color:var(--wf-error)"></i></button>' +
+              '</div>' +
+            '</div>';
+          }).join('');
+          bodyEl.innerHTML = '<div class="flex flex-col divide-y divide-[var(--wf-border-soft)]" id="subtask-list">' + rows + '</div>';
+        }
+        if (window.lucide) lucide.createIcons();
+      })
+      .catch(function () {});
+  }
+
+  window.WT_AFTER_ISSUE_CREATE = function (d, parentId, projectKey) {
+    if (String(parentId) !== String({{ issue.id }})) return false;
+    refreshSubtaskPanel();
+    return true;
+  };
+
   function addComment() {
     const body = document.getElementById('commentInput').value.trim();
     if (!body) { Wexira.showToast('Write a comment first.', 'warning'); return; }
@@ -103,5 +303,190 @@
       setTimeout(() => location.reload(), 400);
     }).catch(() => Wexira.showToast('Could not add comment.', 'error'));
   }
+
+  var ST_STATUSES = [['backlog', 'Backlog'], ['todo', 'To Do'], ['in_progress', 'In Progress'], ['in_review', 'In Review'], ['done', 'Done']];
+  var ST_PRIORITIES = ['Highest', 'High', 'Medium', 'Low', 'Lowest'];
+  var ST_BUSY = false;
+
+  function moveSubtask(id, direction) {
+    fetch('/api/v1/issues/' + id + '/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ direction: direction }),
+    })
+      .then(r => r.json().then(d => ({ ok: r.ok, d: d })))
+      .then(({ ok, d }) => {
+        if (!ok) { Wexira.showToast(d.error || 'Could not move the subtask.', 'error'); return; }
+        Wexira.showToast('Subtask moved.', 'success');
+        setTimeout(() => location.reload(), 350);
+      })
+      .catch(() => Wexira.showToast('Could not move the subtask.', 'error'));
+  }
+
+  function stEscHandler(e) {
+    if (e.key === 'Escape') closeSubtaskModal();
+  }
+
+  function closeSubtaskModal() {
+    var root = document.getElementById('editSubtaskModal');
+    if (root) root.remove();
+    document.body.style.overflow = '';
+    document.removeEventListener('keydown', stEscHandler);
+  }
+
+  function loadSubtaskAssignees(currentId) {
+    var sel = document.getElementById('st-assignee');
+    if (!sel) return;
+    fetch('/api/v1/users')
+      .then(r => r.json())
+      .then(users => {
+        (users || []).forEach(function (u) {
+          if (u.status && String(u.status).toLowerCase() !== 'active') return;
+          var opt = document.createElement('option');
+          opt.value = u.id;
+          opt.textContent = u.name + ' (' + u.initials + ')';
+          sel.appendChild(opt);
+        });
+        sel.value = String(currentId || 0);
+      })
+      .catch(function () {});
+  }
+
+  function editSubtask(id) {
+    fetch('/api/v1/issues/' + id)
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) { Wexira.showToast('Could not load the subtask.', 'error'); return; }
+        renderSubtaskModal(id, d);
+      })
+      .catch(() => Wexira.showToast('Could not load the subtask.', 'error'));
+  }
+
+  function renderSubtaskModal(id, d) {
+    var statusOpts = ST_STATUSES.map(function (s) {
+      return '<option value="' + s[0] + '"' + (s[0] === d.status ? ' selected' : '') + '>' + s[1] + '</option>';
+    }).join('');
+    var prioOpts = ST_PRIORITIES.map(function (p) {
+      return '<option' + (p === d.priority ? ' selected' : '') + '>' + p + '</option>';
+    }).join('');
+    var root = document.createElement('div');
+    root.id = 'editSubtaskModal';
+    root.innerHTML =
+      '<div class="wf-modal-backdrop" id="stBackdrop">' +
+      '  <div class="wf-modal" style="max-width:520px">' +
+      '    <div class="flex items-center justify-between px-6 py-4 border-b border-[var(--wf-border-soft)]">' +
+      '      <div>' +
+      '        <h2 class="text-[15px] font-bold text-[var(--wf-text)]">Edit Subtask</h2>' +
+      '        <p class="text-[12px] text-[var(--wf-text-secondary)]">' + (d.parent_key ? d.parent_key + '-' + (d.subtask_order || 1) : d.key) + '</p>' +
+      '      </div>' +
+      '      <button type="button" class="wf-icon-btn" data-close><i data-lucide="x" style="width:16px;height:16px"></i></button>' +
+      '    </div>' +
+      '    <div class="px-6 py-5">' +
+      '      <div class="mb-4"><label class="wf-label">Status</label>' +
+      '        <select class="wf-select" id="st-status">' + statusOpts + '</select></div>' +
+      '      <div class="mb-4"><label class="wf-label">Working Hours</label>' +
+      '        <input class="wf-input" id="st-working" placeholder="e.g. 04:30" inputmode="numeric" disabled>' +
+      '        <p class="wf-help" id="st-working-hint"></p></div>' +
+      '      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">' +
+      '        <div><label class="wf-label">Priority</label><select class="wf-select" id="st-priority">' + prioOpts + '</select></div>' +
+      '        <div><label class="wf-label">Story Points</label><input class="wf-input" id="st-points" type="number" min="0" value="' + (d.points || 0) + '"></div>' +
+      '      </div>' +
+      '      <div class="mb-5"><label class="wf-label">Assignee</label>' +
+      '        <select class="wf-select" id="st-assignee"><option value="0">Unassigned</option></select></div>' +
+      '      <input type="hidden" id="st-assignee-current" value="' + (d.assignee_id || 0) + '">' +
+      '      <div class="flex justify-end gap-2">' +
+      '        <button class="wf-btn wf-btn-secondary" data-close>Cancel</button>' +
+      '        <button class="wf-btn wf-btn-primary" id="st-save">Save</button>' +
+      '      </div>' +
+      '    </div>' +
+      '  </div>' +
+      '</div>';
+    document.body.appendChild(root);
+    var stWmEl = root.querySelector('#st-working');
+    if (stWmEl) {
+      if (d.status === 'done' && d.working_minutes) stWmEl.value = stWmToHm(d.working_minutes);
+      stSyncWorkingHours();
+      root.querySelector('#st-status').addEventListener('change', stSyncWorkingHours);
+    }
+    loadSubtaskAssignees(d.assignee_id || 0);
+    root.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', closeSubtaskModal); });
+    root.querySelector('#stBackdrop').addEventListener('click', function (e) { if (e.target === e.currentTarget) closeSubtaskModal(); });
+    document.addEventListener('keydown', stEscHandler);
+    document.body.style.overflow = 'hidden';
+    document.getElementById('st-save').addEventListener('click', function () { saveSubtaskEdit(id); });
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function saveSubtaskEdit(id) {
+    if (ST_BUSY) return;
+    var btn = document.getElementById('st-save');
+    var pointsVal = document.getElementById('st-points').value.trim();
+    var points = 0;
+    if (pointsVal !== '') {
+      if (!/^\d+$/.test(pointsVal)) { Wexira.showToast('Story points must be a number.', 'error'); return; }
+      points = parseInt(pointsVal, 10);
+      if (points < 0) { Wexira.showToast('Story points cannot be negative.', 'error'); return; }
+    }
+    var assigneeId = parseInt(document.getElementById('st-assignee').value, 10);
+    ST_BUSY = true;
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    fetch('/api/v1/issues/' + id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: document.getElementById('st-status').value,
+        priority: document.getElementById('st-priority').value,
+        points: points,
+        assignees: assigneeId ? [assigneeId] : [],
+      }),
+    })
+      .then(r => r.json().then(d => ({ ok: r.ok, d: d })))
+      .then(({ ok, d }) => {
+        if (!ok) {
+          if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
+          ST_BUSY = false;
+          Wexira.showToast(d.error || 'Could not update the subtask.', 'error');
+          return;
+        }
+        Wexira.showToast('Subtask updated.', 'success');
+        setTimeout(() => location.reload(), 350);
+      })
+      .catch(() => {
+        if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
+        ST_BUSY = false;
+        Wexira.showToast('Could not update the subtask.', 'error');
+      });
+  }
+
+  function deleteSubtask(btn) {
+    var id = btn.dataset.id;
+    if (!id) return;
+    if (!confirm('Delete this subtask permanently?')) return;
+    fetch('/api/v1/issues/' + id, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm_subtasks: true }),
+    })
+      .then(r => r.json().then(d => ({ ok: r.ok, d: d })))
+      .then(({ ok, d }) => {
+        if (!ok) { Wexira.showToast(d.error || 'Could not delete the subtask.', 'error'); return; }
+        Wexira.showToast('Subtask deleted.', 'success');
+        setTimeout(() => location.reload(), 350);
+      })
+      .catch(() => Wexira.showToast('Could not delete the subtask.', 'error'));
+  }
 </script>
+
+<style>
+  .issue-subtask-chip {
+    background: #ecfdf5;
+    color: #047857;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+</style>
 {% endblock %}

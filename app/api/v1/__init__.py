@@ -8,6 +8,7 @@ from app.api.v1.projects import projects_bp
 from app.api.v1.reports import reports_bp
 from app.api.v1.sprints import sprints_bp
 from app.api.v1.team import team_bp, users_bp
+from app.api.v1.worklogs import worklogs_bp
 
 ALL_API_BLUEPRINTS = (
     auth_bp,
@@ -21,11 +22,12 @@ ALL_API_BLUEPRINTS = (
     notifications_bp,
     reports_bp,
     ai_bp,
+    worklogs_bp,
 )
 
 __all__ = [
     'ALL_API_BLUEPRINTS',
     'ai_bp', 'auth_bp', 'comments_bp', 'dashboard_bp', 'issues_bp',
     'notifications_bp', 'projects_bp', 'reports_bp', 'sprints_bp',
-    'team_bp', 'users_bp',
+    'team_bp', 'users_bp', 'worklogs_bp',
 ]

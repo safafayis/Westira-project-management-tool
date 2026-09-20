@@ -1,9 +1,10 @@
 """Issue + comment business logic."""
+import re
 from datetime import datetime
 
 from app.extensions import db
 from app.models import (Activity, Comment, Issue, IssueAssignees, Notification,
-                        Project, Sprint, User)
+                        Project, ProjectMembers, Sprint, User, WorkLog)
 from app.services import notification_service
 from app.utils.helpers import (
     ISSUE_TYPE_COLORS,
@@ -14,6 +15,76 @@ from app.utils.helpers import (
     issue_ref,
 )
 from app.utils.validators import validate_task_dates
+
+
+# ------------------------------------------------------------------
+# Project access (same convention as the work log service: an anonymous
+# actor is rejected with 401 and a non-member with 403; a project lead or a
+# workspace administrator always passes)
+# ------------------------------------------------------------------
+def _is_project_lead(project, user_id):
+    return bool(project is not None and project.lead_id and project.lead_id == user_id)
+
+
+def _is_project_member(project, user_id):
+    if project is None:
+        return False
+    return ProjectMembers.query.filter_by(project_id=project.id, user_id=user_id).first() is not None
+
+
+def _can_access_project(project, actor):
+    """Issue mutations are scoped to project membership.
+
+    Cross-project and anonymous writes are rejected so one project's tasks can
+    never be changed by someone outside it (rule: no unauthorized writes).
+    """
+    if actor is None:
+        return 'Authentication required.', 401
+    if not (_is_project_lead(project, actor.id) or _is_project_member(project, actor.id)):
+        return 'You are not a member of this project.', 403
+    return None, None
+
+
+def _resolve_parent_any(value, own_issue_id=None):
+    """Resolve and validate a parent task WITHOUT a project constraint.
+
+    Used when the parent itself determines the project (subtask creation):
+    the caller derives ``project.parent`` and verifies any frontend-supplied
+    project against it afterwards.
+
+    Rules enforced (single Subtask level):
+      * parent optional — None/blank means "no parent"
+      * parent must exist
+      * parent must itself be a top-level task (no subtask-of-subtask)
+      * an issue cannot be its own parent
+
+    Returns the parent Issue (or None) on success, or an
+    ``({'ok': False, 'error': msg}, status)`` tuple to short-circuit.
+    """
+    if value in (None, '', 0, '0'):
+        return None
+    try:
+        parent_id = int(value)
+    except (TypeError, ValueError):
+        return {'ok': False, 'error': 'Invalid parent task.'}, 400
+    if own_issue_id is not None and parent_id == own_issue_id:
+        return {'ok': False, 'error': 'A task cannot be its own parent.'}, 400
+    parent = Issue.query.get(parent_id)
+    if parent is None:
+        return {'ok': False, 'error': 'Parent task not found.'}, 400
+    if parent.parent_issue_id is not None:
+        return {'ok': False, 'error': 'A subtask cannot have its own subtask.'}, 400
+    return parent
+
+
+def _resolve_parent(value, project_id, own_issue_id=None):
+    """``_resolve_parent_any`` plus the same-project rule (used on updates)."""
+    parent = _resolve_parent_any(value, own_issue_id)
+    if isinstance(parent, tuple) or parent is None:
+        return parent
+    if parent.project_id != project_id:
+        return {'ok': False, 'error': 'Parent task must belong to the same project.'}, 400
+    return parent
 
 
 # ------------------------------------------------------------------
@@ -31,6 +102,8 @@ def list_issues(args):
     sprint = args.get('sprint')
     sprint_id = args.get('sprint_id')
     search = args.get('q')
+    if args.get('top_level') in ('1', 'true', 'True'):
+        q = q.filter(Issue.parent_issue_id.is_(None))
     if project:
         q = q.join(Project).filter(Project.key == project.upper())
     if project_id:
@@ -97,9 +170,36 @@ def create_issue(data, actor):
     if len(summary) > 240:
         return {'ok': False, 'error': 'Summary must be 240 characters or fewer.'}, 400
 
-    project = Project.query.filter_by(key=(data.get('project') or 'ECOM').upper()).first()
-    if not project:
-        return {'ok': False, 'error': 'Invalid project.'}, 400
+    # Subtask rule: the parent defines the project. A subtask may only live in
+    # the parent's project, so the project is DERIVED from the parent task and
+    # a frontend-supplied project key is only trusted when it MATCHES it.
+    parent_issue = _resolve_parent_any(data.get('parent_issue_id') or data.get('parent_id'),
+                                       own_issue_id=None)
+    if isinstance(parent_issue, tuple):
+        return parent_issue
+
+    if parent_issue is not None:
+        project = parent_issue.project
+        if project is None:
+            return {'ok': False, 'error': 'Invalid project.'}, 400
+        supplied = (data.get('project') or '').strip().upper()
+        if supplied and supplied != project.key:
+            return {'ok': False,
+                    'error': 'Parent task must belong to the same project.'}, 400
+    else:
+        project = Project.query.filter_by(key=(data.get('project') or 'ECOM').upper()).first()
+        if not project:
+            return {'ok': False, 'error': 'Invalid project.'}, 400
+
+    err, status = _can_access_project(project, actor)
+    if err:
+        return {'ok': False, 'error': err}, status
+
+    subtask_order = 0
+    if parent_issue is not None:
+        max_order = (db.session.query(db.func.max(Issue.subtask_order))
+                     .filter(Issue.parent_issue_id == parent_issue.id).scalar() or 0)
+        subtask_order = (max_order or 0) + 1
 
     issue_type = data.get('issue_type') or 'Story'
     if issue_type not in ISSUE_TYPE_COLORS:
@@ -112,6 +212,18 @@ def create_issue(data, actor):
     status = str(data.get('status') or 'backlog').strip().lower()
     if status not in KANBAN_STATUSES:
         return {'ok': False, 'error': 'Invalid status.'}, 400
+
+    working_minutes = None
+    if 'working_minutes' in data:
+        working_minutes, wm_err = _parse_working_minutes(data.get('working_minutes'))
+        if wm_err:
+            return {'ok': False, 'error': wm_err}, 400
+        if status != 'done':
+            if working_minutes is not None:
+                return {'ok': False,
+                        'error': 'Working hours can only be recorded when the task is marked Done.'}, 400
+        elif working_minutes is not None and working_minutes <= 0:
+            return {'ok': False, 'error': 'Working hours must be greater than zero.'}, 400
 
     start_date = data.get('start_date')
     end_date = data.get('due_date') or data.get('end_date') or data.get('target_date')
@@ -149,6 +261,14 @@ def create_issue(data, actor):
             primary_user = assignee
             all_assignee_users = [assignee]
 
+    # Assignee rule: a task may only be assigned to members of its project
+    # (a project lead always qualifies). Cross-project assignees are rejected:
+    # no "Project A task + Project B user".
+    for u in all_assignee_users:
+        if not (_is_project_lead(project, u.id) or _is_project_member(project, u.id)):
+            return {'ok': False,
+                    'error': f'{u.name} ({u.initials}) is not a member of project {project.key}.'}, 400
+
     points = data.get('points')
     if points is not None and points != '':
         try:
@@ -161,9 +281,26 @@ def create_issue(data, actor):
         points = 0
 
     last = db.session.query(db.func.max(Issue.number)).filter(Issue.project_id == project.id).scalar() or 999
+    # Sprint rule: the parent task's Sprint is authoritative. A subtask is
+    # born in the same sprint container as its parent (inherited server-side,
+    # never taken from the frontend). For a top-level task the sprint comes
+    # from the form when supplied.
     sprint = None
-    if data.get('sprint'):
-        sprint = Sprint.query.filter_by(number=int(data['sprint']), project_id=project.id).first()
+    if parent_issue is not None:
+        if parent_issue.sprint_id:
+            sprint = Sprint.query.filter_by(id=parent_issue.sprint_id,
+                                            project_id=project.id).first()
+        if data.get('sprint') and sprint is not None:
+            supplied_number = data['sprint']
+            if str(supplied_number).strip() != str(sprint.number):
+                return {'ok': False,
+                        'error': 'A subtask inherits the sprint from its parent task.'}, 400
+    elif data.get('sprint'):
+        try:
+            sprint = Sprint.query.filter_by(number=int(data['sprint']),
+                                            project_id=project.id).first()
+        except (TypeError, ValueError):
+            return {'ok': False, 'error': 'Invalid sprint.'}, 400
     issue = Issue(
         project_id=project.id, number=last + 1, title=summary,
         issue_type=issue_type,
@@ -182,6 +319,9 @@ def create_issue(data, actor):
         acceptance_criteria=data.get('acceptance_criteria') or '',
         reporter_id=actor.id if actor is not None else 1,
         sprint_id=sprint.id if sprint else None,
+        parent_issue_id=parent_issue.id if parent_issue else None,
+        subtask_order=subtask_order,
+        working_minutes=working_minutes,
     )
     if status == 'done':
         issue.completed_at = datetime.utcnow()
@@ -199,6 +339,105 @@ def create_issue(data, actor):
     except Exception:
         pass
     return issue_dict(issue), 201
+
+
+def _truthy(v):
+    return v in (True, 1, '1', 'true', 'True', 'yes', 'on')
+
+
+_WORKING_HM_RE = re.compile(r'^\s*(\d{1,3})\s*:\s*([0-5]?\d)\s*$')
+
+
+def _parse_working_minutes(value):
+    """Parse task Working Hours into integer minutes.
+
+    Accepts an integer (raw minutes), a string of digits (minutes), or an
+    'HH:MM' / 'H:MM' duration. Empty/missing values mean "not recorded"
+    (None). Returns (minutes, error).
+    """
+    if value is None:
+        return None, None
+    if isinstance(value, str) and value.strip() == '':
+        return None, None
+    if isinstance(value, bool):
+        return None, 'Invalid working hours. Use HH:MM format (e.g. 01:30).'
+    if isinstance(value, (int, float)):
+        return int(value), None
+    s = str(value).strip()
+    m = _WORKING_HM_RE.match(s)
+    if m:
+        return int(m.group(1)) * 60 + int(m.group(2)), None
+    if s.isdigit():
+        return int(s), None
+    return None, 'Invalid working hours. Use HH:MM format (e.g. 01:30).'
+
+
+def _apply_working_minutes(issue, data):
+    """Validate and store the task's Working Hours against its target status.
+
+    Rules (single source of truth lives on the Issue row):
+      * Working hours may only be recorded when the task is Done.
+      * A Done task's hours must be a positive integer minute count.
+      * Reopening a Done task (done -> anything else) clears its hours.
+    Returns an error tuple to short-circuit, or None when accepted.
+    """
+    if 'working_minutes' in data:
+        minutes, err = _parse_working_minutes(data.get('working_minutes'))
+        if err:
+            return {'ok': False, 'error': err}, 400
+        target = data.get('status', issue.status)
+        if target != 'done':
+            if minutes is not None:
+                return {'ok': False,
+                        'error': 'Working hours can only be recorded when the task is marked Done.'}, 400
+        elif minutes is not None and minutes <= 0:
+            return {'ok': False, 'error': 'Working hours must be greater than zero.'}, 400
+        issue.working_minutes = minutes
+    elif 'status' in data and data['status'] != 'done' \
+            and str(issue.status or '').strip().lower() == 'done':
+        # Reopening a completed task clears its recorded working hours.
+        issue.working_minutes = None
+    return None
+
+
+def _parent_done_guard(issue, data):
+    """Warn before a top-level task can be set to 'done' while any of its
+    subtasks is still incomplete.
+
+    Subtasks never change a parent's status: the parent task is only ever moved
+    to done when the user confirms (re-submits with ``confirm_incomplete=true``).
+    Returns an error tuple to short-circuit, or None when the move is allowed.
+    """
+    if issue.parent_issue_id is not None:
+        return None
+    if (data.get('status') or '').strip().lower() != 'done':
+        return None
+    if str(issue.status or '').strip().lower() == 'done':
+        return None
+    if _truthy(data.get('confirm_incomplete')):
+        return None
+    incomplete = (Issue.query
+                  .filter(Issue.parent_issue_id == issue.id,
+                          Issue.status != 'done')
+                  .count())
+    if incomplete:
+        return {'ok': False,
+                'error': f'This task has {incomplete} incomplete subtask(s). '
+                         f'Mark the task as done anyway?',
+                'needs_confirmation': True,
+                'incomplete_subtasks': incomplete,
+                'requires_confirm_incomplete': True}, 400
+    return None
+
+
+def _normalize_subtask_orders(parent_id):
+    """Renumber a parent's subtasks 1..N in their current display order so no
+    gaps or duplicates survive a delete/reorder."""
+    children = (Issue.query.filter_by(parent_issue_id=parent_id)
+                .order_by(Issue.subtask_order, Issue.position, Issue.id).all())
+    for i, c in enumerate(children, start=1):
+        if c.subtask_order != i:
+            c.subtask_order = i
 
 
 # ------------------------------------------------------------------
@@ -228,10 +467,35 @@ def _record_status_activity(issue, actor, old_status):
 
 def update_issue(issue_id, data, actor):
     issue = Issue.query.get_or_404(issue_id)
+    err, status = _can_access_project(issue.project, actor)
+    if err:
+        return {'ok': False, 'error': err}, status
+    guard = _parent_done_guard(issue, data)
+    if guard is not None:
+        return guard
     old_assignee_id = issue.assignee_id
     old_priority = issue.priority
     old_status = issue.status
     old_due_date = issue.due_date
+    old_parent_id = issue.parent_issue_id
+    # Validate/apply Working Hours against the TARGET status BEFORE the status
+    # is mutated, so a reopen (done -> non-done) can still see it was Done.
+    wm_guard = _apply_working_minutes(issue, data)
+    if wm_guard is not None:
+        return wm_guard
+    if 'parent_issue_id' in data or 'parent_id' in data:
+        parent = _resolve_parent(data.get('parent_issue_id', data.get('parent_id')),
+                                 issue.project_id, own_issue_id=issue.id)
+        if isinstance(parent, tuple):
+            return parent
+        issue.parent_issue_id = parent.id if parent else None
+        if issue.parent_issue_id is not None and issue.parent_issue_id != old_parent_id:
+            max_order = (db.session.query(db.func.max(Issue.subtask_order))
+                         .filter(Issue.parent_issue_id == issue.parent_issue_id).scalar() or 0)
+            issue.subtask_order = (max_order or 0) + 1
+        elif issue.parent_issue_id is None and old_parent_id is not None:
+            issue.subtask_order = 0
+            _normalize_subtask_orders(old_parent_id)
     if 'assignee' in data:
         u = User.query.filter_by(initials=data['assignee'].upper()).first() if data.get('assignee') else None
         issue.assignee_id = u.id if u else None
@@ -299,6 +563,12 @@ def update_issue(issue_id, data, actor):
 
 def move_issue(issue_id, data, actor):
     issue = Issue.query.get_or_404(issue_id)
+    err, status = _can_access_project(issue.project, actor)
+    if err:
+        return {'ok': False, 'error': err}, status
+    guard = _parent_done_guard(issue, data)
+    if guard is not None:
+        return guard
     old_status = issue.status
     if 'status' in data:
         issue.status = data['status']
@@ -306,6 +576,7 @@ def move_issue(issue_id, data, actor):
             issue.completed_at = datetime.utcnow()
         elif old_status == 'done' and data['status'] != 'done':
             issue.completed_at = None
+            issue.working_minutes = None
     if 'position' in data or 'sprint' in data:
         issue.position = int(data.get('position', issue.position))
         if 'sprint' in data and data.get('sprint'):
@@ -322,16 +593,96 @@ def move_issue(issue_id, data, actor):
             notification_service.create_status_notification(issue, actor)
     except Exception:
         pass
-    return {"ok": True, "issue": issue_dict(issue)}
+    return {"ok": True, "issue": issue_dict(issue)}, 200
 
 
-def delete_issue(issue_id):
-    issue = Issue.query.get_or_404(issue_id)
+def _detach_and_delete(issue):
+    """Delete one task row, preserving its reported historical time.
+
+    Work logs are detached from the deleted task (they keep project + worked-by
+    user, so Team Work Time totals remain accurate); comments and
+    notifications tied to the task are removed.
+    """
+    WorkLog.query.filter_by(issue_id=issue.id).update(
+        {'issue_id': None}, synchronize_session='fetch')
     Comment.query.filter_by(issue_id=issue.id).delete()
     Notification.query.filter_by(issue_id=issue.id).delete()
     db.session.delete(issue)
+
+
+def delete_issue(issue_id, actor=None, data=None):
+    issue = Issue.query.get_or_404(issue_id)
+    err, status = _can_access_project(issue.project, actor)
+    if err:
+        return {'ok': False, 'error': err}, status
+    subtasks = Issue.query.filter_by(parent_issue_id=issue.id).order_by(Issue.position, Issue.id).all()
+    if subtasks and not (data or {}).get('confirm_subtasks'):
+        return {'ok': False,
+                'error': f'This task has {len(subtasks)} subtask(s). '
+                         f'Delete the task and its subtasks?',
+                'needs_confirmation': True,
+                'subtask_count': len(subtasks)}, 400
+    parent_id = issue.parent_issue_id
+    for st in subtasks:
+        _detach_and_delete(st)
+    _detach_and_delete(issue)
     db.session.commit()
-    return {"ok": True}
+    if parent_id is not None:
+        _normalize_subtask_orders(parent_id)
+        db.session.commit()
+    return {"ok": True}, 200
+
+
+def reorder_subtask(issue_id, data, actor):
+    """Persist subtask ordering.
+
+    Accepts ``direction`` = 'up' | 'down' (swap with the adjacent sibling).
+    A bare reorder with ```subtask_order`` sets the absolute 1-based position.
+    Always normalizes sibling orders to 1..N afterwards.
+    """
+    issue = Issue.query.get_or_404(issue_id)
+    err, status = _can_access_project(issue.project, actor)
+    if err:
+        return {'ok': False, 'error': err}, status
+    if issue.parent_issue_id is None:
+        return {'ok': False, 'error': 'Only subtasks can be reordered.'}, 400
+
+    def _siblings():
+        return (Issue.query.filter_by(parent_issue_id=issue.parent_issue_id)
+                .order_by(Issue.subtask_order, Issue.position, Issue.id).all())
+
+    siblings = _siblings()
+    if len(siblings) < 2:
+        return {'ok': True, 'issue': issue_dict(issue),
+                'subtasks': [issue_dict(s) for s in siblings]}, 200
+
+    idx = next((j for j, s in enumerate(siblings) if s.id == issue.id), None)
+    if idx is None:
+        return {'ok': False, 'error': 'Issue not found among its siblings.'}, 400
+
+    direction = (data.get('direction') or '').strip().lower()
+    swap_idx = None
+    if direction == 'up' and idx > 0:
+        swap_idx = idx - 1
+    elif direction == 'down' and idx < len(siblings) - 1:
+        swap_idx = idx + 1
+    elif data.get('subtask_order') is not None:
+        try:
+            target = int(data.get('subtask_order'))
+        except (TypeError, ValueError):
+            return {'ok': False, 'error': 'Invalid subtask_order.'}, 400
+        swap_idx = max(0, min(len(siblings) - 1, target - 1))
+        if swap_idx == idx:
+            swap_idx = None
+
+    if swap_idx is not None:
+        other = siblings[swap_idx]
+        issue.subtask_order, other.subtask_order = other.subtask_order, issue.subtask_order
+        _normalize_subtask_orders(issue.parent_issue_id)
+        db.session.commit()
+
+    return {'ok': True, 'issue': issue_dict(issue),
+            'subtasks': [issue_dict(s) for s in _siblings()]}, 200
 
 
 # ------------------------------------------------------------------

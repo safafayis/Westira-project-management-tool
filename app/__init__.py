@@ -17,7 +17,7 @@ from app.extensions import db, login_manager
 from app.models import Project, User
 from app.routes.pages import register_pages
 from app.utils.bootstrap import bootstrap_database
-from app.utils.helpers import _workspace_name, context_project
+from app.utils.helpers import _workspace_name, active_section_for, context_project, minutes_text
 
 # ------------------------------------------------------------------
 # Auth hooks
@@ -74,6 +74,8 @@ def _init_request_hooks(app):
             'workspace_name': _workspace_name(),
             'project': context_project() if show_project else (Project.query.first() if request.endpoint in ('login', 'register') else None),
             'projects_list': Project.query.all() if cu else [],
+            'minutes_text': minutes_text,
+            'active_section': active_section_for(request.endpoint),
         }
 
     return app
